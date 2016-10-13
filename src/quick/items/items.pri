@@ -218,6 +218,13 @@ qtConfig(quick-sprite) {
         $$PWD/qquickanimatedsprite.cpp
 }
 
+qtConfig(quick-tableview) {
+    HEADERS += \
+        $$PWD/qquicktableview_p.h
+    SOURCES += \
+        $$PWD/qquicktableview.cpp
+}
+
 # Items that depend on OpenGL Renderer
 qtConfig(opengl(es1|es2)?) {
     SOURCES += \

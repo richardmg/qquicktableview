@@ -19,7 +19,8 @@
             "quick-pathview": "boolean",
             "quick-positioners": "boolean",
             "quick-shadereffect": "boolean",
-            "quick-sprite": "boolean"
+            "quick-sprite": "boolean",
+            "quick-tableview": "boolean"
         }
     },
 
@@ -78,7 +79,7 @@
         },
         "quick-itemview": {
             "label": "ItemView item",
-            "condition": "features.quick-gridview || features.quick-listview",
+            "condition": "features.quick-gridview || features.quick-listview || features.quick-tableview",
             "output": [
                 "privateFeature"
             ]
@@ -132,6 +133,13 @@
             "output": [
                 "privateFeature"
             ]
+        },
+        "quick-tableview": {
+            "label": "TableView item",
+            "purpose": "Provides the Qt Quick TableView item",
+            "output": [
+                "privateFeature"
+            ]
         }
     },
 
@@ -150,7 +158,8 @@
                 "quick-pathview",
                 "quick-positioners",
                 "quick-shadereffect",
-                "quick-sprite"
+                "quick-sprite",
+                "quick-tableview"
             ]
         }
     ]
