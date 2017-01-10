@@ -395,21 +395,26 @@ QV4::ReturnedValue QQmlDMCachedModelData::set_property(QV4::CallContext *ctx, ui
 class QQmlDMAbstractItemModelData : public QQmlDMCachedModelData
 {
     Q_OBJECT
+    Q_PROPERTY(int row MEMBER row NOTIFY rowChanged)
+    Q_PROPERTY(int column MEMBER column NOTIFY columnChanged)
     Q_PROPERTY(bool hasModelChildren READ hasModelChildren CONSTANT)
+
 public:
     QQmlDMAbstractItemModelData(
             QQmlDelegateModelItemMetaType *metaType,
             VDMModelDelegateDataType *dataType,
             int index)
-        : QQmlDMCachedModelData(metaType, dataType, index)
+        : QQmlDMCachedModelData(metaType, dataType, index),
+          row(-1), column(-1)
     {
+        syncIndex(index);
     }
 
     bool hasModelChildren() const
     {
         if (index >= 0 && *type->model) {
             const QAbstractItemModel * const model = type->model->aim();
-            return model->hasChildren(model->index(index, 0, type->model->rootIndex));
+            return model->hasChildren(model->index(row, column, type->model->rootIndex));
         } else {
             return false;
         }
@@ -417,13 +422,13 @@ public:
 
     QVariant value(int role) const
     {
-        return type->model->aim()->index(index, 0, type->model->rootIndex).data(role);
+        return type->model->aim()->index(row, column, type->model->rootIndex).data(role);
     }
 
     void setValue(int role, const QVariant &value)
     {
         type->model->aim()->setData(
-                type->model->aim()->index(index, 0, type->model->rootIndex), value, role);
+                type->model->aim()->index(row, column, type->model->rootIndex), value, role);
     }
 
     QV4::ReturnedValue get()
@@ -439,6 +444,18 @@ public:
         ++scriptRef;
         return o.asReturnedValue();
     }
+
+    void setModelIndex(int idx);
+    bool resolveIndex(const QQmlAdaptorModel &model, int idx);
+    void syncIndex(int idx);
+
+Q_SIGNALS:
+    void rowChanged();
+    void columnChanged();
+
+private:
+    int row;
+    int column;
 };
 
 class VDMAbstractItemModelDataType : public VDMModelDelegateDataType
@@ -451,7 +468,7 @@ public:
 
     int count(const QQmlAdaptorModel &model) const
     {
-        return model.aim()->rowCount(model.rootIndex);
+        return model.rowCount() * model.columnCount();
     }
 
     void cleanup(QQmlAdaptorModel &model, QQmlDelegateModel *vdm) const
@@ -477,13 +494,23 @@ public:
         const_cast<VDMAbstractItemModelDataType *>(this)->release();
     }
 
+    int rowAt(const QQmlAdaptorModel &model, int index) const
+    {
+        return index % qMax(1, model.rowCount());
+    }
+
+    int columnAt(const QQmlAdaptorModel &model, int index) const
+    {
+        return model.columnCount() == 1 ? 0 : index / qMax(1, model.rowCount());
+    }
+
     QVariant value(const QQmlAdaptorModel &model, int index, const QString &role) const
     {
         QHash<QByteArray, int>::const_iterator it = roleNames.find(role.toUtf8());
         if (it != roleNames.end()) {
-            return model.aim()->index(index, 0, model.rootIndex).data(*it);
+            return model.aim()->index(rowAt(model, index), columnAt(model, index), model.rootIndex).data(*it);
         } else if (role == QLatin1String("hasModelChildren")) {
-            return QVariant(model.aim()->hasChildren(model.aim()->index(index, 0, model.rootIndex)));
+            return QVariant(model.aim()->hasChildren(model.aim()->index(rowAt(model, index), columnAt(model, index), model.rootIndex)));
         } else {
             return QVariant();
         }
@@ -499,7 +526,7 @@ public:
     QVariant modelIndex(const QQmlAdaptorModel &model, int index) const
     {
         return model
-                ? QVariant::fromValue(model.aim()->index(index, 0, model.rootIndex))
+                ? QVariant::fromValue(model.aim()->index(rowAt(model, index), columnAt(model, index), model.rootIndex))
                 : QVariant();
     }
 
@@ -554,6 +581,33 @@ public:
         propertyCache = new QQmlPropertyCache(QV8Engine::getV4(engine), metaObject);
     }
 };
+
+void QQmlDMAbstractItemModelData::setModelIndex(int idx)
+{
+    syncIndex(idx);
+    QQmlDMCachedModelData::setModelIndex(idx);
+    emit rowChanged();
+    emit columnChanged();
+}
+
+bool QQmlDMAbstractItemModelData::resolveIndex(const QQmlAdaptorModel &model, int idx)
+{
+    if (index != -1)
+        return false;
+
+    syncIndex(idx);
+    QQmlDMCachedModelData::resolveIndex(model, idx);
+    emit rowChanged();
+    emit columnChanged();
+    return true;
+}
+
+void QQmlDMAbstractItemModelData::syncIndex(int idx)
+{
+    VDMAbstractItemModelDataType *dataType = static_cast<VDMAbstractItemModelDataType *>(type);
+    row = dataType->rowAt(*type->model, idx);
+    column = dataType->columnAt(*type->model, idx);
+}
 
 //-----------------------------------------------------------------
 // QQmlListAccessor
@@ -955,6 +1009,20 @@ void QQmlAdaptorModel::invalidateModel(QQmlDelegateModel *vdm)
 bool QQmlAdaptorModel::isValid() const
 {
     return accessors != &qt_vdm_null_accessors;
+}
+
+int QQmlAdaptorModel::rowCount() const
+{
+    if (rows.isValid())
+        return rows;
+    if (const QAbstractItemModel *model = aim())
+        return model->rowCount(rootIndex);
+    return 0;
+}
+
+int QQmlAdaptorModel::columnCount() const
+{
+    return columns.isValid() ? columns.value : 1;
 }
 
 void QQmlAdaptorModel::objectDestroyed(QObject *)

@@ -124,7 +124,7 @@ public:
     int groupIndex(Compositor::Group group);
 
     int modelIndex() const { return index; }
-    void setModelIndex(int idx) { index = idx; Q_EMIT modelIndexChanged(); }
+    virtual void setModelIndex(int idx) { index = idx; Q_EMIT modelIndexChanged(); }
 
     virtual QV4::ReturnedValue get() { return QV4::QObjectWrapper::wrap(v4, this); }
 
@@ -306,6 +306,9 @@ public:
     void releaseIncubator(QQDMIncubationTask *incubationTask);
     void incubatorStatusChanged(QQDMIncubationTask *incubationTask, QQmlIncubator::Status status);
     void setInitialState(QQDMIncubationTask *incubationTask, QObject *o);
+
+    void setRows(int rows);
+    void setColumns(int columns);
 
     QQmlAdaptorModel m_adaptorModel;
     QQmlListCompositor m_compositor;

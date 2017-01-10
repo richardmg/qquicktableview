@@ -477,6 +477,108 @@ void QQmlDelegateModel::setRootIndex(const QVariant &root)
 }
 
 /*!
+    \qmlproperty int QtQml.Models::DelegateModel::rows
+
+    TODO
+
+    The default value is \c count.
+*/
+int QQmlDelegateModel::rows() const
+{
+    Q_D(const QQmlDelegateModel);
+    return d->m_adaptorModel.rowCount();
+}
+
+void QQmlDelegateModelPrivate::setRows(int rows)
+{
+    Q_Q(QQmlDelegateModel);
+    const bool changed = m_adaptorModel.rowCount() != rows;
+    if (changed || !m_adaptorModel.isValid()) {
+        const int oldCount = m_count;
+        if (rows > 0)
+            m_adaptorModel.rows = rows;
+        else
+            m_adaptorModel.rows.invalidate();
+        if (!m_adaptorModel.isValid() && m_adaptorModel.aim())  // The previous layout was invalidated, so we need to reconnect the model.
+            m_adaptorModel.setModel(m_adaptorModel.list.list(), q, m_context->engine());
+        if (m_adaptorModel.canFetchMore())
+            m_adaptorModel.fetchMore();
+        if (m_complete) {
+            const int newCount = m_adaptorModel.count();
+            if (oldCount)
+                q->_q_itemsRemoved(0, oldCount);
+            if (newCount)
+                q->_q_itemsInserted(0, newCount);
+        }
+        if (changed)
+            emit q->rowsChanged();
+    }
+}
+
+void QQmlDelegateModel::setRows(int rows)
+{
+    Q_D(QQmlDelegateModel);
+    d->setRows(rows);
+}
+
+void QQmlDelegateModel::resetRows()
+{
+    Q_D(QQmlDelegateModel);
+    d->setRows(-1);
+}
+
+/*!
+    \qmlproperty int QtQml.Models::DelegateModel::columns
+
+    TODO
+
+    The default value is \c 1.
+*/
+int QQmlDelegateModel::columns() const
+{
+    Q_D(const QQmlDelegateModel);
+    return d->m_adaptorModel.columnCount();
+}
+
+void QQmlDelegateModelPrivate::setColumns(int columns)
+{
+    Q_Q(QQmlDelegateModel);
+    const bool changed = m_adaptorModel.columnCount() != columns;
+    if (changed || !m_adaptorModel.isValid()) {
+        const int oldCount = m_count;
+        if (columns > 1)
+            m_adaptorModel.columns = columns;
+        else
+            m_adaptorModel.columns.invalidate();
+        if (!m_adaptorModel.isValid() && m_adaptorModel.aim())  // The previous layout was invalidated, so we need to reconnect the model.
+            m_adaptorModel.setModel(m_adaptorModel.list.list(), q, m_context->engine());
+        if (m_adaptorModel.canFetchMore())
+            m_adaptorModel.fetchMore();
+        if (m_complete) {
+            const int newCount = m_adaptorModel.count();
+            if (oldCount)
+                q->_q_itemsRemoved(0, oldCount);
+            if (newCount)
+                q->_q_itemsInserted(0, newCount);
+        }
+        if (changed)
+            emit q->columnsChanged();
+    }
+}
+
+void QQmlDelegateModel::setColumns(int columns)
+{
+    Q_D(QQmlDelegateModel);
+    d->setColumns(columns);
+}
+
+void QQmlDelegateModel::resetColumns()
+{
+    Q_D(QQmlDelegateModel);
+    d->setColumns(-1);
+}
+
+/*!
     \qmlmethod QModelIndex QtQml.Models::DelegateModel::modelIndex(int index)
 
     QAbstractItemModel provides a hierarchical tree of data, whereas
