@@ -125,9 +125,12 @@ qtConfig(quick-gridview) {
 
 qtConfig(quick-itemview) {
     HEADERS += \
+        $$PWD/qquickabstractitemview_p.h \
+        $$PWD/qquickabstractitemview_p_p.h \
         $$PWD/qquickitemview_p.h \
         $$PWD/qquickitemview_p_p.h
     SOURCES += \
+        $$PWD/qquickabstractitemview.cpp \
         $$PWD/qquickitemview.cpp
 }
 

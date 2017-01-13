@@ -255,7 +255,7 @@ void QQuickItemViewChangeSet::reset()
 //-----------------------------------
 
 QQuickItemView::QQuickItemView(QQuickFlickablePrivate &dd, QQuickItem *parent)
-    : QQuickFlickable(dd, parent)
+    : QQuickAbstractItemView(dd, parent)
 {
     Q_D(QQuickItemView);
     d->init();

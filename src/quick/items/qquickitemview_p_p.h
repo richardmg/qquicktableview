@@ -57,7 +57,7 @@ QT_REQUIRE_CONFIG(quick_itemview);
 
 #include "qquickitemview_p.h"
 #include "qquickitemviewtransition_p.h"
-#include "qquickflickable_p_p.h"
+#include "qquickabstractitemview_p_p.h"
 #include <QtQml/private/qqmlobjectmodel_p.h>
 #include <QtQml/private/qqmldelegatemodel_p.h>
 #include <QtQml/private/qqmlchangeset_p.h>
@@ -133,7 +133,7 @@ public:
 };
 
 
-class Q_AUTOTEST_EXPORT QQuickItemViewPrivate : public QQuickFlickablePrivate, public QQuickItemViewTransitionChangeListener, public QAnimationJobChangeListener
+class Q_AUTOTEST_EXPORT QQuickItemViewPrivate : public QQuickAbstractItemViewPrivate
 {
     Q_DECLARE_PUBLIC(QQuickItemView)
 public:
