@@ -70,6 +70,10 @@ public:
     ~QQuickAbstractItemViewPrivate();
 
     static inline QQuickAbstractItemViewPrivate *get(QQuickAbstractItemView *o) { return o->d_func(); }
+
+    void createTransitioner();
+
+    QQuickItemViewTransitioner *transitioner;
 };
 
 QT_END_NAMESPACE

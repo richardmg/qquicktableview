@@ -56,7 +56,6 @@
 QT_REQUIRE_CONFIG(quick_itemview);
 
 #include "qquickitemview_p.h"
-#include "qquickitemviewtransition_p.h"
 #include "qquickabstractitemview_p_p.h"
 #include <QtQml/private/qqmlobjectmodel_p.h>
 #include <QtQml/private/qqmldelegatemodel_p.h>
@@ -138,7 +137,6 @@ class Q_AUTOTEST_EXPORT QQuickItemViewPrivate : public QQuickAbstractItemViewPri
     Q_DECLARE_PUBLIC(QQuickItemView)
 public:
     QQuickItemViewPrivate();
-    ~QQuickItemViewPrivate();
 
     static inline QQuickItemViewPrivate *get(QQuickItemView *o) { return o->d_func(); }
 
@@ -232,7 +230,6 @@ public:
     void repositionFirstItem(FxViewItem *prevVisibleItemsFirst, qreal prevVisibleItemsFirstPos,
             FxViewItem *prevFirstVisible, ChangeResult *insertionResult, ChangeResult *removalResult);
 
-    void createTransitioner();
     void prepareVisibleItemTransitions();
     void prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxViewItem *> *removedItems);
     bool prepareNonVisibleItemTransition(FxViewItem *item, const QRectF &viewBounds);
@@ -310,7 +307,6 @@ public:
         MovedItem(FxViewItem *i, QQmlChangeSet::MoveKey k)
             : item(i), moveKey(k) {}
     };
-    QQuickItemViewTransitioner *transitioner;
     QList<FxViewItem *> releasePendingTransition;
 
     mutable qreal minExtent;

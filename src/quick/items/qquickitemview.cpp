@@ -798,134 +798,6 @@ void QQuickItemView::setHighlightMoveDuration(int duration)
     }
 }
 
-QQuickTransition *QQuickItemView::populateTransition() const
-{
-    Q_D(const QQuickItemView);
-    return d->transitioner ? d->transitioner->populateTransition : 0;
-}
-
-void QQuickItemView::setPopulateTransition(QQuickTransition *transition)
-{
-    Q_D(QQuickItemView);
-    d->createTransitioner();
-    if (d->transitioner->populateTransition != transition) {
-        d->transitioner->populateTransition = transition;
-        emit populateTransitionChanged();
-    }
-}
-
-QQuickTransition *QQuickItemView::addTransition() const
-{
-    Q_D(const QQuickItemView);
-    return d->transitioner ? d->transitioner->addTransition : 0;
-}
-
-void QQuickItemView::setAddTransition(QQuickTransition *transition)
-{
-    Q_D(QQuickItemView);
-    d->createTransitioner();
-    if (d->transitioner->addTransition != transition) {
-        d->transitioner->addTransition = transition;
-        emit addTransitionChanged();
-    }
-}
-
-QQuickTransition *QQuickItemView::addDisplacedTransition() const
-{
-    Q_D(const QQuickItemView);
-    return d->transitioner ? d->transitioner->addDisplacedTransition : 0;
-}
-
-void QQuickItemView::setAddDisplacedTransition(QQuickTransition *transition)
-{
-    Q_D(QQuickItemView);
-    d->createTransitioner();
-    if (d->transitioner->addDisplacedTransition != transition) {
-        d->transitioner->addDisplacedTransition = transition;
-        emit addDisplacedTransitionChanged();
-    }
-}
-
-QQuickTransition *QQuickItemView::moveTransition() const
-{
-    Q_D(const QQuickItemView);
-    return d->transitioner ? d->transitioner->moveTransition : 0;
-}
-
-void QQuickItemView::setMoveTransition(QQuickTransition *transition)
-{
-    Q_D(QQuickItemView);
-    d->createTransitioner();
-    if (d->transitioner->moveTransition != transition) {
-        d->transitioner->moveTransition = transition;
-        emit moveTransitionChanged();
-    }
-}
-
-QQuickTransition *QQuickItemView::moveDisplacedTransition() const
-{
-    Q_D(const QQuickItemView);
-    return d->transitioner ? d->transitioner->moveDisplacedTransition : 0;
-}
-
-void QQuickItemView::setMoveDisplacedTransition(QQuickTransition *transition)
-{
-    Q_D(QQuickItemView);
-    d->createTransitioner();
-    if (d->transitioner->moveDisplacedTransition != transition) {
-        d->transitioner->moveDisplacedTransition = transition;
-        emit moveDisplacedTransitionChanged();
-    }
-}
-
-QQuickTransition *QQuickItemView::removeTransition() const
-{
-    Q_D(const QQuickItemView);
-    return d->transitioner ? d->transitioner->removeTransition : 0;
-}
-
-void QQuickItemView::setRemoveTransition(QQuickTransition *transition)
-{
-    Q_D(QQuickItemView);
-    d->createTransitioner();
-    if (d->transitioner->removeTransition != transition) {
-        d->transitioner->removeTransition = transition;
-        emit removeTransitionChanged();
-    }
-}
-
-QQuickTransition *QQuickItemView::removeDisplacedTransition() const
-{
-    Q_D(const QQuickItemView);
-    return d->transitioner ? d->transitioner->removeDisplacedTransition : 0;
-}
-
-void QQuickItemView::setRemoveDisplacedTransition(QQuickTransition *transition)
-{
-    Q_D(QQuickItemView);
-    d->createTransitioner();
-    if (d->transitioner->removeDisplacedTransition != transition) {
-        d->transitioner->removeDisplacedTransition = transition;
-        emit removeDisplacedTransitionChanged();
-    }
-}
-
-QQuickTransition *QQuickItemView::displacedTransition() const
-{
-    Q_D(const QQuickItemView);
-    return d->transitioner ? d->transitioner->displacedTransition : 0;
-}
-
-void QQuickItemView::setDisplacedTransition(QQuickTransition *transition)
-{
-    Q_D(QQuickItemView);
-    d->createTransitioner();
-    if (d->transitioner->displacedTransition != transition) {
-        d->transitioner->displacedTransition = transition;
-        emit displacedTransitionChanged();
-    }
-}
-
 void QQuickItemViewPrivate::positionViewAtIndex(int index, int mode)
 {
     Q_Q(QQuickItemView);
@@ -1555,7 +1427,6 @@ QQuickItemViewPrivate::QQuickItemViewPrivate()
     , highlightRangeStart(0), highlightRangeEnd(0)
     , highlightMoveDuration(150)
     , headerComponent(0), header(0), footerComponent(0), footer(0)
-    , transitioner(0)
     , minExtent(0), maxExtent(0)
     , ownModel(false), wrap(false)
     , keyNavigationEnabled(true)
@@ -1568,13 +1439,6 @@ QQuickItemViewPrivate::QQuickItemViewPrivate()
     bufferPause.addAnimationChangeListener(this, QAbstractAnimationJob::Completion);
     bufferPause.setLoopCount(1);
     bufferPause.setDuration(16);
-}
-
-QQuickItemViewPrivate::~QQuickItemViewPrivate()
-{
-    if (transitioner)
-        transitioner->setChangeListener(0);
-    delete transitioner;
 }
 
 bool QQuickItemViewPrivate::isValid() const
@@ -2236,14 +2100,6 @@ void QQuickItemViewPrivate::repositionFirstItem(FxViewItem *prevVisibleItemsFirs
         }
         insertionResult->reset();
         removalResult->reset();
-    }
-}
-
-void QQuickItemViewPrivate::createTransitioner()
-{
-    if (!transitioner) {
-        transitioner = new QQuickItemViewTransitioner;
-        transitioner->setChangeListener(this);
     }
 }
 

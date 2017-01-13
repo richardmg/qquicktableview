@@ -67,8 +67,51 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
 {
     Q_OBJECT
 
+    Q_PROPERTY(QQuickTransition *populate READ populateTransition WRITE setPopulateTransition NOTIFY populateTransitionChanged)
+    Q_PROPERTY(QQuickTransition *add READ addTransition WRITE setAddTransition NOTIFY addTransitionChanged)
+    Q_PROPERTY(QQuickTransition *addDisplaced READ addDisplacedTransition WRITE setAddDisplacedTransition NOTIFY addDisplacedTransitionChanged)
+    Q_PROPERTY(QQuickTransition *move READ moveTransition WRITE setMoveTransition NOTIFY moveTransitionChanged)
+    Q_PROPERTY(QQuickTransition *moveDisplaced READ moveDisplacedTransition WRITE setMoveDisplacedTransition NOTIFY moveDisplacedTransitionChanged)
+    Q_PROPERTY(QQuickTransition *remove READ removeTransition WRITE setRemoveTransition NOTIFY removeTransitionChanged)
+    Q_PROPERTY(QQuickTransition *removeDisplaced READ removeDisplacedTransition WRITE setRemoveDisplacedTransition NOTIFY removeDisplacedTransitionChanged)
+    Q_PROPERTY(QQuickTransition *displaced READ displacedTransition WRITE setDisplacedTransition NOTIFY displacedTransitionChanged)
+
 public:
     ~QQuickAbstractItemView();
+
+    QQuickTransition *populateTransition() const;
+    void setPopulateTransition(QQuickTransition *transition);
+
+    QQuickTransition *addTransition() const;
+    void setAddTransition(QQuickTransition *transition);
+
+    QQuickTransition *addDisplacedTransition() const;
+    void setAddDisplacedTransition(QQuickTransition *transition);
+
+    QQuickTransition *moveTransition() const;
+    void setMoveTransition(QQuickTransition *transition);
+
+    QQuickTransition *moveDisplacedTransition() const;
+    void setMoveDisplacedTransition(QQuickTransition *transition);
+
+    QQuickTransition *removeTransition() const;
+    void setRemoveTransition(QQuickTransition *transition);
+
+    QQuickTransition *removeDisplacedTransition() const;
+    void setRemoveDisplacedTransition(QQuickTransition *transition);
+
+    QQuickTransition *displacedTransition() const;
+    void setDisplacedTransition(QQuickTransition *transition);
+
+Q_SIGNALS:
+    void populateTransitionChanged();
+    void addTransitionChanged();
+    void addDisplacedTransitionChanged();
+    void moveTransitionChanged();
+    void moveDisplacedTransitionChanged();
+    void removeTransitionChanged();
+    void removeDisplacedTransitionChanged();
+    void displacedTransitionChanged();
 
 protected:
     QQuickAbstractItemView(QQuickFlickablePrivate &dd, QQuickItem *parent = nullptr);
