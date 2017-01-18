@@ -257,110 +257,14 @@ private:
 };
 
 
-class Q_QUICK_PRIVATE_EXPORT QQuickItemViewAttached : public QObject
+class Q_QUICK_PRIVATE_EXPORT QQuickItemViewAttached : public QQuickAbstractItemViewAttached
 {
     Q_OBJECT
 
-    Q_PROPERTY(QQuickItemView *view READ view NOTIFY viewChanged)
-    Q_PROPERTY(bool isCurrentItem READ isCurrentItem NOTIFY currentItemChanged)
-    Q_PROPERTY(bool delayRemove READ delayRemove WRITE setDelayRemove NOTIFY delayRemoveChanged)
-
-    Q_PROPERTY(QString section READ section NOTIFY sectionChanged)
-    Q_PROPERTY(QString previousSection READ prevSection NOTIFY prevSectionChanged)
-    Q_PROPERTY(QString nextSection READ nextSection NOTIFY nextSectionChanged)
-
 public:
     QQuickItemViewAttached(QObject *parent)
-        : QObject(parent), m_isCurrent(false), m_delayRemove(false) {}
+        : QQuickAbstractItemViewAttached(parent) {}
     ~QQuickItemViewAttached() {}
-
-    QQuickItemView *view() const { return m_view; }
-    void setView(QQuickItemView *view) {
-        if (view != m_view) {
-            m_view = view;
-            Q_EMIT viewChanged();
-        }
-    }
-
-    bool isCurrentItem() const { return m_isCurrent; }
-    void setIsCurrentItem(bool c) {
-        if (m_isCurrent != c) {
-            m_isCurrent = c;
-            Q_EMIT currentItemChanged();
-        }
-    }
-
-    bool delayRemove() const { return m_delayRemove; }
-    void setDelayRemove(bool delay) {
-        if (m_delayRemove != delay) {
-            m_delayRemove = delay;
-            Q_EMIT delayRemoveChanged();
-        }
-    }
-
-    QString section() const { return m_section; }
-    void setSection(const QString &sect) {
-        if (m_section != sect) {
-            m_section = sect;
-            Q_EMIT sectionChanged();
-        }
-    }
-
-    QString prevSection() const { return m_prevSection; }
-    void setPrevSection(const QString &sect) {
-        if (m_prevSection != sect) {
-            m_prevSection = sect;
-            Q_EMIT prevSectionChanged();
-        }
-    }
-
-    QString nextSection() const { return m_nextSection; }
-    void setNextSection(const QString &sect) {
-        if (m_nextSection != sect) {
-            m_nextSection = sect;
-            Q_EMIT nextSectionChanged();
-        }
-    }
-
-    void setSections(const QString &prev, const QString &sect, const QString &next) {
-        bool prevChanged = prev != m_prevSection;
-        bool sectChanged = sect != m_section;
-        bool nextChanged = next != m_nextSection;
-        m_prevSection = prev;
-        m_section = sect;
-        m_nextSection = next;
-        if (prevChanged)
-            Q_EMIT prevSectionChanged();
-        if (sectChanged)
-            Q_EMIT sectionChanged();
-        if (nextChanged)
-            Q_EMIT nextSectionChanged();
-    }
-
-    void emitAdd() { Q_EMIT add(); }
-    void emitRemove() { Q_EMIT remove(); }
-
-Q_SIGNALS:
-    void viewChanged();
-    void currentItemChanged();
-    void delayRemoveChanged();
-
-    void add();
-    void remove();
-
-    void sectionChanged();
-    void prevSectionChanged();
-    void nextSectionChanged();
-
-public:
-    QPointer<QQuickItemView> m_view;
-    bool m_isCurrent : 1;
-    bool m_delayRemove : 1;
-
-    // current only used by list view
-    mutable QString m_section;
-    QString m_prevSection;
-    QString m_nextSection;
 };
 
 
