@@ -365,24 +365,8 @@ void QQuickItemView::setDelegate(QQmlComponent *delegate)
     if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model)) {
         int oldCount = dataModel->count();
         dataModel->setDelegate(delegate);
-        if (isComponentComplete()) {
-            for (FxViewItem *item : qAsConst(d->visibleItems))
-                d->releaseItem(item);
-            d->visibleItems.clear();
-            d->releaseItem(d->currentItem);
-            d->currentItem = 0;
-            d->updateSectionCriteria();
-            d->refill();
-            d->moveReason = QQuickItemViewPrivate::SetIndex;
-            d->updateCurrent(d->currentIndex);
-            if (d->highlight && d->currentItem) {
-                if (d->autoHighlight)
-                    d->resetHighlightPosition();
-                d->updateTrackedItem();
-            }
-            d->moveReason = QQuickItemViewPrivate::Other;
-            d->updateViewport();
-        }
+        if (isComponentComplete())
+            d->recreateVisibleItems();
         if (oldCount != dataModel->count())
             emit countChanged();
     }
@@ -934,6 +918,26 @@ void QQuickItemViewPrivate::destroyOwnModel()
         delete model;
         ownModel = false;
     }
+}
+
+void QQuickItemViewPrivate::recreateVisibleItems()
+{
+    for (FxViewItem *item : qAsConst(visibleItems))
+        releaseItem(item);
+    visibleItems.clear();
+    releaseItem(currentItem);
+    currentItem = 0;
+    updateSectionCriteria();
+    refill();
+    moveReason = QQuickItemViewPrivate::SetIndex;
+    updateCurrent(currentIndex);
+    if (highlight && currentItem) {
+        if (autoHighlight)
+            resetHighlightPosition();
+        updateTrackedItem();
+    }
+    moveReason = QQuickItemViewPrivate::Other;
+    updateViewport();
 }
 
 void QQuickItemViewPrivate::applyPendingChanges()

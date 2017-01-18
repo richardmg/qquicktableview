@@ -225,6 +225,8 @@ public:
     bool createOwnModel();
     void destroyOwnModel();
 
+    void recreateVisibleItems();
+
     void applyPendingChanges();
     bool applyModelChanges(ChangeResult *insertionResult, ChangeResult *removalResult);
     bool applyRemovalChange(const QQmlChangeSet::Change &removal, ChangeResult *changeResult, int *removedCount);
