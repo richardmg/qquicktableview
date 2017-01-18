@@ -410,19 +410,10 @@ void QQmlDelegateModel::setDelegate(QQmlComponent *delegate)
     bool wasValid = d->m_delegate != 0;
     d->m_delegate = delegate;
     d->m_delegateValidated = false;
-    if (wasValid && d->m_complete) {
-        for (int i = 1; i < d->m_groupCount; ++i) {
-            QQmlDelegateModelGroupPrivate::get(d->m_groups[i])->changeSet.remove(
-                    0, d->m_compositor.count(Compositor::Group(i)));
-        }
-    }
-    if (d->m_complete && d->m_delegate) {
-        for (int i = 1; i < d->m_groupCount; ++i) {
-            QQmlDelegateModelGroupPrivate::get(d->m_groups[i])->changeSet.insert(
-                    0, d->m_compositor.count(Compositor::Group(i)));
-        }
-    }
-    d->emitChanges();
+
+    bool remove = wasValid;
+    bool add = d->m_delegate;
+    d->refillItems(add, remove);
 }
 
 /*!
@@ -1454,6 +1445,26 @@ void QQmlDelegateModelPrivate::emitModelUpdated(const QQmlChangeSet &changeSet, 
     emit q->modelUpdated(changeSet, reset);
     if (changeSet.difference() != 0)
         emit q->countChanged();
+}
+
+void QQmlDelegateModelPrivate::refillItems(bool add, bool remove)
+{
+    if (!m_complete)
+        return;
+
+    if (remove) {
+        for (int i = 1; i < m_groupCount; ++i) {
+            QQmlDelegateModelGroupPrivate::get(m_groups[i])->changeSet.remove(
+                    0, m_compositor.count(Compositor::Group(i)));
+        }
+    }
+    if (add) {
+        for (int i = 1; i < m_groupCount; ++i) {
+            QQmlDelegateModelGroupPrivate::get(m_groups[i])->changeSet.insert(
+                    0, m_compositor.count(Compositor::Group(i)));
+        }
+    }
+    emitChanges();
 }
 
 void QQmlDelegateModelPrivate::emitChanges()

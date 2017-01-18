@@ -295,6 +295,7 @@ public:
     void itemsChanged(const QVector<Compositor::Change> &changes);
     void emitChanges();
     void emitModelUpdated(const QQmlChangeSet &changeSet, bool reset) override;
+    void refillItems(bool add = true, bool remove = true);
 
     bool insert(Compositor::insert_iterator &before, const QV4::Value &object, int groups);
 
