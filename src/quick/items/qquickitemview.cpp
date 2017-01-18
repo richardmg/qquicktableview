@@ -311,20 +311,11 @@ void QQuickItemView::setModel(const QVariant &m)
     QObject *object = qvariant_cast<QObject*>(model);
     QQmlInstanceModel *vim = 0;
     if (object && (vim = qobject_cast<QQmlInstanceModel *>(object))) {
-        if (d->ownModel) {
-            delete oldModel;
-            d->ownModel = false;
-        }
+        d->destroyOwnModel();
         d->model = vim;
     } else {
-        if (!d->ownModel) {
-            d->model = new QQmlDelegateModel(qmlContext(this), this);
-            d->ownModel = true;
-            if (isComponentComplete())
-                static_cast<QQmlDelegateModel *>(d->model.data())->componentComplete();
-        } else {
+        if (!d->createOwnModel())
             d->model = oldModel;
-        }
         if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model))
             dataModel->setModel(model);
     }
@@ -370,12 +361,7 @@ void QQuickItemView::setDelegate(QQmlComponent *delegate)
     Q_D(QQuickItemView);
     if (delegate == this->delegate())
         return;
-    if (!d->ownModel) {
-        d->model = new QQmlDelegateModel(qmlContext(this));
-        d->ownModel = true;
-        if (isComponentComplete())
-            static_cast<QQmlDelegateModel *>(d->model.data())->componentComplete();
-    }
+    d->createOwnModel();
     if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model)) {
         int oldCount = dataModel->count();
         dataModel->setDelegate(delegate);
@@ -927,6 +913,27 @@ void QQuickItemView::forceLayout()
     Q_D(QQuickItemView);
     if (isComponentComplete() && (d->currentChanges.hasPendingChanges() || d->forceLayout))
         d->layout();
+}
+
+bool QQuickItemViewPrivate::createOwnModel()
+{
+    Q_Q(QQuickItemView);
+    if (!ownModel) {
+        model = new QQmlDelegateModel(qmlContext(q));
+        ownModel = true;
+        if (q->isComponentComplete())
+            static_cast<QQmlDelegateModel *>(model.data())->componentComplete();
+        return true;
+    }
+    return false;
+}
+
+void QQuickItemViewPrivate::destroyOwnModel()
+{
+    if (ownModel) {
+        delete model;
+        ownModel = false;
+    }
 }
 
 void QQuickItemViewPrivate::applyPendingChanges()
