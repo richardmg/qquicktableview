@@ -240,8 +240,6 @@ public:
     bool prepareNonVisibleItemTransition(FxViewItem *item, const QRectF &viewBounds);
     void viewItemTransitionFinished(QQuickItemViewTransitionableItem *item) override;
 
-    int findMoveKeyIndex(QQmlChangeSet::MoveKey key, const QVector<QQmlChangeSet::Change> &changes) const;
-
     void checkVisible() const;
     void showVisibleItems() const;
 

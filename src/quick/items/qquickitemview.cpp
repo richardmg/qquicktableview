@@ -908,17 +908,6 @@ void QQuickItemViewPrivate::applyPendingChanges()
         layout();
 }
 
-int QQuickItemViewPrivate::findMoveKeyIndex(QQmlChangeSet::MoveKey key, const QVector<QQmlChangeSet::Change> &changes) const
-{
-    for (int i=0; i<changes.count(); i++) {
-        for (int j=changes[i].index; j<changes[i].index + changes[i].count; j++) {
-            if (changes[i].moveKey(j) == key)
-                return j;
-        }
-    }
-    return -1;
-}
-
 qreal QQuickItemViewPrivate::minExtentForAxis(const AxisData &axisData, bool forXAxis) const
 {
     Q_Q(const QQuickItemView);
@@ -1802,6 +1791,17 @@ void QQuickItemViewPrivate::layout()
 
     runDelayedRemoveTransition = false;
     inLayout = false;
+}
+
+static int findMoveKeyIndex(QQmlChangeSet::MoveKey key, const QVector<QQmlChangeSet::Change> &changes)
+{
+    for (int i=0; i<changes.count(); i++) {
+        for (int j=changes[i].index; j<changes[i].index + changes[i].count; j++) {
+            if (changes[i].moveKey(j) == key)
+                return j;
+        }
+    }
+    return -1;
 }
 
 bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult, ChangeResult *totalRemovalResult)
