@@ -364,7 +364,7 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
     qmlRegisterType<QQuickPathView, 7>(uri, 2, 7, "PathView");
 #endif
 #if QT_CONFIG(quick_itemview)
-    qmlRegisterUncreatableType<QQuickItemView, 7>(uri, 2, 7, itemViewName, itemViewMessage);
+    qmlRegisterUncreatableType<QQuickAbstractItemView, 7>(uri, 2, 7, itemViewName, itemViewMessage);
 #endif
 
     qmlRegisterUncreatableType<QQuickMouseEvent, 7>(uri, 2, 7, nullptr, QQuickMouseEvent::tr("MouseEvent is only available within handlers in MouseArea"));
