@@ -318,9 +318,6 @@ public:
     mutable qreal maxExtent;
 
     bool ownModel : 1;
-    bool wrap : 1;
-    bool keyNavigationEnabled : 1;
-    bool explicitKeyNavigationEnabled : 1;
     bool inLayout : 1;
     bool inViewportMoved : 1;
     bool forceLayout : 1;

@@ -43,7 +43,10 @@
 QT_BEGIN_NAMESPACE
 
 QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
-    : transitioner(nullptr)
+    : transitioner(nullptr),
+      wrap(false),
+      keyNavigationEnabled(true),
+      explicitKeyNavigationEnabled(false)
 {
 }
 
@@ -69,6 +72,44 @@ QQuickAbstractItemView::QQuickAbstractItemView(QQuickFlickablePrivate &dd, QQuic
 
 QQuickAbstractItemView::~QQuickAbstractItemView()
 {
+}
+
+bool QQuickAbstractItemView::isWrapEnabled() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->wrap;
+}
+
+void QQuickAbstractItemView::setWrapEnabled(bool wrap)
+{
+    Q_D(QQuickAbstractItemView);
+    if (d->wrap == wrap)
+        return;
+    d->wrap = wrap;
+    emit keyNavigationWrapsChanged();
+}
+
+bool QQuickAbstractItemView::isKeyNavigationEnabled() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->explicitKeyNavigationEnabled ? d->keyNavigationEnabled : d->interactive;
+}
+
+void QQuickAbstractItemView::setKeyNavigationEnabled(bool keyNavigationEnabled)
+{
+    // TODO: default binding to "interactive" can be removed in Qt 6; it only exists for compatibility reasons.
+    Q_D(QQuickAbstractItemView);
+    const bool wasImplicit = !d->explicitKeyNavigationEnabled;
+    if (wasImplicit)
+        QObject::disconnect(this, &QQuickFlickable::interactiveChanged, this, &QQuickAbstractItemView::keyNavigationEnabledChanged);
+
+    d->explicitKeyNavigationEnabled = true;
+
+    // Ensure that we emit the change signal in case there is no different in value.
+    if (d->keyNavigationEnabled != keyNavigationEnabled || wasImplicit) {
+        d->keyNavigationEnabled = keyNavigationEnabled;
+        emit keyNavigationEnabledChanged();
+    }
 }
 
 QQuickTransition *QQuickAbstractItemView::populateTransition() const

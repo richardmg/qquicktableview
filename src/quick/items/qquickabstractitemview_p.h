@@ -67,6 +67,9 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
 {
     Q_OBJECT
 
+    Q_PROPERTY(bool keyNavigationWraps READ isWrapEnabled WRITE setWrapEnabled NOTIFY keyNavigationWrapsChanged)
+    Q_PROPERTY(bool keyNavigationEnabled READ isKeyNavigationEnabled WRITE setKeyNavigationEnabled NOTIFY keyNavigationEnabledChanged REVISION 7)
+
     Q_PROPERTY(QQuickTransition *populate READ populateTransition WRITE setPopulateTransition NOTIFY populateTransitionChanged)
     Q_PROPERTY(QQuickTransition *add READ addTransition WRITE setAddTransition NOTIFY addTransitionChanged)
     Q_PROPERTY(QQuickTransition *addDisplaced READ addDisplacedTransition WRITE setAddDisplacedTransition NOTIFY addDisplacedTransitionChanged)
@@ -78,6 +81,12 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
 
 public:
     ~QQuickAbstractItemView();
+
+    bool isWrapEnabled() const;
+    void setWrapEnabled(bool);
+
+    bool isKeyNavigationEnabled() const;
+    void setKeyNavigationEnabled(bool);
 
     QQuickTransition *populateTransition() const;
     void setPopulateTransition(QQuickTransition *transition);
@@ -104,6 +113,9 @@ public:
     void setDisplacedTransition(QQuickTransition *transition);
 
 Q_SIGNALS:
+    void keyNavigationWrapsChanged();
+    Q_REVISION(7) void keyNavigationEnabledChanged();
+
     void populateTransitionChanged();
     void addTransitionChanged();
     void addDisplacedTransitionChanged();

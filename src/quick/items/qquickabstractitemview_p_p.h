@@ -74,6 +74,10 @@ public:
     void createTransitioner();
 
     QQuickItemViewTransitioner *transitioner;
+
+    bool wrap : 1;
+    bool keyNavigationEnabled : 1;
+    bool explicitKeyNavigationEnabled : 1;
 };
 
 QT_END_NAMESPACE

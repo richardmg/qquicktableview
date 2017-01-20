@@ -78,8 +78,6 @@ class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
     Q_PROPERTY(QQuickItem *currentItem READ currentItem NOTIFY currentItemChanged)
 
-    Q_PROPERTY(bool keyNavigationWraps READ isWrapEnabled WRITE setWrapEnabled NOTIFY keyNavigationWrapsChanged)
-    Q_PROPERTY(bool keyNavigationEnabled READ isKeyNavigationEnabled WRITE setKeyNavigationEnabled NOTIFY keyNavigationEnabledChanged REVISION 7)
     Q_PROPERTY(int cacheBuffer READ cacheBuffer WRITE setCacheBuffer NOTIFY cacheBufferChanged)
     Q_PROPERTY(int displayMarginBeginning READ displayMarginBeginning WRITE setDisplayMarginBeginning NOTIFY displayMarginBeginningChanged REVISION 2)
     Q_PROPERTY(int displayMarginEnd READ displayMarginEnd WRITE setDisplayMarginEnd NOTIFY displayMarginEndChanged REVISION 2)
@@ -134,12 +132,6 @@ public:
     void setCurrentIndex(int idx);
 
     QQuickItem *currentItem() const;
-
-    bool isWrapEnabled() const;
-    void setWrapEnabled(bool);
-
-    bool isKeyNavigationEnabled() const;
-    void setKeyNavigationEnabled(bool);
 
     int cacheBuffer() const;
     void setCacheBuffer(int);
@@ -211,8 +203,6 @@ Q_SIGNALS:
     void currentIndexChanged();
     void currentItemChanged();
 
-    void keyNavigationWrapsChanged();
-    Q_REVISION(7) void keyNavigationEnabledChanged();
     void cacheBufferChanged();
     void displayMarginBeginningChanged();
     void displayMarginEndChanged();

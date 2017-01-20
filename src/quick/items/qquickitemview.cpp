@@ -408,45 +408,6 @@ void QQuickItemView::setCurrentIndex(int index)
     }
 }
 
-
-bool QQuickItemView::isWrapEnabled() const
-{
-    Q_D(const QQuickItemView);
-    return d->wrap;
-}
-
-void QQuickItemView::setWrapEnabled(bool wrap)
-{
-    Q_D(QQuickItemView);
-    if (d->wrap == wrap)
-        return;
-    d->wrap = wrap;
-    emit keyNavigationWrapsChanged();
-}
-
-bool QQuickItemView::isKeyNavigationEnabled() const
-{
-    Q_D(const QQuickItemView);
-    return d->explicitKeyNavigationEnabled ? d->keyNavigationEnabled : d->interactive;
-}
-
-void QQuickItemView::setKeyNavigationEnabled(bool keyNavigationEnabled)
-{
-    // TODO: default binding to "interactive" can be removed in Qt 6; it only exists for compatibility reasons.
-    Q_D(QQuickItemView);
-    const bool wasImplicit = !d->explicitKeyNavigationEnabled;
-    if (wasImplicit)
-        QObject::disconnect(this, &QQuickFlickable::interactiveChanged, this, &QQuickItemView::keyNavigationEnabledChanged);
-
-    d->explicitKeyNavigationEnabled = true;
-
-    // Ensure that we emit the change signal in case there is no different in value.
-    if (d->keyNavigationEnabled != keyNavigationEnabled || wasImplicit) {
-        d->keyNavigationEnabled = keyNavigationEnabled;
-        emit keyNavigationEnabledChanged();
-    }
-}
-
 int QQuickItemView::cacheBuffer() const
 {
     Q_D(const QQuickItemView);
@@ -1439,9 +1400,7 @@ QQuickItemViewPrivate::QQuickItemViewPrivate()
     , highlightMoveDuration(150)
     , headerComponent(0), header(0), footerComponent(0), footer(0)
     , minExtent(0), maxExtent(0)
-    , ownModel(false), wrap(false)
-    , keyNavigationEnabled(true)
-    , explicitKeyNavigationEnabled(false)
+    , ownModel(false)
     , inLayout(false), inViewportMoved(false), forceLayout(false), currentIndexCleared(false)
     , haveHighlightRange(false), autoHighlight(true), highlightRangeStartValid(false), highlightRangeEndValid(false)
     , fillCacheBuffer(false), inRequest(false)
