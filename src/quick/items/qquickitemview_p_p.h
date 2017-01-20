@@ -199,7 +199,6 @@ public:
 
     void regenerate(bool orientationChanged=false);
     void layout();
-    virtual void animationFinished(QAbstractAnimationJob *) override;
     void refill();
     void refill(qreal from, qreal to);
     void mirrorChange() override;
@@ -315,7 +314,6 @@ public:
     bool autoHighlight : 1;
     bool highlightRangeStartValid : 1;
     bool highlightRangeEndValid : 1;
-    bool fillCacheBuffer : 1;
     bool runDelayedRemoveTransition : 1;
     bool delegateValidated : 1;
 

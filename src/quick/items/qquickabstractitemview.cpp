@@ -51,6 +51,7 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
       keyNavigationEnabled(true),
       explicitKeyNavigationEnabled(false),
       forceLayout(false),
+      fillCacheBuffer(false),
       inRequest(false)
 {
 }
@@ -60,6 +61,13 @@ QQuickAbstractItemViewPrivate::~QQuickAbstractItemViewPrivate()
     if (transitioner)
         transitioner->setChangeListener(nullptr);
     delete transitioner;
+}
+
+void QQuickAbstractItemViewPrivate::animationFinished(QAbstractAnimationJob *)
+{
+    Q_Q(QQuickAbstractItemView);
+    fillCacheBuffer = true;
+    q->polish();
 }
 
 QQuickItem *QQuickAbstractItemViewPrivate::createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault) const

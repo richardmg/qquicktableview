@@ -1392,7 +1392,6 @@ QQuickItemViewPrivate::QQuickItemViewPrivate()
     , ownModel(false)
     , inLayout(false), inViewportMoved(false), currentIndexCleared(false)
     , haveHighlightRange(false), autoHighlight(true), highlightRangeStartValid(false), highlightRangeEndValid(false)
-    , fillCacheBuffer(false)
     , runDelayedRemoveTransition(false), delegateValidated(false)
 {
     bufferPause.addAnimationChangeListener(this, QAbstractAnimationJob::Completion);
@@ -1598,13 +1597,6 @@ void QQuickItemViewPrivate::mirrorChange()
     Q_Q(QQuickItemView);
     regenerate();
     emit q->effectiveLayoutDirectionChanged();
-}
-
-void QQuickItemViewPrivate::animationFinished(QAbstractAnimationJob *)
-{
-    Q_Q(QQuickItemView);
-    fillCacheBuffer = true;
-    q->polish();
 }
 
 void QQuickItemViewPrivate::refill()

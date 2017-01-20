@@ -71,6 +71,8 @@ public:
 
     static inline QQuickAbstractItemViewPrivate *get(QQuickAbstractItemView *o) { return o->d_func(); }
 
+    virtual void animationFinished(QAbstractAnimationJob *) override;
+
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
 
     void createTransitioner();
@@ -89,6 +91,7 @@ public:
     bool keyNavigationEnabled : 1;
     bool explicitKeyNavigationEnabled : 1;
     bool forceLayout : 1;
+    bool fillCacheBuffer : 1;
     bool inRequest : 1;
 };
 
