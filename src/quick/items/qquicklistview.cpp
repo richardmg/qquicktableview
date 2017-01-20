@@ -89,8 +89,8 @@ public:
 
     void removeItem(FxViewItem *item);
 
-    FxViewItem *newViewItem(int index, QQuickItem *item) override;
-    void initializeViewItem(FxViewItem *item) override;
+    FxAbstractViewItem *newViewItem(int index, QQuickItem *item) override;
+    void initializeViewItem(FxAbstractViewItem *item) override;
     bool releaseItem(FxViewItem *item) override;
     void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) override;
     void repositionPackageItemAt(QQuickItem *item, int index) override;
@@ -571,7 +571,7 @@ void QQuickListViewPrivate::clear()
     QQuickItemViewPrivate::clear();
 }
 
-FxViewItem *QQuickListViewPrivate::newViewItem(int modelIndex, QQuickItem *item)
+FxAbstractViewItem *QQuickListViewPrivate::newViewItem(int modelIndex, QQuickItem *item)
 {
     Q_Q(QQuickListView);
 
@@ -599,7 +599,7 @@ FxViewItem *QQuickListViewPrivate::newViewItem(int modelIndex, QQuickItem *item)
     return listItem;
 }
 
-void QQuickListViewPrivate::initializeViewItem(FxViewItem *item)
+void QQuickListViewPrivate::initializeViewItem(FxAbstractViewItem *item)
 {
     QQuickItemViewPrivate::initializeViewItem(item);
 

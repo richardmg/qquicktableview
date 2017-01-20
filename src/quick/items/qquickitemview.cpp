@@ -2059,7 +2059,7 @@ FxViewItem *QQuickItemViewPrivate::createItem(int modelIndex, bool asynchronous)
         item->setParentItem(q->contentItem());
         if (requestedIndex == modelIndex)
             requestedIndex = -1;
-        FxViewItem *viewItem = newViewItem(modelIndex, item);
+        FxAbstractViewItem *viewItem = newViewItem(modelIndex, item);
         if (viewItem) {
             viewItem->index = modelIndex;
             // do other set up for the new item that should not happen
@@ -2068,7 +2068,7 @@ FxViewItem *QQuickItemViewPrivate::createItem(int modelIndex, bool asynchronous)
             unrequestedItems.remove(item);
         }
         inRequest = false;
-        return viewItem;
+        return static_cast<FxViewItem *>(viewItem); // ###
     }
 }
 

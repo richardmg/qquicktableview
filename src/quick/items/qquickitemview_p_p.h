@@ -317,7 +317,6 @@ protected:
     virtual bool removeNonVisibleItems(qreal bufferFrom, qreal bufferTo) = 0;
     virtual void visibleItemsChanged() {}
 
-    virtual FxViewItem *newViewItem(int index, QQuickItem *item) = 0;
     virtual void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) = 0;
     virtual void repositionPackageItemAt(QQuickItem *item, int index) = 0;
     virtual void resetFirstItemPosition(qreal pos = 0.0) = 0;
@@ -332,7 +331,6 @@ protected:
     virtual bool needsRefillForAddedOrRemovedIndex(int) const { return false; }
     virtual void translateAndTransitionItemsAfter(int afterIndex, const ChangeResult &insertionResult, const ChangeResult &removalResult) = 0;
 
-    virtual void initializeViewItem(FxViewItem *) {}
     virtual void initializeCurrentItem() {}
     virtual void updateSectionCriteria() {}
     virtual void updateSections() {}

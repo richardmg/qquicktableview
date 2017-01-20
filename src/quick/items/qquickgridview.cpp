@@ -184,8 +184,8 @@ public:
 
     void removeItem(FxViewItem *item);
 
-    FxViewItem *newViewItem(int index, QQuickItem *item) override;
-    void initializeViewItem(FxViewItem *item) override;
+    FxAbstractViewItem *newViewItem(int index, QQuickItem *item) override;
+    void initializeViewItem(FxAbstractViewItem *item) override;
     void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) override;
     void repositionPackageItemAt(QQuickItem *item, int index) override;
     void resetFirstItemPosition(qreal pos = 0.0) override;
@@ -457,14 +457,14 @@ void QQuickGridViewPrivate::resetColumns()
     columns = qMax(1, qFloor(length / colSize()));
 }
 
-FxViewItem *QQuickGridViewPrivate::newViewItem(int modelIndex, QQuickItem *item)
+FxAbstractViewItem *QQuickGridViewPrivate::newViewItem(int modelIndex, QQuickItem *item)
 {
     Q_Q(QQuickGridView);
     Q_UNUSED(modelIndex);
     return new FxGridItemSG(item, q, false);
 }
 
-void QQuickGridViewPrivate::initializeViewItem(FxViewItem *item)
+void QQuickGridViewPrivate::initializeViewItem(FxAbstractViewItem *item)
 {
     QQuickItemViewPrivate::initializeViewItem(item);
 

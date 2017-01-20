@@ -129,6 +129,10 @@ public:
     bool forceLayout : 1;
     bool fillCacheBuffer : 1;
     bool inRequest : 1;
+
+protected:
+    virtual FxAbstractViewItem *newViewItem(int index, QQuickItem *item) = 0;
+    virtual void initializeViewItem(FxAbstractViewItem *) {}
 };
 
 QT_END_NAMESPACE
