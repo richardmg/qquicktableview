@@ -40,6 +40,9 @@
 #include "qquickabstractitemview_p.h"
 #include "qquickabstractitemview_p_p.h"
 
+#include <QtQml/private/qqmlglobal_p.h>
+#include <QtQml/qqmlcontext.h>
+
 QT_BEGIN_NAMESPACE
 
 QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
@@ -57,6 +60,38 @@ QQuickAbstractItemViewPrivate::~QQuickAbstractItemViewPrivate()
     if (transitioner)
         transitioner->setChangeListener(nullptr);
     delete transitioner;
+}
+
+QQuickItem *QQuickAbstractItemViewPrivate::createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault) const
+{
+    Q_Q(const QQuickAbstractItemView);
+
+    QQuickItem *item = 0;
+    if (component) {
+        QQmlContext *creationContext = component->creationContext();
+        QQmlContext *context = new QQmlContext(
+                creationContext ? creationContext : qmlContext(q));
+        QObject *nobj = component->beginCreate(context);
+        if (nobj) {
+            QQml_setParent_noEvent(context, nobj);
+            item = qobject_cast<QQuickItem *>(nobj);
+            if (!item)
+                delete nobj;
+        } else {
+            delete context;
+        }
+    } else if (createDefault) {
+        item = new QQuickItem;
+    }
+    if (item) {
+        if (qFuzzyIsNull(item->z()))
+            item->setZ(zValue);
+        QQml_setParent_noEvent(item, q->contentItem());
+        item->setParentItem(q->contentItem());
+    }
+    if (component)
+        component->completeCreate();
+    return item;
 }
 
 void QQuickAbstractItemViewPrivate::createTransitioner()

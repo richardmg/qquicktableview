@@ -71,6 +71,8 @@ public:
 
     static inline QQuickAbstractItemViewPrivate *get(QQuickAbstractItemView *o) { return o->d_func(); }
 
+    QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
+
     void createTransitioner();
 
     void forceLayoutPolish() {

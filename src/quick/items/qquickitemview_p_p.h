@@ -208,7 +208,6 @@ public:
     virtual bool releaseItem(FxViewItem *item);
 
     QQuickItem *createHighlightItem() const;
-    QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
 
     void updateCurrent(int modelIndex);
     void updateTrackedItem();
