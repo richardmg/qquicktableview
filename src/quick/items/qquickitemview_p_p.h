@@ -263,12 +263,6 @@ public:
             refill();
     }
 
-    void forceLayoutPolish() {
-        Q_Q(QQuickItemView);
-        forceLayout = true;
-        q->polish();
-    }
-
     QPointer<QQmlInstanceModel> model;
     QVariant modelVariant;
     int itemCount;
@@ -318,7 +312,6 @@ public:
     bool ownModel : 1;
     bool inLayout : 1;
     bool inViewportMoved : 1;
-    bool forceLayout : 1;
     bool currentIndexCleared : 1;
     bool haveHighlightRange : 1;
     bool autoHighlight : 1;

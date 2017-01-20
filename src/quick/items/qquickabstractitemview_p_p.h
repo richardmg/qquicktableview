@@ -73,11 +73,18 @@ public:
 
     void createTransitioner();
 
+    void forceLayoutPolish() {
+        Q_Q(QQuickAbstractItemView);
+        forceLayout = true;
+        q->polish();
+    }
+
     QQuickItemViewTransitioner *transitioner;
 
     bool wrap : 1;
     bool keyNavigationEnabled : 1;
     bool explicitKeyNavigationEnabled : 1;
+    bool forceLayout : 1;
 };
 
 QT_END_NAMESPACE

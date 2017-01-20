@@ -46,7 +46,8 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
     : transitioner(nullptr),
       wrap(false),
       keyNavigationEnabled(true),
-      explicitKeyNavigationEnabled(false)
+      explicitKeyNavigationEnabled(false),
+      forceLayout(false)
 {
 }
 
