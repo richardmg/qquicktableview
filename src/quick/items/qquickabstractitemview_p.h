@@ -125,6 +125,10 @@ Q_SIGNALS:
     void removeDisplacedTransitionChanged();
     void displacedTransitionChanged();
 
+protected Q_SLOTS:
+    virtual void initItem(int index, QObject *item);
+    void destroyingItem(QObject *item);
+
 protected:
     QQuickAbstractItemView(QQuickFlickablePrivate &dd, QQuickItem *parent = nullptr);
 

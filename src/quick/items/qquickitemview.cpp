@@ -1392,7 +1392,7 @@ QQuickItemViewPrivate::QQuickItemViewPrivate()
     , ownModel(false)
     , inLayout(false), inViewportMoved(false), currentIndexCleared(false)
     , haveHighlightRange(false), autoHighlight(true), highlightRangeStartValid(false), highlightRangeEndValid(false)
-    , fillCacheBuffer(false), inRequest(false)
+    , fillCacheBuffer(false)
     , runDelayedRemoveTransition(false), delegateValidated(false)
 {
     bufferPause.addAnimationChangeListener(this, QAbstractAnimationJob::Completion);
@@ -2208,27 +2208,6 @@ void QQuickItemView::createdItem(int index, QObject* object)
             d->repositionPackageItemAt(item, index);
         else if (index == d->currentIndex)
             d->updateCurrent(index);
-    }
-}
-
-void QQuickItemView::initItem(int, QObject *object)
-{
-    QQuickItem* item = qmlobject_cast<QQuickItem*>(object);
-    if (item) {
-        if (qFuzzyIsNull(item->z()))
-            item->setZ(1);
-        item->setParentItem(contentItem());
-        QQuickItemPrivate::get(item)->setCulled(true);
-    }
-}
-
-void QQuickItemView::destroyingItem(QObject *object)
-{
-    Q_D(QQuickItemView);
-    QQuickItem* item = qmlobject_cast<QQuickItem*>(object);
-    if (item) {
-        item->setParentItem(0);
-        d->unrequestedItems.remove(item);
     }
 }
 

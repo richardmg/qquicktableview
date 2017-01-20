@@ -280,7 +280,6 @@ public:
     int currentIndex;
     FxViewItem *currentItem;
     FxViewItem *trackedItem;
-    QHash<QQuickItem*,int> unrequestedItems;
     int requestedIndex;
     QQuickItemViewChangeSet currentChanges;
     QQuickItemViewChangeSet bufferedChanges;
@@ -318,7 +317,6 @@ public:
     bool highlightRangeStartValid : 1;
     bool highlightRangeEndValid : 1;
     bool fillCacheBuffer : 1;
-    bool inRequest : 1;
     bool runDelayedRemoveTransition : 1;
     bool delegateValidated : 1;
 

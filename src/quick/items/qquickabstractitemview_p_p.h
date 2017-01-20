@@ -79,12 +79,15 @@ public:
         q->polish();
     }
 
+    QHash<QQuickItem*,int> unrequestedItems;
+
     QQuickItemViewTransitioner *transitioner;
 
     bool wrap : 1;
     bool keyNavigationEnabled : 1;
     bool explicitKeyNavigationEnabled : 1;
     bool forceLayout : 1;
+    bool inRequest : 1;
 };
 
 QT_END_NAMESPACE

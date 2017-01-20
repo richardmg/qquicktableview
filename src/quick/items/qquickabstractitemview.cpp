@@ -47,7 +47,8 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
       wrap(false),
       keyNavigationEnabled(true),
       explicitKeyNavigationEnabled(false),
-      forceLayout(false)
+      forceLayout(false),
+      inRequest(false)
 {
 }
 
@@ -238,6 +239,27 @@ void QQuickAbstractItemView::setDisplacedTransition(QQuickTransition *transition
     if (d->transitioner->displacedTransition != transition) {
         d->transitioner->displacedTransition = transition;
         emit displacedTransitionChanged();
+    }
+}
+
+void QQuickAbstractItemView::initItem(int, QObject *object)
+{
+    QQuickItem* item = qmlobject_cast<QQuickItem*>(object);
+    if (item) {
+        if (qFuzzyIsNull(item->z()))
+            item->setZ(1);
+        item->setParentItem(contentItem());
+        QQuickItemPrivate::get(item)->setCulled(true);
+    }
+}
+
+void QQuickAbstractItemView::destroyingItem(QObject *object)
+{
+    Q_D(QQuickAbstractItemView);
+    QQuickItem* item = qmlobject_cast<QQuickItem*>(object);
+    if (item) {
+        item->setParentItem(0);
+        d->unrequestedItems.remove(item);
     }
 }
 
