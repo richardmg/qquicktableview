@@ -45,6 +45,117 @@
 
 QT_BEGIN_NAMESPACE
 
+FxAbstractViewItem::FxAbstractViewItem(QQuickItem *i, QQuickAbstractItemView *v, bool own, QQuickAbstractItemViewAttached *attached)
+    : item(i)
+    , view(v)
+    , transitionableItem(0)
+    , attached(attached)
+    , ownItem(own)
+    , releaseAfterTransition(false)
+    , trackGeom(false)
+{
+    if (attached) // can be null for default components (see createComponentItem)
+        attached->setView(view);
+}
+
+FxAbstractViewItem::~FxAbstractViewItem()
+{
+    delete transitionableItem;
+    if (ownItem && item) {
+        trackGeometry(false);
+        item->setParentItem(0);
+        item->deleteLater();
+        item = 0;
+    }
+}
+
+qreal FxAbstractViewItem::itemX() const
+{
+    return transitionableItem ? transitionableItem->itemX() : (item ? item->x() : 0);
+}
+
+qreal FxAbstractViewItem::itemY() const
+{
+    return transitionableItem ? transitionableItem->itemY() : (item ? item->y() : 0);
+}
+
+void FxAbstractViewItem::moveTo(const QPointF &pos, bool immediate)
+{
+    if (transitionableItem)
+        transitionableItem->moveTo(pos, immediate);
+    else if (item)
+        item->setPosition(pos);
+}
+
+void FxAbstractViewItem::setVisible(bool visible)
+{
+    if (!visible && transitionableItem && transitionableItem->transitionScheduledOrRunning())
+        return;
+    if (item)
+        QQuickItemPrivate::get(item)->setCulled(!visible);
+}
+
+void FxAbstractViewItem::trackGeometry(bool track)
+{
+    if (track) {
+        if (!trackGeom) {
+            if (item) {
+                QQuickItemPrivate *itemPrivate = QQuickItemPrivate::get(item);
+                itemPrivate->addItemChangeListener(QQuickAbstractItemViewPrivate::get(view), QQuickItemPrivate::Geometry);
+            }
+            trackGeom = true;
+        }
+    } else {
+        if (trackGeom) {
+            if (item) {
+                QQuickItemPrivate *itemPrivate = QQuickItemPrivate::get(item);
+                itemPrivate->removeItemChangeListener(QQuickAbstractItemViewPrivate::get(view), QQuickItemPrivate::Geometry);
+            }
+            trackGeom = false;
+        }
+    }
+}
+
+QQuickItemViewTransitioner::TransitionType FxAbstractViewItem::scheduledTransitionType() const
+{
+    return transitionableItem ? transitionableItem->nextTransitionType : QQuickItemViewTransitioner::NoTransition;
+}
+
+bool FxAbstractViewItem::transitionScheduledOrRunning() const
+{
+    return transitionableItem ? transitionableItem->transitionScheduledOrRunning() : false;
+}
+
+bool FxAbstractViewItem::transitionRunning() const
+{
+    return transitionableItem ? transitionableItem->transitionRunning() : false;
+}
+
+bool FxAbstractViewItem::isPendingRemoval() const
+{
+    return transitionableItem ? transitionableItem->isPendingRemoval() : false;
+}
+
+void FxAbstractViewItem::transitionNextReposition(QQuickItemViewTransitioner *transitioner, QQuickItemViewTransitioner::TransitionType type, bool asTarget)
+{
+    if (!transitioner)
+        return;
+    if (!transitionableItem)
+        transitionableItem = new QQuickItemViewTransitionableItem(item);
+    transitioner->transitionNextReposition(transitionableItem, type, asTarget);
+}
+
+bool FxAbstractViewItem::prepareTransition(QQuickItemViewTransitioner *transitioner, const QRectF &viewBounds)
+{
+    return transitionableItem ? transitionableItem->prepareTransition(transitioner, index, viewBounds) : false;
+}
+
+void FxAbstractViewItem::startTransition(QQuickItemViewTransitioner *transitioner)
+{
+    if (transitionableItem)
+        transitionableItem->startTransition(transitioner, index);
+}
+
 QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
     : transitioner(nullptr),
       wrap(false),

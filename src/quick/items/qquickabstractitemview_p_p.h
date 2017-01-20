@@ -61,6 +61,42 @@ QT_REQUIRE_CONFIG(quick_itemview);
 
 QT_BEGIN_NAMESPACE
 
+class Q_AUTOTEST_EXPORT FxAbstractViewItem
+{
+public:
+    FxAbstractViewItem(QQuickItem *, QQuickAbstractItemView *, bool own, QQuickAbstractItemViewAttached *attached);
+    virtual ~FxAbstractViewItem();
+
+    qreal itemX() const;
+    qreal itemY() const;
+    inline qreal itemWidth() const { return item ? item->width() : 0; }
+    inline qreal itemHeight() const { return item ? item->height() : 0; }
+
+    void moveTo(const QPointF &pos, bool immediate);
+    void setVisible(bool visible);
+    void trackGeometry(bool track);
+
+    QQuickItemViewTransitioner::TransitionType scheduledTransitionType() const;
+    bool transitionScheduledOrRunning() const;
+    bool transitionRunning() const;
+    bool isPendingRemoval() const;
+
+    void transitionNextReposition(QQuickItemViewTransitioner *transitioner, QQuickItemViewTransitioner::TransitionType type, bool asTarget);
+    bool prepareTransition(QQuickItemViewTransitioner *transitioner, const QRectF &viewBounds);
+    void startTransition(QQuickItemViewTransitioner *transitioner);
+
+    virtual bool contains(qreal x, qreal y) const = 0;
+
+    QPointer<QQuickItem> item;
+    QQuickAbstractItemView *view;
+    QQuickItemViewTransitionableItem *transitionableItem;
+    QQuickAbstractItemViewAttached *attached;
+    int index;
+    bool ownItem;
+    bool releaseAfterTransition;
+    bool trackGeom;
+};
+
 class Q_AUTOTEST_EXPORT QQuickAbstractItemViewPrivate : public QQuickFlickablePrivate, public QQuickItemViewTransitionChangeListener, public QAnimationJobChangeListener
 {
     Q_DECLARE_PUBLIC(QQuickAbstractItemView)
