@@ -2153,7 +2153,7 @@ void QQuickListView::setOrientation(QQuickListView::Orientation orientation)
             }
             setContentY(0);
         }
-        d->regenerate(true);
+        d->orientationChange();
         emit orientationChanged();
     }
 }

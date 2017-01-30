@@ -230,6 +230,10 @@ void QQuickAbstractItemViewPrivate::resetPosition()
 {
 }
 
+void QQuickAbstractItemViewPrivate::regenerate()
+{
+}
+
 void QQuickAbstractItemViewPrivate::layout()
 {
 }

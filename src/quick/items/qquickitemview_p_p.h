@@ -139,7 +139,8 @@ public:
     void updateViewport() override;
     void resetPosition() override;
 
-    void regenerate(bool orientationChanged=false);
+    void regenerate() override;
+    void orientationChange();
     void layout() override;
     void refill() override;
     void refill(qreal from, qreal to);

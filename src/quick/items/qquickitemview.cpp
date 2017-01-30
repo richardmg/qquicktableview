@@ -1344,17 +1344,11 @@ void QQuickItemViewPrivate::refill(qreal from, qreal to)
         emit q->countChanged();
 }
 
-void QQuickItemViewPrivate::regenerate(bool orientationChanged)
+void QQuickItemViewPrivate::regenerate()
 {
     Q_Q(QQuickItemView);
     if (q->isComponentComplete()) {
         currentChanges.reset();
-        if (orientationChanged) {
-            delete header;
-            header = 0;
-            delete footer;
-            footer = 0;
-        }
         clear();
         updateHeader();
         updateFooter();
@@ -1362,6 +1356,18 @@ void QQuickItemViewPrivate::regenerate(bool orientationChanged)
         resetPosition();
         refill();
         updateCurrent(currentIndex);
+    }
+}
+
+void QQuickItemViewPrivate::orientationChange()
+{
+    Q_Q(QQuickItemView);
+    if (q->isComponentComplete()) {
+        delete header;
+        header = 0;
+        delete footer;
+        footer = 0;
+        regenerate();
     }
 }
 

@@ -143,6 +143,7 @@ public:
     virtual void updateViewport();
     virtual void resetPosition();
 
+    virtual void regenerate();
     virtual void layout();
     virtual void refill();
 
