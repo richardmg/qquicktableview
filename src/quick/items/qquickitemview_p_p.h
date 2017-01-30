@@ -139,8 +139,8 @@ public:
     void updateViewport() override;
 
     void regenerate(bool orientationChanged=false);
-    void layout();
-    void refill();
+    void layout() override;
+    void refill() override;
     void refill(qreal from, qreal to);
     void mirrorChange() override;
 
@@ -168,13 +168,6 @@ public:
 
     void checkVisible() const;
     void showVisibleItems() const;
-
-    void refillOrLayout() {
-        if (hasPendingChanges())
-            layout();
-        else
-            refill();
-    }
 
     int displayMarginBeginning;
     int displayMarginEnd;

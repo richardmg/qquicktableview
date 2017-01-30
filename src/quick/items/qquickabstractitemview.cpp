@@ -226,6 +226,14 @@ void QQuickAbstractItemViewPrivate::updateViewport()
 {
 }
 
+void QQuickAbstractItemViewPrivate::layout()
+{
+}
+
+void QQuickAbstractItemViewPrivate::refill()
+{
+}
+
 void QQuickAbstractItemViewPrivate::animationFinished(QAbstractAnimationJob *)
 {
     Q_Q(QQuickAbstractItemView);

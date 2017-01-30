@@ -142,6 +142,9 @@ public:
     virtual void clear();
     virtual void updateViewport();
 
+    virtual void layout();
+    virtual void refill();
+
     virtual void animationFinished(QAbstractAnimationJob *) override;
 
     FxAbstractViewItem *createItem(int modelIndex, bool asynchronous = false);
@@ -172,6 +175,13 @@ public:
         return currentChanges.hasPendingChanges()
                 || bufferedChanges.hasPendingChanges()
                 ||runDelayedRemoveTransition;
+    }
+
+    void refillOrLayout() {
+        if (hasPendingChanges())
+            layout();
+        else
+            refill();
     }
 
     void forceLayoutPolish() {
