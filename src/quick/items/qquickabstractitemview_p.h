@@ -67,6 +67,8 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
 {
     Q_OBJECT
 
+    Q_PROPERTY(int count READ count NOTIFY countChanged)
+
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
     Q_PROPERTY(QQuickItem *currentItem READ currentItem NOTIFY currentItemChanged)
 
@@ -151,6 +153,7 @@ public:
     void setDisplacedTransition(QQuickTransition *transition);
 
 Q_SIGNALS:
+    void countChanged();
     void currentIndexChanged();
     void currentItemChanged();
 
