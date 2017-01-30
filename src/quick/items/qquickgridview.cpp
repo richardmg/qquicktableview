@@ -2414,20 +2414,20 @@ bool QQuickGridViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
         } else {
             while (i >= 0) {
                 // item is before first visible e.g. in cache buffer
-                FxViewItem *item = 0;
+                FxAbstractViewItem *item = 0;
                 if (change.isMove() && (item = currentChanges.removedItems.take(change.moveKey(modelIndex + i))))
                     item->index = modelIndex + i;
                 if (!item)
-                    item = static_cast<FxViewItem *>(createItem(modelIndex + i)); // ###
+                    item = createItem(modelIndex + i);
                 if (!item)
                     return false;
 
                 QQuickItemPrivate::get(item->item)->setCulled(false);
-                visibleItems.insert(insertionIdx, item);
+                visibleItems.insert(insertionIdx, static_cast<FxViewItem *>(item)); // ###
                 if (insertionIdx == 0)
                     insertResult->changedFirstItem = true;
                 if (!change.isMove()) {
-                    addedItems->append(item);
+                    addedItems->append(static_cast<FxViewItem *>(item)); // ###
                     if (transitioner)
                         item->transitionNextReposition(transitioner, QQuickItemViewTransitioner::AddTransition, true);
                     else
@@ -2466,26 +2466,26 @@ bool QQuickGridViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
         int i = 0;
         int to = buffer+displayMarginEnd+tempPos+size()-1;
         while (i < count && rowPos <= to + rowSize()*(columns - colNum)/qreal(columns+1)) {
-            FxViewItem *item = 0;
+            FxAbstractViewItem *item = 0;
             if (change.isMove() && (item = currentChanges.removedItems.take(change.moveKey(modelIndex + i))))
                 item->index = modelIndex + i;
             bool newItem = !item;
             if (!item)
-                item = static_cast<FxViewItem *>(createItem(modelIndex + i)); // ###
+                item = createItem(modelIndex + i);
             if (!item)
                 return false;
 
             QQuickItemPrivate::get(item->item)->setCulled(false);
-            visibleItems.insert(index, item);
+            visibleItems.insert(index, static_cast<FxViewItem *>(item)); // ###
             if (index == 0)
                 insertResult->changedFirstItem = true;
             if (change.isMove()) {
                 // we know this is a move target, since move displaced items that are
                 // shuffled into view due to a move would be added in refill()
                 if (newItem && transitioner && transitioner->canTransition(QQuickItemViewTransitioner::MoveTransition, true))
-                    movingIntoView->append(MovedItem(item, change.moveKey(item->index)));
+                    movingIntoView->append(MovedItem(static_cast<FxViewItem *>(item), change.moveKey(item->index))); // ###
             } else {
-                addedItems->append(item);
+                addedItems->append(static_cast<FxViewItem *>(item)); // ###
                 if (transitioner)
                     item->transitionNextReposition(transitioner, QQuickItemViewTransitioner::AddTransition, true);
                 else

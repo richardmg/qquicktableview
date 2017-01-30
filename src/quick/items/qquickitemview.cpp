@@ -1697,7 +1697,7 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
 
     // Whatever removed/moved items remain are no longer visible items.
     prepareRemoveTransitions(&currentChanges.removedItems);
-    for (QHash<QQmlChangeSet::MoveKey, FxViewItem *>::Iterator it = currentChanges.removedItems.begin();
+    for (QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *>::Iterator it = currentChanges.removedItems.begin();
          it != currentChanges.removedItems.end(); ++it) {
         releaseItem(it.value());
     }
@@ -1853,18 +1853,18 @@ void QQuickItemViewPrivate::prepareVisibleItemTransitions()
         visibleItems[i]->prepareTransition(transitioner, viewBounds);
 }
 
-void QQuickItemViewPrivate::prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxViewItem *> *removedItems)
+void QQuickItemViewPrivate::prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> *removedItems)
 {
     if (!transitioner)
         return;
 
     if (transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, true)
             || transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, false)) {
-        for (QHash<QQmlChangeSet::MoveKey, FxViewItem *>::Iterator it = removedItems->begin();
+        for (QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *>::Iterator it = removedItems->begin();
              it != removedItems->end(); ) {
             bool isRemove = it.key().moveId < 0;
             if (isRemove) {
-                FxViewItem *item = *it;
+                FxAbstractViewItem *item = *it;
                 item->trackGeometry(false);
                 item->releaseAfterTransition = true;
                 releasePendingTransition.append(item);

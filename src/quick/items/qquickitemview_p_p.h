@@ -58,7 +58,6 @@ QT_REQUIRE_CONFIG(quick_itemview);
 #include "qquickitemview_p.h"
 #include "qquickabstractitemview_p_p.h"
 #include <QtQml/private/qqmldelegatemodel_p.h>
-#include <QtQml/private/qqmlchangeset_p.h>
 
 
 QT_BEGIN_NAMESPACE
@@ -75,30 +74,6 @@ public:
     virtual qreal endPosition() const = 0;
     virtual qreal size() const = 0;
     virtual qreal sectionSize() const = 0;
-};
-
-
-class QQuickItemViewChangeSet
-{
-public:
-    QQuickItemViewChangeSet();
-
-    bool hasPendingChanges() const;
-    void prepare(int currentIndex, int count);
-    void reset();
-
-    void applyChanges(const QQmlChangeSet &changeSet);
-
-    void applyBufferedChanges(const QQuickItemViewChangeSet &other);
-
-    int itemCount;
-    int newCurrentIndex;
-    QQmlChangeSet pendingChanges;
-    QHash<QQmlChangeSet::MoveKey, FxViewItem *> removedItems;
-
-    bool active : 1;
-    bool currentChanged : 1;
-    bool currentRemoved : 1;
 };
 
 
@@ -194,7 +169,7 @@ public:
             FxViewItem *prevFirstVisible, ChangeResult *insertionResult, ChangeResult *removalResult);
 
     void prepareVisibleItemTransitions();
-    void prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxViewItem *> *removedItems);
+    void prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> *removedItems);
     bool prepareNonVisibleItemTransition(FxViewItem *item, const QRectF &viewBounds);
     void viewItemTransitionFinished(QQuickItemViewTransitionableItem *item) override;
 
@@ -225,8 +200,6 @@ public:
     int displayMarginEnd;
 
     QList<FxViewItem *> visibleItems;
-    QQuickItemViewChangeSet currentChanges;
-    QQuickItemViewChangeSet bufferedChanges;
 
     qreal highlightRangeStart;
     qreal highlightRangeEnd;

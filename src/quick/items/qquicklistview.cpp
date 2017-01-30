@@ -3212,27 +3212,27 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
         } else {
             for (i = count-1; i >= 0 && pos >= from; --i) {
                 // item is before first visible e.g. in cache buffer
-                FxViewItem *item = 0;
+                FxAbstractViewItem *item = 0;
                 if (change.isMove() && (item = currentChanges.removedItems.take(change.moveKey(modelIndex + i))))
                     item->index = modelIndex + i;
                 if (!item)
-                    item = static_cast<FxViewItem *>(createItem(modelIndex + i)); // ###
+                    item = createItem(modelIndex + i);
                 if (!item)
                     return false;
 
                 visibleAffected = true;
-                visibleItems.insert(insertionIdx, item);
+                visibleItems.insert(insertionIdx, static_cast<FxViewItem *>(item)); // ###
                 if (insertionIdx == 0)
                     insertResult->changedFirstItem = true;
                 if (!change.isMove()) {
-                    addedItems->append(item);
+                    addedItems->append(static_cast<FxViewItem *>(item)); // ###
                     if (transitioner)
                         item->transitionNextReposition(transitioner, QQuickItemViewTransitioner::AddTransition, true);
                     else
                         static_cast<FxListItemSG *>(item)->setPosition(pos, true);
                 }
-                insertResult->sizeChangesBeforeVisiblePos += item->size() + spacing;
-                pos -= item->size() + spacing;
+                insertResult->sizeChangesBeforeVisiblePos += static_cast<FxListItemSG *>(item)->size() + spacing;
+                pos -= static_cast<FxListItemSG *>(item)->size() + spacing;
                 index++;
             }
         }
@@ -3256,32 +3256,32 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
         visibleAffected = count > 0 && pos < to;
 
         for (int i = 0; i < count && pos <= to; ++i) {
-            FxViewItem *item = 0;
+            FxAbstractViewItem *item = 0;
             if (change.isMove() && (item = currentChanges.removedItems.take(change.moveKey(modelIndex + i))))
                 item->index = modelIndex + i;
             bool newItem = !item;
             if (!item)
-                item = static_cast<FxViewItem *>(createItem(modelIndex + i)); // ###
+                item = createItem(modelIndex + i);
             if (!item)
                 return false;
 
-            visibleItems.insert(index, item);
+            visibleItems.insert(index, static_cast<FxViewItem *>(item)); // ###
             if (index == 0)
                 insertResult->changedFirstItem = true;
             if (change.isMove()) {
                 // we know this is a move target, since move displaced items that are
                 // shuffled into view due to a move would be added in refill()
                 if (newItem && transitioner && transitioner->canTransition(QQuickItemViewTransitioner::MoveTransition, true))
-                    movingIntoView->append(MovedItem(item, change.moveKey(item->index)));
+                    movingIntoView->append(MovedItem(static_cast<FxViewItem *>(item), change.moveKey(item->index))); // ###
             } else {
-                addedItems->append(item);
+                addedItems->append(static_cast<FxViewItem *>(item)); // ###
                 if (transitioner)
                     item->transitionNextReposition(transitioner, QQuickItemViewTransitioner::AddTransition, true);
                 else
                     static_cast<FxListItemSG *>(item)->setPosition(pos, true);
             }
-            insertResult->sizeChangesAfterVisiblePos += item->size() + spacing;
-            pos += item->size() + spacing;
+            insertResult->sizeChangesAfterVisiblePos += static_cast<FxViewItem *>(item)->size() + spacing;
+            pos += static_cast<FxViewItem *>(item)->size() + spacing;
             ++index;
         }
 

@@ -59,6 +59,7 @@ QT_REQUIRE_CONFIG(quick_itemview);
 #include "qquickitemviewtransition_p.h"
 #include "qquickflickable_p_p.h"
 
+#include <QtQml/private/qqmlchangeset_p.h>
 #include <QtQml/private/qqmlobjectmodel_p.h>
 
 QT_BEGIN_NAMESPACE
@@ -97,6 +98,29 @@ public:
     bool ownItem;
     bool releaseAfterTransition;
     bool trackGeom;
+};
+
+class QQuickItemViewChangeSet
+{
+public:
+    QQuickItemViewChangeSet();
+
+    bool hasPendingChanges() const;
+    void prepare(int currentIndex, int count);
+    void reset();
+
+    void applyChanges(const QQmlChangeSet &changeSet);
+
+    void applyBufferedChanges(const QQuickItemViewChangeSet &other);
+
+    int itemCount;
+    int newCurrentIndex;
+    QQmlChangeSet pendingChanges;
+    QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> removedItems;
+
+    bool active : 1;
+    bool currentChanged : 1;
+    bool currentRemoved : 1;
 };
 
 class Q_AUTOTEST_EXPORT QQuickAbstractItemViewPrivate : public QQuickFlickablePrivate, public QQuickItemViewTransitionChangeListener, public QAnimationJobChangeListener
@@ -152,6 +176,8 @@ public:
     FxAbstractViewItem *trackedItem;
     QHash<QQuickItem*,int> unrequestedItems;
     int requestedIndex;
+    QQuickItemViewChangeSet currentChanges;
+    QQuickItemViewChangeSet bufferedChanges;
     QPauseAnimationJob bufferPause;
 
     QQmlComponent *highlightComponent;
