@@ -120,6 +120,7 @@ public:
 
     virtual void animationFinished(QAbstractAnimationJob *) override;
 
+    FxAbstractViewItem *createItem(int modelIndex, bool asynchronous = false);
     virtual bool releaseItem(FxAbstractViewItem *item);
 
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;

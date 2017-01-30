@@ -1907,60 +1907,6 @@ void QQuickItemViewPrivate::viewItemTransitionFinished(QQuickItemViewTransitiona
     }
 }
 
-/*
-  This may return 0 if the item is being created asynchronously.
-  When the item becomes available, refill() will be called and the item
-  will be returned on the next call to createItem().
-*/
-FxViewItem *QQuickItemViewPrivate::createItem(int modelIndex, bool asynchronous)
-{
-    Q_Q(QQuickItemView);
-
-    if (requestedIndex == modelIndex && asynchronous)
-        return 0;
-
-    for (int i=0; i<releasePendingTransition.count(); i++) {
-        if (releasePendingTransition.at(i)->index == modelIndex
-                && !releasePendingTransition.at(i)->isPendingRemoval()) {
-            releasePendingTransition[i]->releaseAfterTransition = false;
-            return static_cast<FxViewItem *>(releasePendingTransition.takeAt(i)); // ###
-        }
-    }
-
-    if (asynchronous)
-        requestedIndex = modelIndex;
-    inRequest = true;
-
-    QObject* object = model->object(modelIndex, asynchronous);
-    QQuickItem *item = qmlobject_cast<QQuickItem*>(object);
-    if (!item) {
-        if (object) {
-            model->release(object);
-            if (!delegateValidated) {
-                delegateValidated = true;
-                QObject* delegate = q->delegate();
-                qmlWarning(delegate ? delegate : q) << QQuickItemView::tr("Delegate must be of Item type");
-            }
-        }
-        inRequest = false;
-        return 0;
-    } else {
-        item->setParentItem(q->contentItem());
-        if (requestedIndex == modelIndex)
-            requestedIndex = -1;
-        FxAbstractViewItem *viewItem = newViewItem(modelIndex, item);
-        if (viewItem) {
-            viewItem->index = modelIndex;
-            // do other set up for the new item that should not happen
-            // until after bindings are evaluated
-            initializeViewItem(viewItem);
-            unrequestedItems.remove(item);
-        }
-        inRequest = false;
-        return static_cast<FxViewItem *>(viewItem); // ###
-    }
-}
-
 void QQuickItemView::createdItem(int index, QObject* object)
 {
     Q_D(QQuickItemView);

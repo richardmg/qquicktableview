@@ -169,8 +169,6 @@ public:
     void refill(qreal from, qreal to);
     void mirrorChange() override;
 
-    FxViewItem *createItem(int modelIndex, bool asynchronous = false);
-
     QQuickItem *createHighlightItem() const;
 
     void updateCurrent(int modelIndex);
