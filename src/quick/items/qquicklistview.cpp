@@ -470,7 +470,7 @@ qreal QQuickListViewPrivate::positionAt(int modelIndex) const
             int count = visibleIndex - modelIndex;
             qreal cs = 0;
             if (modelIndex == currentIndex && currentItem) {
-                cs = currentItem->size() + spacing;
+                cs = static_cast<FxViewItem *>(currentItem)->size() + spacing;
                 --count;
             }
             return (*visibleItems.constBegin())->position() - count * (averageSize + spacing) - cs;
@@ -1275,7 +1275,7 @@ void QQuickListViewPrivate::initializeCurrentItem()
         if (!actualItem) {
             if (currentIndex == visibleIndex - 1 && visibleItems.count()) {
                 // We can calculate exact postion in this case
-                listItem->setPosition(visibleItems.constFirst()->position() - currentItem->size() - spacing);
+                listItem->setPosition(visibleItems.constFirst()->position() - listItem->size() - spacing);
             } else {
                 // Create current item now and position as best we can.
                 // Its position will be corrected when it becomes visible.
@@ -1420,7 +1420,8 @@ void QQuickListViewPrivate::itemGeometryChanged(QQuickItem *item, QQuickGeometry
         const qreal sz = size();
         const qreal from = contentFlowReversed ? -pos - displayMarginBeginning - sz : pos - displayMarginBeginning;
         const qreal to = contentFlowReversed ? -pos + displayMarginEnd : pos + sz + displayMarginEnd;
-        QQuickItemPrivate::get(currentItem->item)->setCulled(currentItem->endPosition() < from || currentItem->position() > to);
+        FxListItemSG *listItem = static_cast<FxListItemSG *>(currentItem);
+        QQuickItemPrivate::get(listItem->item)->setCulled(listItem->endPosition() < from || listItem->position() > to);
     }
 
     if (item != contentItem && (!highlight || item != highlight->item)) {
@@ -1501,13 +1502,13 @@ void QQuickListViewPrivate::fixup(AxisData &data, qreal minExtent, qreal maxExte
         if (strictHighlightRange && currentItem && (!topItem || topItem->index != currentIndex)) {
             // StrictlyEnforceRange always keeps an item in range
             updateHighlight();
-            topItem = currentItem;
+            topItem = static_cast<FxViewItem *>(currentItem); // ###
         }
         FxViewItem *bottomItem = snapItemAt(tempPosition+highlightRangeEnd);
         if (strictHighlightRange && currentItem && (!bottomItem || bottomItem->index != currentIndex)) {
             // StrictlyEnforceRange always keeps an item in range
             updateHighlight();
-            bottomItem = currentItem;
+            bottomItem = static_cast<FxViewItem *>(currentItem); // ###
         }
         qreal pos;
         bool isInBounds = -position() > maxExtent && -position() <= minExtent;
@@ -2935,8 +2936,10 @@ void QQuickListView::viewportMoved(Qt::Orientations orient)
         if (item->item)
             QQuickItemPrivate::get(item->item)->setCulled(item->endPosition() < from || item->position() > to);
     }
-    if (d->currentItem)
-        QQuickItemPrivate::get(d->currentItem->item)->setCulled(d->currentItem->endPosition() < from || d->currentItem->position() > to);
+    if (d->currentItem) {
+        FxListItemSG *listItem = static_cast<FxListItemSG *>(d->currentItem);
+        QQuickItemPrivate::get(listItem->item)->setCulled(listItem->endPosition() < from || listItem->position() > to);
+    }
 
     if (d->hData.flicking || d->vData.flicking || d->hData.moving || d->vData.moving)
         d->moveReason = QQuickListViewPrivate::Mouse;

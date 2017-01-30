@@ -145,6 +145,7 @@ public:
 
     int visibleIndex;
     int currentIndex;
+    FxAbstractViewItem *currentItem;
     FxAbstractViewItem *trackedItem;
     QHash<QQuickItem*,int> unrequestedItems;
     int requestedIndex;

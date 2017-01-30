@@ -1033,14 +1033,15 @@ void QQuickItemView::trackedPositionChanged()
                     pos = minExtent;
             }
         } else {
-            if (d->trackedItem != d->currentItem) {
+            FxViewItem *currentItem = static_cast<FxViewItem *>(d->currentItem);
+            if (trackedItem != currentItem) {
                 // also make section header visible
-                trackedPos -= d->currentItem->sectionSize();
-                trackedSize += d->currentItem->sectionSize();
+                trackedPos -= currentItem->sectionSize();
+                trackedSize += currentItem->sectionSize();
             }
             qreal trackedEndPos = trackedItem->endPosition();
-            qreal toItemPos = d->currentItem->position();
-            qreal toItemEndPos = d->currentItem->endPosition();
+            qreal toItemPos = currentItem->position();
+            qreal toItemEndPos = currentItem->endPosition();
             if (d->showHeaderForIndex(d->currentIndex)) {
                 qreal startOffset = -d->contentStartOffset();
                 trackedPos -= startOffset;
@@ -1074,8 +1075,8 @@ void QQuickItemView::trackedPositionChanged()
                         pos = trackedPos;
                 } else {
                     pos = toItemEndPos - d->size();
-                    if (d->currentItem->size() > d->size())
-                        pos = d->currentItem->position();
+                    if (currentItem->size() > d->size())
+                        pos = currentItem->position();
                 }
             }
             if (trackedPos < pos && toItemPos < pos)
@@ -1239,7 +1240,6 @@ void QQuickItemView::componentComplete()
 
 QQuickItemViewPrivate::QQuickItemViewPrivate()
     : displayMarginBeginning(0), displayMarginEnd(0)
-    , currentItem(0)
     , highlightRangeStart(0), highlightRangeEnd(0)
     , headerComponent(0), header(0), footerComponent(0), footer(0)
     , highlightRangeStartValid(false), highlightRangeEndValid(false)
@@ -1386,7 +1386,7 @@ void QQuickItemViewPrivate::updateCurrent(int modelIndex)
         return;
     }
 
-    FxViewItem *oldCurrentItem = currentItem;
+    FxAbstractViewItem *oldCurrentItem = currentItem;
     int oldCurrentIndex = currentIndex;
     currentIndex = modelIndex;
     currentItem = createItem(modelIndex, false);
@@ -2059,9 +2059,9 @@ QQuickItem *QQuickItemViewPrivate::createHighlightItem() const
 void QQuickItemViewPrivate::updateTrackedItem()
 {
     Q_Q(QQuickItemView);
-    FxViewItem *item = currentItem;
+    FxAbstractViewItem *item = currentItem;
     if (highlight)
-        item = static_cast<FxViewItem *>(highlight); // ###
+        item = highlight;
     trackedItem = item;
 
     if (trackedItem)

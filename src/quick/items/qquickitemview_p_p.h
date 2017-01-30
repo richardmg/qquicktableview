@@ -228,7 +228,6 @@ public:
     int displayMarginEnd;
 
     QList<FxViewItem *> visibleItems;
-    FxViewItem *currentItem;
     QQuickItemViewChangeSet currentChanges;
     QQuickItemViewChangeSet bufferedChanges;
 
