@@ -868,6 +868,63 @@ void QQuickAbstractItemView::setDisplacedTransition(QQuickTransition *transition
     }
 }
 
+QQmlComponent *QQuickAbstractItemView::highlight() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->highlightComponent;
+}
+
+void QQuickAbstractItemView::setHighlight(QQmlComponent *highlightComponent)
+{
+    Q_D(QQuickAbstractItemView);
+    if (highlightComponent != d->highlightComponent) {
+        d->applyPendingChanges();
+        d->highlightComponent = highlightComponent;
+        d->createHighlight();
+        if (d->currentItem)
+            d->updateHighlight();
+        emit highlightChanged();
+    }
+}
+
+QQuickItem *QQuickAbstractItemView::highlightItem() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->highlight ? d->highlight->item : 0;
+}
+
+bool QQuickAbstractItemView::highlightFollowsCurrentItem() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->autoHighlight;
+}
+
+void QQuickAbstractItemView::setHighlightFollowsCurrentItem(bool autoHighlight)
+{
+    Q_D(QQuickAbstractItemView);
+    if (d->autoHighlight != autoHighlight) {
+        d->autoHighlight = autoHighlight;
+        if (autoHighlight)
+            d->updateHighlight();
+        emit highlightFollowsCurrentItemChanged();
+    }
+}
+
+int QQuickAbstractItemView::highlightMoveDuration() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->highlightMoveDuration;
+}
+
+void QQuickAbstractItemView::setHighlightMoveDuration(int duration)
+{
+    Q_D(QQuickAbstractItemView);
+    if (d->highlightMoveDuration != duration) {
+        d->highlightMoveDuration = duration;
+        emit highlightMoveDurationChanged();
+    }
+}
+
 void QQuickAbstractItemView::forceLayout()
 {
     Q_D(QQuickAbstractItemView);

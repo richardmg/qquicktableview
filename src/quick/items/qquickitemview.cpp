@@ -293,48 +293,6 @@ void QQuickItemView::setFooter(QQmlComponent *footerComponent)
     }
 }
 
-QQmlComponent *QQuickItemView::highlight() const
-{
-    Q_D(const QQuickItemView);
-    return d->highlightComponent;
-}
-
-void QQuickItemView::setHighlight(QQmlComponent *highlightComponent)
-{
-    Q_D(QQuickItemView);
-    if (highlightComponent != d->highlightComponent) {
-        d->applyPendingChanges();
-        d->highlightComponent = highlightComponent;
-        d->createHighlight();
-        if (d->currentItem)
-            d->updateHighlight();
-        emit highlightChanged();
-    }
-}
-
-QQuickItem *QQuickItemView::highlightItem() const
-{
-    Q_D(const QQuickItemView);
-    return d->highlight ? d->highlight->item : 0;
-}
-
-bool QQuickItemView::highlightFollowsCurrentItem() const
-{
-    Q_D(const QQuickItemView);
-    return d->autoHighlight;
-}
-
-void QQuickItemView::setHighlightFollowsCurrentItem(bool autoHighlight)
-{
-    Q_D(QQuickItemView);
-    if (d->autoHighlight != autoHighlight) {
-        d->autoHighlight = autoHighlight;
-        if (autoHighlight)
-            d->updateHighlight();
-        emit highlightFollowsCurrentItemChanged();
-    }
-}
-
 QQuickItemView::HighlightRangeMode QQuickItemView::highlightRangeMode() const
 {
     Q_D(const QQuickItemView);
@@ -428,21 +386,6 @@ void QQuickItemView::resetPreferredHighlightEnd()
             d->fixupPosition();
     }
     emit preferredHighlightEndChanged();
-}
-
-int QQuickItemView::highlightMoveDuration() const
-{
-    Q_D(const QQuickItemView);
-    return d->highlightMoveDuration;
-}
-
-void QQuickItemView::setHighlightMoveDuration(int duration)
-{
-    Q_D(QQuickItemView);
-    if (d->highlightMoveDuration != duration) {
-        d->highlightMoveDuration = duration;
-        emit highlightMoveDurationChanged();
-    }
 }
 
 void QQuickItemViewPrivate::positionViewAtIndex(int index, int mode)

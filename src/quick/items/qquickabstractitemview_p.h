@@ -90,6 +90,11 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
     Q_PROPERTY(QQuickTransition *removeDisplaced READ removeDisplacedTransition WRITE setRemoveDisplacedTransition NOTIFY removeDisplacedTransitionChanged)
     Q_PROPERTY(QQuickTransition *displaced READ displacedTransition WRITE setDisplacedTransition NOTIFY displacedTransitionChanged)
 
+    Q_PROPERTY(QQmlComponent *highlight READ highlight WRITE setHighlight NOTIFY highlightChanged)
+    Q_PROPERTY(QQuickItem *highlightItem READ highlightItem NOTIFY highlightItemChanged)
+    Q_PROPERTY(bool highlightFollowsCurrentItem READ highlightFollowsCurrentItem WRITE setHighlightFollowsCurrentItem NOTIFY highlightFollowsCurrentItemChanged)
+    Q_PROPERTY(int highlightMoveDuration READ highlightMoveDuration WRITE setHighlightMoveDuration NOTIFY highlightMoveDurationChanged)
+
 public:
     // this holds all layout enum values so they can be referred to by other enums
     // to ensure consistent values - e.g. QML references to GridView.TopToBottom flow
@@ -161,6 +166,17 @@ public:
     QQuickTransition *displacedTransition() const;
     void setDisplacedTransition(QQuickTransition *transition);
 
+    QQmlComponent *highlight() const;
+    void setHighlight(QQmlComponent *);
+
+    QQuickItem *highlightItem() const;
+
+    bool highlightFollowsCurrentItem() const;
+    virtual void setHighlightFollowsCurrentItem(bool);
+
+    int highlightMoveDuration() const;
+    virtual void setHighlightMoveDuration(int);
+
     Q_REVISION(1) Q_INVOKABLE void forceLayout();
 
 Q_SIGNALS:
@@ -184,6 +200,11 @@ Q_SIGNALS:
     void removeTransitionChanged();
     void removeDisplacedTransitionChanged();
     void displacedTransitionChanged();
+
+    void highlightChanged();
+    void highlightItemChanged();
+    void highlightFollowsCurrentItemChanged();
+    void highlightMoveDurationChanged();
 
 protected:
     void updatePolish() override;

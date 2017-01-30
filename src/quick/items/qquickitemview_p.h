@@ -80,13 +80,9 @@ class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
     Q_PROPERTY(QQmlComponent *footer READ footer WRITE setFooter NOTIFY footerChanged)
     Q_PROPERTY(QQuickItem *footerItem READ footerItem NOTIFY footerItemChanged)
 
-    Q_PROPERTY(QQmlComponent *highlight READ highlight WRITE setHighlight NOTIFY highlightChanged)
-    Q_PROPERTY(QQuickItem *highlightItem READ highlightItem NOTIFY highlightItemChanged)
-    Q_PROPERTY(bool highlightFollowsCurrentItem READ highlightFollowsCurrentItem WRITE setHighlightFollowsCurrentItem NOTIFY highlightFollowsCurrentItemChanged)
     Q_PROPERTY(HighlightRangeMode highlightRangeMode READ highlightRangeMode WRITE setHighlightRangeMode NOTIFY highlightRangeModeChanged)
     Q_PROPERTY(qreal preferredHighlightBegin READ preferredHighlightBegin WRITE setPreferredHighlightBegin NOTIFY preferredHighlightBeginChanged RESET resetPreferredHighlightBegin)
     Q_PROPERTY(qreal preferredHighlightEnd READ preferredHighlightEnd WRITE setPreferredHighlightEnd NOTIFY preferredHighlightEndChanged RESET resetPreferredHighlightEnd)
-    Q_PROPERTY(int highlightMoveDuration READ highlightMoveDuration WRITE setHighlightMoveDuration NOTIFY highlightMoveDurationChanged)
 
 public:
     QQuickItemView(QQuickFlickablePrivate &dd, QQuickItem *parent = 0);
@@ -110,14 +106,6 @@ public:
     void setHeader(QQmlComponent *);
     QQuickItem *headerItem() const;
 
-    QQmlComponent *highlight() const;
-    void setHighlight(QQmlComponent *);
-
-    QQuickItem *highlightItem() const;
-
-    bool highlightFollowsCurrentItem() const;
-    virtual void setHighlightFollowsCurrentItem(bool);
-
     enum HighlightRangeMode { NoHighlightRange, ApplyRange, StrictlyEnforceRange };
     Q_ENUM(HighlightRangeMode)
     HighlightRangeMode highlightRangeMode() const;
@@ -130,9 +118,6 @@ public:
     qreal preferredHighlightEnd() const;
     void setPreferredHighlightEnd(qreal);
     void resetPreferredHighlightEnd();
-
-    int highlightMoveDuration() const;
-    virtual void setHighlightMoveDuration(int);
 
     enum PositionMode { Beginning, Center, End, Visible, Contain, SnapPosition };
     Q_ENUM(PositionMode)
@@ -160,13 +145,9 @@ Q_SIGNALS:
     void headerItemChanged();
     void footerItemChanged();
 
-    void highlightChanged();
-    void highlightItemChanged();
-    void highlightFollowsCurrentItemChanged();
     void highlightRangeModeChanged();
     void preferredHighlightBeginChanged();
     void preferredHighlightEndChanged();
-    void highlightMoveDurationChanged();
 
 protected:
     void componentComplete() override;
