@@ -190,7 +190,6 @@ Q_SIGNALS:
     void highlightMoveDurationChanged();
 
 protected:
-    void updatePolish() override;
     void componentComplete() override;
     void geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry) override;
     qreal minYExtent() const override;

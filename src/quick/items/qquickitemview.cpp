@@ -1102,13 +1102,6 @@ qreal QQuickItemView::originY() const
     return QQuickFlickable::originY();
 }
 
-void QQuickItemView::updatePolish()
-{
-    Q_D(QQuickItemView);
-    QQuickFlickable::updatePolish();
-    d->layout();
-}
-
 void QQuickItemView::componentComplete()
 {
     Q_D(QQuickItemView);

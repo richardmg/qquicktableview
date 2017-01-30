@@ -778,6 +778,13 @@ void QQuickAbstractItemView::setDisplacedTransition(QQuickTransition *transition
     }
 }
 
+void QQuickAbstractItemView::updatePolish()
+{
+    Q_D(QQuickAbstractItemView);
+    QQuickFlickable::updatePolish();
+    d->layout();
+}
+
 void QQuickAbstractItemView::initItem(int, QObject *object)
 {
     QQuickItem* item = qmlobject_cast<QQuickItem*>(object);

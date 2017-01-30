@@ -166,6 +166,9 @@ Q_SIGNALS:
     void removeDisplacedTransitionChanged();
     void displacedTransitionChanged();
 
+protected:
+    void updatePolish() override;
+
 protected Q_SLOTS:
     virtual void initItem(int index, QObject *item);
     void destroyingItem(QObject *item);
