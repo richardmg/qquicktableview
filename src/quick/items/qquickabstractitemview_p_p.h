@@ -131,8 +131,28 @@ public:
     bool inRequest : 1;
 
 protected:
+    virtual Qt::Orientation layoutOrientation() const = 0;
+    virtual bool isContentFlowReversed() const = 0;
+
+    virtual void createHighlight() = 0;
+    virtual void updateHighlight() = 0;
+    virtual void resetHighlightPosition() = 0;
+
+    virtual void fixupPosition() = 0;
+
+    virtual void visibleItemsChanged() {}
+
     virtual FxAbstractViewItem *newViewItem(int index, QQuickItem *item) = 0;
+
+    virtual void layoutVisibleItems(int fromModelIndex = 0) = 0;
+    virtual void changedVisibleIndex(int newIndex) = 0;
+
+    virtual bool needsRefillForAddedOrRemovedIndex(int) const { return false; }
+
     virtual void initializeViewItem(FxAbstractViewItem *) {}
+    virtual void initializeCurrentItem() {}
+    virtual void updateSectionCriteria() {}
+    virtual void updateSections() {}
 };
 
 QT_END_NAMESPACE

@@ -289,9 +289,6 @@ public:
     bool delegateValidated : 1;
 
 protected:
-    virtual Qt::Orientation layoutOrientation() const = 0;
-    virtual bool isContentFlowReversed() const = 0;
-
     virtual qreal positionAt(int index) const = 0;
     virtual qreal endPositionAt(int index) const = 0;
     virtual qreal originPosition() const = 0;
@@ -306,34 +303,20 @@ protected:
     virtual bool hasStickyHeader() const { return false; }
     virtual bool hasStickyFooter() const { return false; }
 
-    virtual void createHighlight() = 0;
-    virtual void updateHighlight() = 0;
-    virtual void resetHighlightPosition() = 0;
-
     virtual void setPosition(qreal pos) = 0;
-    virtual void fixupPosition() = 0;
 
     virtual bool addVisibleItems(qreal fillFrom, qreal fillTo, qreal bufferFrom, qreal bufferTo, bool doBuffer) = 0;
     virtual bool removeNonVisibleItems(qreal bufferFrom, qreal bufferTo) = 0;
-    virtual void visibleItemsChanged() {}
 
     virtual void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) = 0;
     virtual void repositionPackageItemAt(QQuickItem *item, int index) = 0;
     virtual void resetFirstItemPosition(qreal pos = 0.0) = 0;
     virtual void adjustFirstItem(qreal forwards, qreal backwards, int changeBeforeVisible) = 0;
 
-    virtual void layoutVisibleItems(int fromModelIndex = 0) = 0;
-    virtual void changedVisibleIndex(int newIndex) = 0;
-
     virtual bool applyInsertionChange(const QQmlChangeSet::Change &insert, ChangeResult *changeResult,
                 QList<FxViewItem *> *newItems, QList<MovedItem> *movingIntoView) = 0;
 
-    virtual bool needsRefillForAddedOrRemovedIndex(int) const { return false; }
     virtual void translateAndTransitionItemsAfter(int afterIndex, const ChangeResult &insertionResult, const ChangeResult &removalResult) = 0;
-
-    virtual void initializeCurrentItem() {}
-    virtual void updateSectionCriteria() {}
-    virtual void updateSections() {}
 
     void itemGeometryChanged(QQuickItem *item, QQuickGeometryChange change, const QRectF &) override;
 };
