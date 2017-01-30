@@ -144,8 +144,6 @@ public:
     void refill(qreal from, qreal to);
     void mirrorChange() override;
 
-    QQuickItem *createHighlightItem() const;
-
     void updateCurrent(int modelIndex);
     void updateTrackedItem();
     void updateUnrequestedIndexes();

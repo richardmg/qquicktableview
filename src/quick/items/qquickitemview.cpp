@@ -1926,11 +1926,6 @@ void QQuickItemView::createdItem(int index, QObject* object)
     }
 }
 
-QQuickItem *QQuickItemViewPrivate::createHighlightItem() const
-{
-    return createComponentItem(highlightComponent, 0.0, true);
-}
-
 void QQuickItemViewPrivate::updateTrackedItem()
 {
     Q_Q(QQuickItemView);

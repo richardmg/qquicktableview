@@ -310,6 +310,11 @@ bool QQuickAbstractItemViewPrivate::releaseItem(FxAbstractViewItem *item)
     return flags != QQmlInstanceModel::Referenced;
 }
 
+QQuickItem *QQuickAbstractItemViewPrivate::createHighlightItem() const
+{
+    return createComponentItem(highlightComponent, 0.0, true);
+}
+
 QQuickItem *QQuickAbstractItemViewPrivate::createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault) const
 {
     Q_Q(const QQuickAbstractItemView);

@@ -147,6 +147,7 @@ public:
     FxAbstractViewItem *createItem(int modelIndex, bool asynchronous = false);
     virtual bool releaseItem(FxAbstractViewItem *item);
 
+    QQuickItem *createHighlightItem() const;
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
 
     bool createOwnModel();
