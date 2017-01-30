@@ -148,7 +148,6 @@ public:
         }
     };
 
-    bool isValid() const;
     qreal position() const;
     qreal size() const;
     qreal startPosition() const;

@@ -208,6 +208,11 @@ QQuickAbstractItemViewPrivate::~QQuickAbstractItemViewPrivate()
     delete transitioner;
 }
 
+bool QQuickAbstractItemViewPrivate::isValid() const
+{
+    return model && model->count() && model->isValid();
+}
+
 void QQuickAbstractItemViewPrivate::init()
 {
 }

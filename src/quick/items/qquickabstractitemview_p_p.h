@@ -112,6 +112,8 @@ public:
     enum BufferMode { NoBuffer = 0x00, BufferBefore = 0x01, BufferAfter = 0x02 };
     enum MovementReason { Other, SetIndex, Mouse };
 
+    bool isValid() const;
+
     virtual void init();
     virtual void clear();
     virtual void updateViewport();

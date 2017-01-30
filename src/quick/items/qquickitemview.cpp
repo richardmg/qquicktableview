@@ -1246,11 +1246,6 @@ QQuickItemViewPrivate::QQuickItemViewPrivate()
 {
 }
 
-bool QQuickItemViewPrivate::isValid() const
-{
-    return model && model->count() && model->isValid();
-}
-
 qreal QQuickItemViewPrivate::position() const
 {
     Q_Q(const QQuickItemView);
