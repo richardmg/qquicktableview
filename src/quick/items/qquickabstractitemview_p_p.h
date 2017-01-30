@@ -159,6 +159,8 @@ public:
     bool createOwnModel();
     void destroyOwnModel();
 
+    void applyPendingChanges();
+
     void createTransitioner();
     void prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> *removedItems);
     bool prepareNonVisibleItemTransition(FxAbstractViewItem *item, const QRectF &viewBounds);

@@ -697,13 +697,6 @@ void QQuickItemViewPrivate::recreateVisibleItems()
     updateViewport();
 }
 
-void QQuickItemViewPrivate::applyPendingChanges()
-{
-    Q_Q(QQuickItemView);
-    if (q->isComponentComplete() && currentChanges.hasPendingChanges())
-        layout();
-}
-
 qreal QQuickItemViewPrivate::minExtentForAxis(const AxisData &axisData, bool forXAxis) const
 {
     Q_Q(const QQuickItemView);

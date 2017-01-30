@@ -391,6 +391,13 @@ void QQuickAbstractItemViewPrivate::destroyOwnModel()
     }
 }
 
+void QQuickAbstractItemViewPrivate::applyPendingChanges()
+{
+    Q_Q(QQuickAbstractItemView);
+    if (q->isComponentComplete() && currentChanges.hasPendingChanges())
+        layout();
+}
+
 void QQuickAbstractItemViewPrivate::createTransitioner()
 {
     if (!transitioner) {
