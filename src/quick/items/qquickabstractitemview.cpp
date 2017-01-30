@@ -45,6 +45,11 @@
 
 QT_BEGIN_NAMESPACE
 
+// Default cacheBuffer for all views.
+#ifndef QML_VIEW_DEFAULTCACHEBUFFER
+#define QML_VIEW_DEFAULTCACHEBUFFER 320
+#endif
+
 FxAbstractViewItem::FxAbstractViewItem(QQuickItem *i, QQuickAbstractItemView *v, bool own, QQuickAbstractItemViewAttached *attached)
     : item(i)
     , view(v)
@@ -157,14 +162,39 @@ void FxAbstractViewItem::startTransition(QQuickItemViewTransitioner *transitione
 }
 
 QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
-    : transitioner(nullptr),
+    : itemCount(0),
+      buffer(QML_VIEW_DEFAULTCACHEBUFFER),
+      bufferMode(BufferBefore | BufferAfter),
+      layoutDirection(Qt::LeftToRight),
+      verticalLayoutDirection(QQuickItemView::TopToBottom),
+      moveReason(Other),
+      visibleIndex(0),
+      currentIndex(-1),
+      requestedIndex(-1),
+      highlightComponent(nullptr),
+      highlightRange(QQuickItemView::NoHighlightRange),
+      highlightMoveDuration(150),
+      transitioner(nullptr),
+      minExtent(0),
+      maxExtent(0),
+      ownModel(false),
       wrap(false),
       keyNavigationEnabled(true),
       explicitKeyNavigationEnabled(false),
+      inLayout(false),
+      inViewportMoved(false),
       forceLayout(false),
+      currentIndexCleared(false),
+      haveHighlightRange(false),
+      autoHighlight(true),
       fillCacheBuffer(false),
-      inRequest(false)
+      inRequest(false),
+      runDelayedRemoveTransition(false),
+      delegateValidated(false)
 {
+    bufferPause.addAnimationChangeListener(this, QAbstractAnimationJob::Completion);
+    bufferPause.setLoopCount(1);
+    bufferPause.setDuration(16);
 }
 
 QQuickAbstractItemViewPrivate::~QQuickAbstractItemViewPrivate()

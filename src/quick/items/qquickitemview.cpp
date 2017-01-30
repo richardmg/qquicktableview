@@ -46,11 +46,6 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcItemViewDelegateLifecycle, "qt.quick.itemview.lifecycle")
 
-// Default cacheBuffer for all views.
-#ifndef QML_VIEW_DEFAULTCACHEBUFFER
-#define QML_VIEW_DEFAULTCACHEBUFFER 320
-#endif
-
 QQuickItemViewChangeSet::QQuickItemViewChangeSet()
     : active(false)
 {
@@ -1263,28 +1258,12 @@ void QQuickItemView::componentComplete()
 
 
 QQuickItemViewPrivate::QQuickItemViewPrivate()
-    : itemCount(0)
-    , buffer(QML_VIEW_DEFAULTCACHEBUFFER), bufferMode(BufferBefore | BufferAfter)
-    , displayMarginBeginning(0), displayMarginEnd(0)
-    , layoutDirection(Qt::LeftToRight), verticalLayoutDirection(QQuickItemView::TopToBottom)
-    , moveReason(Other)
-    , visibleIndex(0)
-    , currentIndex(-1), currentItem(0)
-    , trackedItem(0), requestedIndex(-1)
-    , highlightComponent(0), highlight(0)
-    , highlightRange(QQuickItemView::NoHighlightRange)
-    , highlightRangeStart(0), highlightRangeEnd(0)
-    , highlightMoveDuration(150)
+    : displayMarginBeginning(0), displayMarginEnd(0)
+    , currentItem(0), trackedItem(0)
+    , highlight(0), highlightRangeStart(0), highlightRangeEnd(0)
     , headerComponent(0), header(0), footerComponent(0), footer(0)
-    , minExtent(0), maxExtent(0)
-    , ownModel(false)
-    , inLayout(false), inViewportMoved(false), currentIndexCleared(false)
-    , haveHighlightRange(false), autoHighlight(true), highlightRangeStartValid(false), highlightRangeEndValid(false)
-    , runDelayedRemoveTransition(false), delegateValidated(false)
+    , highlightRangeStartValid(false), highlightRangeEndValid(false)
 {
-    bufferPause.addAnimationChangeListener(this, QAbstractAnimationJob::Completion);
-    bufferPause.setLoopCount(1);
-    bufferPause.setDuration(16);
 }
 
 bool QQuickItemViewPrivate::isValid() const

@@ -59,6 +59,8 @@ QT_REQUIRE_CONFIG(quick_itemview);
 #include "qquickitemviewtransition_p.h"
 #include "qquickflickable_p_p.h"
 
+#include <QtQml/private/qqmlobjectmodel_p.h>
+
 QT_BEGIN_NAMESPACE
 
 class Q_AUTOTEST_EXPORT FxAbstractViewItem
@@ -107,6 +109,9 @@ public:
 
     static inline QQuickAbstractItemViewPrivate *get(QQuickAbstractItemView *o) { return o->d_func(); }
 
+    enum BufferMode { NoBuffer = 0x00, BufferBefore = 0x01, BufferAfter = 0x02 };
+    enum MovementReason { Other, SetIndex, Mouse };
+
     virtual void init();
     virtual void clear();
     virtual void updateViewport();
@@ -123,16 +128,45 @@ public:
         q->polish();
     }
 
+    QPointer<QQmlInstanceModel> model;
+    QVariant modelVariant;
+    int itemCount;
+    int buffer;
+    int bufferMode;
+    Qt::LayoutDirection layoutDirection;
+    QQuickItemView::VerticalLayoutDirection verticalLayoutDirection;
+
+    MovementReason moveReason;
+
+    int visibleIndex;
+    int currentIndex;
     QHash<QQuickItem*,int> unrequestedItems;
+    int requestedIndex;
+    QPauseAnimationJob bufferPause;
+
+    QQmlComponent *highlightComponent;
+    int highlightRange;     // enum value
+    int highlightMoveDuration;
 
     QQuickItemViewTransitioner *transitioner;
 
+    mutable qreal minExtent;
+    mutable qreal maxExtent;
+
+    bool ownModel : 1;
     bool wrap : 1;
     bool keyNavigationEnabled : 1;
     bool explicitKeyNavigationEnabled : 1;
+    bool inLayout : 1;
+    bool inViewportMoved : 1;
     bool forceLayout : 1;
+    bool currentIndexCleared : 1;
+    bool haveHighlightRange : 1;
+    bool autoHighlight : 1;
     bool fillCacheBuffer : 1;
     bool inRequest : 1;
+    bool runDelayedRemoveTransition : 1;
+    bool delegateValidated : 1;
 
 protected:
     virtual Qt::Orientation layoutOrientation() const = 0;

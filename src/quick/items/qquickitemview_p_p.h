@@ -57,7 +57,6 @@ QT_REQUIRE_CONFIG(quick_itemview);
 
 #include "qquickitemview_p.h"
 #include "qquickabstractitemview_p_p.h"
-#include <QtQml/private/qqmlobjectmodel_p.h>
 #include <QtQml/private/qqmldelegatemodel_p.h>
 #include <QtQml/private/qqmlchangeset_p.h>
 
@@ -149,9 +148,6 @@ public:
         }
     };
 
-    enum BufferMode { NoBuffer = 0x00, BufferBefore = 0x01, BufferAfter = 0x02 };
-    enum MovementReason { Other, SetIndex, Mouse };
-
     bool isValid() const;
     qreal position() const;
     qreal size() const;
@@ -232,34 +228,18 @@ public:
             refill();
     }
 
-    QPointer<QQmlInstanceModel> model;
-    QVariant modelVariant;
-    int itemCount;
-    int buffer;
-    int bufferMode;
     int displayMarginBeginning;
     int displayMarginEnd;
-    Qt::LayoutDirection layoutDirection;
-    QQuickItemView::VerticalLayoutDirection verticalLayoutDirection;
-
-    MovementReason moveReason;
 
     QList<FxViewItem *> visibleItems;
-    int visibleIndex;
-    int currentIndex;
     FxViewItem *currentItem;
     FxViewItem *trackedItem;
-    int requestedIndex;
     QQuickItemViewChangeSet currentChanges;
     QQuickItemViewChangeSet bufferedChanges;
-    QPauseAnimationJob bufferPause;
 
-    QQmlComponent *highlightComponent;
     FxViewItem *highlight;
-    int highlightRange;     // enum value
     qreal highlightRangeStart;
     qreal highlightRangeEnd;
-    int highlightMoveDuration;
 
     QQmlComponent *headerComponent;
     FxViewItem *header;
@@ -274,19 +254,8 @@ public:
     };
     QList<FxViewItem *> releasePendingTransition;
 
-    mutable qreal minExtent;
-    mutable qreal maxExtent;
-
-    bool ownModel : 1;
-    bool inLayout : 1;
-    bool inViewportMoved : 1;
-    bool currentIndexCleared : 1;
-    bool haveHighlightRange : 1;
-    bool autoHighlight : 1;
     bool highlightRangeStartValid : 1;
     bool highlightRangeEndValid : 1;
-    bool runDelayedRemoveTransition : 1;
-    bool delegateValidated : 1;
 
 protected:
     virtual qreal positionAt(int index) const = 0;
