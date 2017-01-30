@@ -168,7 +168,7 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
       buffer(QML_VIEW_DEFAULTCACHEBUFFER),
       bufferMode(BufferBefore | BufferAfter),
       layoutDirection(Qt::LeftToRight),
-      verticalLayoutDirection(QQuickItemView::TopToBottom),
+      verticalLayoutDirection(QQuickItemView::TopToBottom), // ###
       moveReason(Other),
       visibleIndex(0),
       currentIndex(-1),
@@ -177,7 +177,7 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
       requestedIndex(-1),
       highlightComponent(nullptr),
       highlight(nullptr),
-      highlightRange(QQuickItemView::NoHighlightRange),
+      highlightRange(QQuickItemView::NoHighlightRange), // ###
       highlightMoveDuration(150),
       transitioner(nullptr),
       minExtent(0),
@@ -1020,6 +1020,15 @@ void QQuickAbstractItemView::destroyingItem(QObject *object)
         item->setParentItem(0);
         d->unrequestedItems.remove(item);
     }
+}
+
+void QQuickAbstractItemView::animStopped()
+{
+    Q_D(QQuickAbstractItemView);
+    d->bufferMode = QQuickAbstractItemViewPrivate::BufferBefore | QQuickAbstractItemViewPrivate::BufferAfter;
+    d->refillOrLayout();
+    if (d->haveHighlightRange && d->highlightRange == QQuickItemView::StrictlyEnforceRange) // ###
+        d->updateHighlight();
 }
 
 void QQuickAbstractItemView::trackedPositionChanged()

@@ -727,16 +727,6 @@ void QQuickItemView::destroyRemoved()
     d->forceLayoutPolish();
 }
 
-void QQuickItemView::animStopped()
-{
-    Q_D(QQuickItemView);
-    d->bufferMode = QQuickItemViewPrivate::BufferBefore | QQuickItemViewPrivate::BufferAfter;
-    d->refillOrLayout();
-    if (d->haveHighlightRange && d->highlightRange == QQuickItemView::StrictlyEnforceRange)
-        d->updateHighlight();
-}
-
-
 void QQuickItemView::trackedPositionChanged()
 {
     Q_D(QQuickItemView);

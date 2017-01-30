@@ -213,6 +213,7 @@ protected Q_SLOTS:
     virtual void initItem(int index, QObject *item);
     void modelUpdated(const QQmlChangeSet &changeSet, bool reset);
     void destroyingItem(QObject *item);
+    void animStopped();
     virtual void trackedPositionChanged();
 
 protected:
