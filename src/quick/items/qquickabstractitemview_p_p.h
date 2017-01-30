@@ -153,6 +153,7 @@ public:
     QQuickItem *createHighlightItem() const;
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
 
+    void updateCurrent(int modelIndex);
     void updateUnrequestedIndexes();
     void updateUnrequestedPositions();
 

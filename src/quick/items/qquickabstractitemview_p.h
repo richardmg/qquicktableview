@@ -67,6 +67,9 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
 {
     Q_OBJECT
 
+    Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
+    Q_PROPERTY(QQuickItem *currentItem READ currentItem NOTIFY currentItemChanged)
+
     Q_PROPERTY(bool keyNavigationWraps READ isWrapEnabled WRITE setWrapEnabled NOTIFY keyNavigationWrapsChanged)
     Q_PROPERTY(bool keyNavigationEnabled READ isKeyNavigationEnabled WRITE setKeyNavigationEnabled NOTIFY keyNavigationEnabledChanged REVISION 7)
 
@@ -106,6 +109,7 @@ public:
     int count() const;
 
     int currentIndex() const;
+    void setCurrentIndex(int idx);
 
     QQuickItem *currentItem() const;
 
@@ -147,6 +151,9 @@ public:
     void setDisplacedTransition(QQuickTransition *transition);
 
 Q_SIGNALS:
+    void currentIndexChanged();
+    void currentItemChanged();
+
     void keyNavigationWrapsChanged();
     Q_REVISION(7) void keyNavigationEnabledChanged();
 

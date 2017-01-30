@@ -75,9 +75,6 @@ class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
     Q_PROPERTY(QQmlComponent *delegate READ delegate WRITE setDelegate NOTIFY delegateChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
-    Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
-    Q_PROPERTY(QQuickItem *currentItem READ currentItem NOTIFY currentItemChanged)
-
     Q_PROPERTY(int cacheBuffer READ cacheBuffer WRITE setCacheBuffer NOTIFY cacheBufferChanged)
     Q_PROPERTY(int displayMarginBeginning READ displayMarginBeginning WRITE setDisplayMarginBeginning NOTIFY displayMarginBeginningChanged REVISION 2)
     Q_PROPERTY(int displayMarginEnd READ displayMarginEnd WRITE setDisplayMarginEnd NOTIFY displayMarginEndChanged REVISION 2)
@@ -106,8 +103,6 @@ public:
     void setModel(const QVariant &);
 
     void setDelegate(QQmlComponent *);
-
-    void setCurrentIndex(int idx);
 
     void setCacheBuffer(int);
 
@@ -172,8 +167,6 @@ Q_SIGNALS:
     void modelChanged();
     void delegateChanged();
     void countChanged();
-    void currentIndexChanged();
-    void currentItemChanged();
 
     void cacheBufferChanged();
     void displayMarginBeginningChanged();

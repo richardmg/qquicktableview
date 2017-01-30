@@ -233,25 +233,6 @@ void QQuickItemView::setDelegate(QQmlComponent *delegate)
     d->delegateValidated = false;
 }
 
-void QQuickItemView::setCurrentIndex(int index)
-{
-    Q_D(QQuickItemView);
-    if (d->inRequest)  // currently creating item
-        return;
-    d->currentIndexCleared = (index == -1);
-
-    d->applyPendingChanges();
-    if (index == d->currentIndex)
-        return;
-    if (isComponentComplete() && d->isValid()) {
-        d->moveReason = QQuickItemViewPrivate::SetIndex;
-        d->updateCurrent(index);
-    } else if (d->currentIndex != index) {
-        d->currentIndex = index;
-        emit currentIndexChanged();
-    }
-}
-
 void QQuickItemView::setCacheBuffer(int b)
 {
     Q_D(QQuickItemView);
@@ -1280,54 +1261,6 @@ void QQuickItemViewPrivate::init()
     QObject::connect(q, SIGNAL(movementEnded()), q, SLOT(animStopped()));
     QObject::connect(q, &QQuickFlickable::interactiveChanged, q, &QQuickItemView::keyNavigationEnabledChanged);
     q->setFlickableDirection(QQuickFlickable::VerticalFlick);
-}
-
-void QQuickItemViewPrivate::updateCurrent(int modelIndex)
-{
-    Q_Q(QQuickItemView);
-    applyPendingChanges();
-    if (!q->isComponentComplete() || !isValid() || modelIndex < 0 || modelIndex >= model->count()) {
-        if (currentItem) {
-            if (currentItem->attached)
-                currentItem->attached->setIsCurrentItem(false);
-            releaseItem(currentItem);
-            currentItem = 0;
-            currentIndex = modelIndex;
-            emit q->currentIndexChanged();
-            emit q->currentItemChanged();
-            updateHighlight();
-        } else if (currentIndex != modelIndex) {
-            currentIndex = modelIndex;
-            emit q->currentIndexChanged();
-        }
-        return;
-    }
-
-    if (currentItem && currentIndex == modelIndex) {
-        updateHighlight();
-        return;
-    }
-
-    FxAbstractViewItem *oldCurrentItem = currentItem;
-    int oldCurrentIndex = currentIndex;
-    currentIndex = modelIndex;
-    currentItem = createItem(modelIndex, false);
-    if (oldCurrentItem && oldCurrentItem->attached && (!currentItem || oldCurrentItem->item != currentItem->item))
-        oldCurrentItem->attached->setIsCurrentItem(false);
-    if (currentItem) {
-        currentItem->item->setFocus(true);
-        if (currentItem->attached)
-            currentItem->attached->setIsCurrentItem(true);
-        initializeCurrentItem();
-    }
-
-    updateHighlight();
-    if (oldCurrentIndex != currentIndex)
-        emit q->currentIndexChanged();
-    if (oldCurrentItem != currentItem
-            && (!oldCurrentItem || !currentItem || oldCurrentItem->item != currentItem->item))
-        emit q->currentItemChanged();
-    releaseItem(oldCurrentItem);
 }
 
 void QQuickItemViewPrivate::clear()

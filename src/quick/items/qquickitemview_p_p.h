@@ -144,7 +144,6 @@ public:
     void refill(qreal from, qreal to);
     void mirrorChange() override;
 
-    void updateCurrent(int modelIndex);
     void updateTrackedItem();
     void updateVisibleIndex();
     void positionViewAtIndex(int index, int mode);

@@ -355,6 +355,54 @@ QQuickItem *QQuickAbstractItemViewPrivate::createComponentItem(QQmlComponent *co
     return item;
 }
 
+void QQuickAbstractItemViewPrivate::updateCurrent(int modelIndex)
+{
+    Q_Q(QQuickAbstractItemView);
+    applyPendingChanges();
+    if (!q->isComponentComplete() || !isValid() || modelIndex < 0 || modelIndex >= model->count()) {
+        if (currentItem) {
+            if (currentItem->attached)
+                currentItem->attached->setIsCurrentItem(false);
+            releaseItem(currentItem);
+            currentItem = 0;
+            currentIndex = modelIndex;
+            emit q->currentIndexChanged();
+            emit q->currentItemChanged();
+            updateHighlight();
+        } else if (currentIndex != modelIndex) {
+            currentIndex = modelIndex;
+            emit q->currentIndexChanged();
+        }
+        return;
+    }
+
+    if (currentItem && currentIndex == modelIndex) {
+        updateHighlight();
+        return;
+    }
+
+    FxAbstractViewItem *oldCurrentItem = currentItem;
+    int oldCurrentIndex = currentIndex;
+    currentIndex = modelIndex;
+    currentItem = createItem(modelIndex, false);
+    if (oldCurrentItem && oldCurrentItem->attached && (!currentItem || oldCurrentItem->item != currentItem->item))
+        oldCurrentItem->attached->setIsCurrentItem(false);
+    if (currentItem) {
+        currentItem->item->setFocus(true);
+        if (currentItem->attached)
+            currentItem->attached->setIsCurrentItem(true);
+        initializeCurrentItem();
+    }
+
+    updateHighlight();
+    if (oldCurrentIndex != currentIndex)
+        emit q->currentIndexChanged();
+    if (oldCurrentItem != currentItem
+            && (!oldCurrentItem || !currentItem || oldCurrentItem->item != currentItem->item))
+        emit q->currentItemChanged();
+    releaseItem(oldCurrentItem);
+}
+
 void QQuickAbstractItemViewPrivate::updateUnrequestedIndexes()
 {
     Q_Q(QQuickAbstractItemView);
@@ -504,6 +552,25 @@ int QQuickAbstractItemView::currentIndex() const
 {
     Q_D(const QQuickAbstractItemView);
     return d->currentIndex;
+}
+
+void QQuickAbstractItemView::setCurrentIndex(int index)
+{
+    Q_D(QQuickAbstractItemView);
+    if (d->inRequest)  // currently creating item
+        return;
+    d->currentIndexCleared = (index == -1);
+
+    d->applyPendingChanges();
+    if (index == d->currentIndex)
+        return;
+    if (isComponentComplete() && d->isValid()) {
+        d->moveReason = QQuickAbstractItemViewPrivate::SetIndex;
+        d->updateCurrent(index);
+    } else if (d->currentIndex != index) {
+        d->currentIndex = index;
+        emit currentIndexChanged();
+    }
 }
 
 int QQuickAbstractItemView::cacheBuffer() const
