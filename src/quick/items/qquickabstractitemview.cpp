@@ -174,6 +174,7 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
       trackedItem(nullptr),
       requestedIndex(-1),
       highlightComponent(nullptr),
+      highlight(nullptr),
       highlightRange(QQuickItemView::NoHighlightRange),
       highlightMoveDuration(150),
       transitioner(nullptr),

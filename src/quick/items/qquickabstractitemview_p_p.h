@@ -151,6 +151,7 @@ public:
     QPauseAnimationJob bufferPause;
 
     QQmlComponent *highlightComponent;
+    FxAbstractViewItem *highlight;
     int highlightRange;     // enum value
     int highlightMoveDuration;
 

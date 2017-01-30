@@ -1240,7 +1240,7 @@ void QQuickItemView::componentComplete()
 QQuickItemViewPrivate::QQuickItemViewPrivate()
     : displayMarginBeginning(0), displayMarginEnd(0)
     , currentItem(0)
-    , highlight(0), highlightRangeStart(0), highlightRangeEnd(0)
+    , highlightRangeStart(0), highlightRangeEnd(0)
     , headerComponent(0), header(0), footerComponent(0), footer(0)
     , highlightRangeStartValid(false), highlightRangeEndValid(false)
 {
@@ -2061,7 +2061,7 @@ void QQuickItemViewPrivate::updateTrackedItem()
     Q_Q(QQuickItemView);
     FxViewItem *item = currentItem;
     if (highlight)
-        item = highlight;
+        item = static_cast<FxViewItem *>(highlight); // ###
     trackedItem = item;
 
     if (trackedItem)

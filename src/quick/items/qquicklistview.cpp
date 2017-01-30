@@ -535,7 +535,7 @@ FxViewItem *QQuickListViewPrivate::snapItemAt(qreal pos)
         if (item->index == -1)
             continue;
         qreal itemTop = item->position();
-        if (highlight && itemTop >= pos && item->endPosition() <= pos + highlight->size())
+        if (highlight && itemTop >= pos && item->endPosition() <= pos + static_cast<FxViewItem *>(highlight)->size())
             return item;
         if (itemTop+item->size()/2 >= pos && itemTop-prevItemSize/2 < pos)
             snapItem = item;
@@ -2943,21 +2943,22 @@ void QQuickListView::viewportMoved(Qt::Orientations orient)
     if (d->moveReason != QQuickListViewPrivate::SetIndex) {
         if (d->haveHighlightRange && d->highlightRange == StrictlyEnforceRange && d->highlight) {
             // reposition highlight
-            qreal pos = d->highlight->position();
+            FxListItemSG *highlight = static_cast<FxListItemSG *>(d->highlight);
+            qreal pos = highlight->position();
             qreal viewPos = d->isContentFlowReversed() ? -d->position()-d->size() : d->position();
-            if (pos > viewPos + d->highlightRangeEnd - d->highlight->size())
-                pos = viewPos + d->highlightRangeEnd - d->highlight->size();
+            if (pos > viewPos + d->highlightRangeEnd - highlight->size())
+                pos = viewPos + d->highlightRangeEnd - highlight->size();
             if (pos < viewPos + d->highlightRangeStart)
                 pos = viewPos + d->highlightRangeStart;
-            if (pos != d->highlight->position()) {
+            if (pos != highlight->position()) {
                 d->highlightPosAnimator->stop();
-                static_cast<FxListItemSG*>(d->highlight)->setPosition(pos);
+                highlight->setPosition(pos);
             } else {
                 d->updateHighlight();
             }
 
             // update current index
-            if (FxViewItem *snapItem = d->snapItemAt(d->highlight->position())) {
+            if (FxViewItem *snapItem = d->snapItemAt(highlight->position())) {
                 if (snapItem->index >= 0 && snapItem->index != d->currentIndex)
                     d->updateCurrent(snapItem->index);
             }

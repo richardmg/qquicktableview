@@ -232,7 +232,6 @@ public:
     QQuickItemViewChangeSet currentChanges;
     QQuickItemViewChangeSet bufferedChanges;
 
-    FxViewItem *highlight;
     qreal highlightRangeStart;
     qreal highlightRangeEnd;
 

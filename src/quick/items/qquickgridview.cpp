@@ -2068,17 +2068,18 @@ void QQuickGridView::viewportMoved(Qt::Orientations orient)
     if (d->moveReason != QQuickGridViewPrivate::SetIndex) {
         if (d->haveHighlightRange && d->highlightRange == StrictlyEnforceRange && d->highlight) {
             // reposition highlight
-            qreal pos = d->highlight->position();
+            FxGridItemSG *highlight = static_cast<FxGridItemSG *>(d->highlight);
+            qreal pos = highlight->position();
             qreal viewPos = d->isContentFlowReversed() ? -d->position()-d->size() : d->position();
-            if (pos > viewPos + d->highlightRangeEnd - d->highlight->size())
-                pos = viewPos + d->highlightRangeEnd - d->highlight->size();
+            if (pos > viewPos + d->highlightRangeEnd - highlight->size())
+                pos = viewPos + d->highlightRangeEnd - highlight->size();
             if (pos < viewPos + d->highlightRangeStart)
                 pos = viewPos + d->highlightRangeStart;
 
-            if (pos != d->highlight->position()) {
+            if (pos != highlight->position()) {
                 d->highlightXAnimator->stop();
                 d->highlightYAnimator->stop();
-                static_cast<FxGridItemSG*>(d->highlight)->setPosition(static_cast<FxGridItemSG*>(d->highlight)->colPos(), pos);
+                highlight->setPosition(highlight->colPos(), pos);
             } else {
                 d->updateHighlight();
             }
