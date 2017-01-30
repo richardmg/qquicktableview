@@ -325,6 +325,49 @@ QQuickAbstractItemView::~QQuickAbstractItemView()
 {
 }
 
+QQuickItem *QQuickAbstractItemView::currentItem() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->currentItem ? d->currentItem->item : 0;
+}
+
+QVariant QQuickAbstractItemView::model() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->modelVariant;
+}
+
+QQmlComponent *QQuickAbstractItemView::delegate() const
+{
+    Q_D(const QQuickAbstractItemView);
+    if (d->model) {
+        if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model))
+            return dataModel->delegate();
+    }
+
+    return 0;
+}
+
+int QQuickAbstractItemView::count() const
+{
+    Q_D(const QQuickAbstractItemView);
+    if (!d->model)
+        return 0;
+    return d->model->count();
+}
+
+int QQuickAbstractItemView::currentIndex() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->currentIndex;
+}
+
+int QQuickAbstractItemView::cacheBuffer() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->buffer;
+}
+
 bool QQuickAbstractItemView::isWrapEnabled() const
 {
     Q_D(const QQuickAbstractItemView);
@@ -361,6 +404,27 @@ void QQuickAbstractItemView::setKeyNavigationEnabled(bool keyNavigationEnabled)
         d->keyNavigationEnabled = keyNavigationEnabled;
         emit keyNavigationEnabledChanged();
     }
+}
+
+Qt::LayoutDirection QQuickAbstractItemView::layoutDirection() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->layoutDirection;
+}
+
+Qt::LayoutDirection QQuickAbstractItemView::effectiveLayoutDirection() const
+{
+    Q_D(const QQuickAbstractItemView);
+    if (d->effectiveLayoutMirror)
+        return d->layoutDirection == Qt::RightToLeft ? Qt::LeftToRight : Qt::RightToLeft;
+    else
+        return d->layoutDirection;
+}
+
+QQuickItemView::VerticalLayoutDirection QQuickAbstractItemView::verticalLayoutDirection() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->verticalLayoutDirection;
 }
 
 QQuickTransition *QQuickAbstractItemView::populateTransition() const

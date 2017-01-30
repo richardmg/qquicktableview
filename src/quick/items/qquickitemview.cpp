@@ -154,19 +154,6 @@ QQuickItemView::~QQuickItemView()
     delete d->footer;
 }
 
-
-QQuickItem *QQuickItemView::currentItem() const
-{
-    Q_D(const QQuickItemView);
-    return d->currentItem ? d->currentItem->item : 0;
-}
-
-QVariant QQuickItemView::model() const
-{
-    Q_D(const QQuickItemView);
-    return d->modelVariant;
-}
-
 void QQuickItemView::setModel(const QVariant &m)
 {
     Q_D(QQuickItemView);
@@ -228,17 +215,6 @@ void QQuickItemView::setModel(const QVariant &m)
     emit modelChanged();
 }
 
-QQmlComponent *QQuickItemView::delegate() const
-{
-    Q_D(const QQuickItemView);
-    if (d->model) {
-        if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model))
-            return dataModel->delegate();
-    }
-
-    return 0;
-}
-
 void QQuickItemView::setDelegate(QQmlComponent *delegate)
 {
     Q_D(QQuickItemView);
@@ -255,21 +231,6 @@ void QQuickItemView::setDelegate(QQmlComponent *delegate)
     }
     emit delegateChanged();
     d->delegateValidated = false;
-}
-
-
-int QQuickItemView::count() const
-{
-    Q_D(const QQuickItemView);
-    if (!d->model)
-        return 0;
-    return d->model->count();
-}
-
-int QQuickItemView::currentIndex() const
-{
-    Q_D(const QQuickItemView);
-    return d->currentIndex;
 }
 
 void QQuickItemView::setCurrentIndex(int index)
@@ -289,12 +250,6 @@ void QQuickItemView::setCurrentIndex(int index)
         d->currentIndex = index;
         emit currentIndexChanged();
     }
-}
-
-int QQuickItemView::cacheBuffer() const
-{
-    Q_D(const QQuickItemView);
-    return d->buffer;
 }
 
 void QQuickItemView::setCacheBuffer(int b)
@@ -351,12 +306,6 @@ void QQuickItemView::setDisplayMarginEnd(int margin)
     }
 }
 
-Qt::LayoutDirection QQuickItemView::layoutDirection() const
-{
-    Q_D(const QQuickItemView);
-    return d->layoutDirection;
-}
-
 void QQuickItemView::setLayoutDirection(Qt::LayoutDirection layoutDirection)
 {
     Q_D(QQuickItemView);
@@ -366,21 +315,6 @@ void QQuickItemView::setLayoutDirection(Qt::LayoutDirection layoutDirection)
         emit layoutDirectionChanged();
         emit effectiveLayoutDirectionChanged();
     }
-}
-
-Qt::LayoutDirection QQuickItemView::effectiveLayoutDirection() const
-{
-    Q_D(const QQuickItemView);
-    if (d->effectiveLayoutMirror)
-        return d->layoutDirection == Qt::RightToLeft ? Qt::LeftToRight : Qt::RightToLeft;
-    else
-        return d->layoutDirection;
-}
-
-QQuickItemView::VerticalLayoutDirection QQuickItemView::verticalLayoutDirection() const
-{
-    Q_D(const QQuickItemView);
-    return d->verticalLayoutDirection;
 }
 
 void QQuickItemView::setVerticalLayoutDirection(VerticalLayoutDirection layoutDirection)

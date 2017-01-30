@@ -100,40 +100,15 @@ class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
     Q_PROPERTY(int highlightMoveDuration READ highlightMoveDuration WRITE setHighlightMoveDuration NOTIFY highlightMoveDurationChanged)
 
 public:
-    // this holds all layout enum values so they can be referred to by other enums
-    // to ensure consistent values - e.g. QML references to GridView.TopToBottom flow
-    // and GridView.TopToBottom vertical layout direction should have same value
-    enum LayoutDirection {
-        LeftToRight = Qt::LeftToRight,
-        RightToLeft = Qt::RightToLeft,
-        VerticalTopToBottom,
-        VerticalBottomToTop
-    };
-    Q_ENUM(LayoutDirection)
-
-    enum VerticalLayoutDirection {
-        TopToBottom = VerticalTopToBottom,
-        BottomToTop = VerticalBottomToTop
-    };
-    Q_ENUM(VerticalLayoutDirection)
-
     QQuickItemView(QQuickFlickablePrivate &dd, QQuickItem *parent = 0);
     ~QQuickItemView();
 
-    QVariant model() const;
     void setModel(const QVariant &);
 
-    QQmlComponent *delegate() const;
     void setDelegate(QQmlComponent *);
 
-    int count() const;
-
-    int currentIndex() const;
     void setCurrentIndex(int idx);
 
-    QQuickItem *currentItem() const;
-
-    int cacheBuffer() const;
     void setCacheBuffer(int);
 
     int displayMarginBeginning() const;
@@ -142,11 +117,8 @@ public:
     int displayMarginEnd() const;
     void setDisplayMarginEnd(int);
 
-    Qt::LayoutDirection layoutDirection() const;
     void setLayoutDirection(Qt::LayoutDirection);
-    Qt::LayoutDirection effectiveLayoutDirection() const;
 
-    VerticalLayoutDirection verticalLayoutDirection() const;
     void setVerticalLayoutDirection(VerticalLayoutDirection layoutDirection);
 
     QQmlComponent *footer() const;

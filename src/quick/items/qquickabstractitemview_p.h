@@ -80,13 +80,47 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
     Q_PROPERTY(QQuickTransition *displaced READ displacedTransition WRITE setDisplacedTransition NOTIFY displacedTransitionChanged)
 
 public:
+    // this holds all layout enum values so they can be referred to by other enums
+    // to ensure consistent values - e.g. QML references to GridView.TopToBottom flow
+    // and GridView.TopToBottom vertical layout direction should have same value
+    enum LayoutDirection {
+        LeftToRight = Qt::LeftToRight,
+        RightToLeft = Qt::RightToLeft,
+        VerticalTopToBottom,
+        VerticalBottomToTop
+    };
+    Q_ENUM(LayoutDirection)
+
+    enum VerticalLayoutDirection {
+        TopToBottom = VerticalTopToBottom,
+        BottomToTop = VerticalBottomToTop
+    };
+    Q_ENUM(VerticalLayoutDirection)
+
     ~QQuickAbstractItemView();
+
+    QVariant model() const;
+
+    QQmlComponent *delegate() const;
+
+    int count() const;
+
+    int currentIndex() const;
+
+    QQuickItem *currentItem() const;
 
     bool isWrapEnabled() const;
     void setWrapEnabled(bool);
 
     bool isKeyNavigationEnabled() const;
     void setKeyNavigationEnabled(bool);
+
+    int cacheBuffer() const;
+
+    Qt::LayoutDirection layoutDirection() const;
+    Qt::LayoutDirection effectiveLayoutDirection() const;
+
+    VerticalLayoutDirection verticalLayoutDirection() const;
 
     QQuickTransition *populateTransition() const;
     void setPopulateTransition(QQuickTransition *transition);
