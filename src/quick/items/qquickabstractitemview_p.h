@@ -152,6 +152,8 @@ public:
     QQuickTransition *displacedTransition() const;
     void setDisplacedTransition(QQuickTransition *transition);
 
+    Q_REVISION(1) Q_INVOKABLE void forceLayout();
+
 Q_SIGNALS:
     void countChanged();
     void currentIndexChanged();

@@ -782,6 +782,13 @@ void QQuickAbstractItemView::setDisplacedTransition(QQuickTransition *transition
     }
 }
 
+void QQuickAbstractItemView::forceLayout()
+{
+    Q_D(QQuickAbstractItemView);
+    if (isComponentComplete() && (d->currentChanges.hasPendingChanges() || d->forceLayout))
+        d->layout();
+}
+
 void QQuickAbstractItemView::updatePolish()
 {
     Q_D(QQuickAbstractItemView);

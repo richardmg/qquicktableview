@@ -651,13 +651,6 @@ QQuickItem *QQuickItemView::itemAt(qreal x, qreal y) const
     return item ? item->item : nullptr;
 }
 
-void QQuickItemView::forceLayout()
-{
-    Q_D(QQuickItemView);
-    if (isComponentComplete() && (d->currentChanges.hasPendingChanges() || d->forceLayout))
-        d->layout();
-}
-
 void QQuickItemViewPrivate::recreateVisibleItems()
 {
     for (FxViewItem *item : qAsConst(visibleItems))

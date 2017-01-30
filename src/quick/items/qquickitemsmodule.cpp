@@ -300,7 +300,7 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
 #if QT_CONFIG(quick_itemview)
     const char *itemViewName = "ItemView";
     const QString itemViewMessage = QQuickItemView::tr("ItemView is an abstract base class");
-    qmlRegisterUncreatableType<QQuickItemView, 1>(uri, 2, 1, itemViewName, itemViewMessage);
+    qmlRegisterUncreatableType<QQuickAbstractItemView, 1>(uri, 2, 1, itemViewName, itemViewMessage);
     qmlRegisterUncreatableType<QQuickItemView, 2>(uri, 2, 3, itemViewName, itemViewMessage);
 #endif
 #if QT_CONFIG(quick_listview)
