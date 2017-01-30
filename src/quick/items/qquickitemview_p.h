@@ -78,10 +78,6 @@ class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
     Q_PROPERTY(int displayMarginBeginning READ displayMarginBeginning WRITE setDisplayMarginBeginning NOTIFY displayMarginBeginningChanged REVISION 2)
     Q_PROPERTY(int displayMarginEnd READ displayMarginEnd WRITE setDisplayMarginEnd NOTIFY displayMarginEndChanged REVISION 2)
 
-    Q_PROPERTY(Qt::LayoutDirection layoutDirection READ layoutDirection WRITE setLayoutDirection NOTIFY layoutDirectionChanged)
-    Q_PROPERTY(Qt::LayoutDirection effectiveLayoutDirection READ effectiveLayoutDirection NOTIFY effectiveLayoutDirectionChanged)
-    Q_PROPERTY(VerticalLayoutDirection verticalLayoutDirection READ verticalLayoutDirection WRITE setVerticalLayoutDirection NOTIFY verticalLayoutDirectionChanged)
-
     Q_PROPERTY(QQmlComponent *header READ header WRITE setHeader NOTIFY headerChanged)
     Q_PROPERTY(QQuickItem *headerItem READ headerItem NOTIFY headerItemChanged)
     Q_PROPERTY(QQmlComponent *footer READ footer WRITE setFooter NOTIFY footerChanged)
@@ -110,10 +106,6 @@ public:
 
     int displayMarginEnd() const;
     void setDisplayMarginEnd(int);
-
-    void setLayoutDirection(Qt::LayoutDirection);
-
-    void setVerticalLayoutDirection(VerticalLayoutDirection layoutDirection);
 
     QQmlComponent *footer() const;
     void setFooter(QQmlComponent *);
@@ -168,10 +160,6 @@ Q_SIGNALS:
     void cacheBufferChanged();
     void displayMarginBeginningChanged();
     void displayMarginEndChanged();
-
-    void layoutDirectionChanged();
-    void effectiveLayoutDirectionChanged();
-    void verticalLayoutDirectionChanged();
 
     void headerChanged();
     void footerChanged();

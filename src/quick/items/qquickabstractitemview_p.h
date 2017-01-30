@@ -75,6 +75,10 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
     Q_PROPERTY(bool keyNavigationWraps READ isWrapEnabled WRITE setWrapEnabled NOTIFY keyNavigationWrapsChanged)
     Q_PROPERTY(bool keyNavigationEnabled READ isKeyNavigationEnabled WRITE setKeyNavigationEnabled NOTIFY keyNavigationEnabledChanged REVISION 7)
 
+    Q_PROPERTY(Qt::LayoutDirection layoutDirection READ layoutDirection WRITE setLayoutDirection NOTIFY layoutDirectionChanged)
+    Q_PROPERTY(Qt::LayoutDirection effectiveLayoutDirection READ effectiveLayoutDirection NOTIFY effectiveLayoutDirectionChanged)
+    Q_PROPERTY(VerticalLayoutDirection verticalLayoutDirection READ verticalLayoutDirection WRITE setVerticalLayoutDirection NOTIFY verticalLayoutDirectionChanged)
+
     Q_PROPERTY(QQuickTransition *populate READ populateTransition WRITE setPopulateTransition NOTIFY populateTransitionChanged)
     Q_PROPERTY(QQuickTransition *add READ addTransition WRITE setAddTransition NOTIFY addTransitionChanged)
     Q_PROPERTY(QQuickTransition *addDisplaced READ addDisplacedTransition WRITE setAddDisplacedTransition NOTIFY addDisplacedTransitionChanged)
@@ -124,9 +128,11 @@ public:
     int cacheBuffer() const;
 
     Qt::LayoutDirection layoutDirection() const;
+    void setLayoutDirection(Qt::LayoutDirection);
     Qt::LayoutDirection effectiveLayoutDirection() const;
 
     VerticalLayoutDirection verticalLayoutDirection() const;
+    void setVerticalLayoutDirection(VerticalLayoutDirection layoutDirection);
 
     QQuickTransition *populateTransition() const;
     void setPopulateTransition(QQuickTransition *transition);
@@ -161,6 +167,10 @@ Q_SIGNALS:
 
     void keyNavigationWrapsChanged();
     Q_REVISION(7) void keyNavigationEnabledChanged();
+
+    void layoutDirectionChanged();
+    void effectiveLayoutDirectionChanged();
+    void verticalLayoutDirectionChanged();
 
     void populateTransitionChanged();
     void addTransitionChanged();

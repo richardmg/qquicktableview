@@ -287,27 +287,6 @@ void QQuickItemView::setDisplayMarginEnd(int margin)
     }
 }
 
-void QQuickItemView::setLayoutDirection(Qt::LayoutDirection layoutDirection)
-{
-    Q_D(QQuickItemView);
-    if (d->layoutDirection != layoutDirection) {
-        d->layoutDirection = layoutDirection;
-        d->regenerate();
-        emit layoutDirectionChanged();
-        emit effectiveLayoutDirectionChanged();
-    }
-}
-
-void QQuickItemView::setVerticalLayoutDirection(VerticalLayoutDirection layoutDirection)
-{
-    Q_D(QQuickItemView);
-    if (d->verticalLayoutDirection != layoutDirection) {
-        d->verticalLayoutDirection = layoutDirection;
-        d->regenerate();
-        emit verticalLayoutDirectionChanged();
-    }
-}
-
 QQmlComponent *QQuickItemView::header() const
 {
     Q_D(const QQuickItemView);

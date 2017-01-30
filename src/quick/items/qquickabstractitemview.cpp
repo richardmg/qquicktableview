@@ -643,6 +643,17 @@ Qt::LayoutDirection QQuickAbstractItemView::layoutDirection() const
     return d->layoutDirection;
 }
 
+void QQuickAbstractItemView::setLayoutDirection(Qt::LayoutDirection layoutDirection)
+{
+    Q_D(QQuickAbstractItemView);
+    if (d->layoutDirection != layoutDirection) {
+        d->layoutDirection = layoutDirection;
+        d->regenerate();
+        emit layoutDirectionChanged();
+        emit effectiveLayoutDirectionChanged();
+    }
+}
+
 Qt::LayoutDirection QQuickAbstractItemView::effectiveLayoutDirection() const
 {
     Q_D(const QQuickAbstractItemView);
@@ -652,10 +663,20 @@ Qt::LayoutDirection QQuickAbstractItemView::effectiveLayoutDirection() const
         return d->layoutDirection;
 }
 
-QQuickItemView::VerticalLayoutDirection QQuickAbstractItemView::verticalLayoutDirection() const
+QQuickAbstractItemView::VerticalLayoutDirection QQuickAbstractItemView::verticalLayoutDirection() const
 {
     Q_D(const QQuickAbstractItemView);
     return d->verticalLayoutDirection;
+}
+
+void QQuickAbstractItemView::setVerticalLayoutDirection(VerticalLayoutDirection layoutDirection)
+{
+    Q_D(QQuickAbstractItemView);
+    if (d->verticalLayoutDirection != layoutDirection) {
+        d->verticalLayoutDirection = layoutDirection;
+        d->regenerate();
+        emit verticalLayoutDirectionChanged();
+    }
 }
 
 QQuickTransition *QQuickAbstractItemView::populateTransition() const
