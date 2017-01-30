@@ -172,24 +172,6 @@ void QQuickItemView::setDelegate(QQmlComponent *delegate)
     d->delegateValidated = false;
 }
 
-void QQuickItemView::setCacheBuffer(int b)
-{
-    Q_D(QQuickItemView);
-    if (b < 0) {
-        qmlWarning(this) << "Cannot set a negative cache buffer";
-        return;
-    }
-
-    if (d->buffer != b) {
-        d->buffer = b;
-        if (isComponentComplete()) {
-            d->bufferMode = QQuickItemViewPrivate::BufferBefore | QQuickItemViewPrivate::BufferAfter;
-            d->refillOrLayout();
-        }
-        emit cacheBufferChanged();
-    }
-}
-
 int QQuickItemView::displayMarginBeginning() const
 {
     Q_D(const QQuickItemView);

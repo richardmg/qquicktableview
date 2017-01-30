@@ -689,6 +689,24 @@ int QQuickAbstractItemView::cacheBuffer() const
     return d->buffer;
 }
 
+void QQuickAbstractItemView::setCacheBuffer(int b)
+{
+    Q_D(QQuickAbstractItemView);
+    if (b < 0) {
+        qmlWarning(this) << "Cannot set a negative cache buffer";
+        return;
+    }
+
+    if (d->buffer != b) {
+        d->buffer = b;
+        if (isComponentComplete()) {
+            d->bufferMode = QQuickAbstractItemViewPrivate::BufferBefore | QQuickAbstractItemViewPrivate::BufferAfter;
+            d->refillOrLayout();
+        }
+        emit cacheBufferChanged();
+    }
+}
+
 bool QQuickAbstractItemView::isWrapEnabled() const
 {
     Q_D(const QQuickAbstractItemView);

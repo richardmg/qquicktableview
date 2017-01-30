@@ -76,6 +76,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
 
     Q_PROPERTY(bool keyNavigationWraps READ isWrapEnabled WRITE setWrapEnabled NOTIFY keyNavigationWrapsChanged)
     Q_PROPERTY(bool keyNavigationEnabled READ isKeyNavigationEnabled WRITE setKeyNavigationEnabled NOTIFY keyNavigationEnabledChanged REVISION 7)
+    Q_PROPERTY(int cacheBuffer READ cacheBuffer WRITE setCacheBuffer NOTIFY cacheBufferChanged)
 
     Q_PROPERTY(Qt::LayoutDirection layoutDirection READ layoutDirection WRITE setLayoutDirection NOTIFY layoutDirectionChanged)
     Q_PROPERTY(Qt::LayoutDirection effectiveLayoutDirection READ effectiveLayoutDirection NOTIFY effectiveLayoutDirectionChanged)
@@ -134,6 +135,7 @@ public:
     void setKeyNavigationEnabled(bool);
 
     int cacheBuffer() const;
+    void setCacheBuffer(int);
 
     Qt::LayoutDirection layoutDirection() const;
     void setLayoutDirection(Qt::LayoutDirection);
@@ -187,6 +189,7 @@ Q_SIGNALS:
 
     void keyNavigationWrapsChanged();
     Q_REVISION(7) void keyNavigationEnabledChanged();
+    void cacheBufferChanged();
 
     void layoutDirectionChanged();
     void effectiveLayoutDirectionChanged();
