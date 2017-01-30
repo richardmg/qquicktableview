@@ -157,6 +157,8 @@ public:
     void destroyOwnModel();
 
     void createTransitioner();
+    void prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> *removedItems);
+    bool prepareNonVisibleItemTransition(FxAbstractViewItem *item, const QRectF &viewBounds);
     void viewItemTransitionFinished(QQuickItemViewTransitionableItem *item) override;
 
     void markExtentsDirty() {
@@ -237,6 +239,7 @@ protected:
     virtual void visibleItemsChanged() {}
 
     virtual FxAbstractViewItem *newViewItem(int index, QQuickItem *item) = 0;
+    virtual void repositionItemAt(FxAbstractViewItem *item, int index, qreal sizeBuffer) = 0;
     virtual void repositionPackageItemAt(QQuickItem *item, int index) = 0;
 
     virtual void layoutVisibleItems(int fromModelIndex = 0) = 0;

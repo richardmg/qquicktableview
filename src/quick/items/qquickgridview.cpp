@@ -186,7 +186,7 @@ public:
 
     FxAbstractViewItem *newViewItem(int index, QQuickItem *item) override;
     void initializeViewItem(FxAbstractViewItem *item) override;
-    void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) override;
+    void repositionItemAt(FxAbstractViewItem *item, int index, qreal sizeBuffer) override;
     void repositionPackageItemAt(QQuickItem *item, int index) override;
     void resetFirstItemPosition(qreal pos = 0.0) override;
     void adjustFirstItem(qreal forwards, qreal backwards, int changeBeforeVisible) override;
@@ -646,7 +646,7 @@ void QQuickGridViewPrivate::layoutVisibleItems(int fromModelIndex)
     }
 }
 
-void QQuickGridViewPrivate::repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer)
+void QQuickGridViewPrivate::repositionItemAt(FxAbstractViewItem *item, int index, qreal sizeBuffer)
 {
     int count = sizeBuffer / rowSize();
     static_cast<FxGridItemSG *>(item)->setPosition(colPosAt(index + count), rowPosAt(index + count));

@@ -391,6 +391,50 @@ void QQuickAbstractItemViewPrivate::createTransitioner()
     }
 }
 
+void QQuickAbstractItemViewPrivate::prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> *removedItems)
+{
+    if (!transitioner)
+        return;
+
+    if (transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, true)
+            || transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, false)) {
+        for (QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *>::Iterator it = removedItems->begin();
+             it != removedItems->end(); ) {
+            bool isRemove = it.key().moveId < 0;
+            if (isRemove) {
+                FxAbstractViewItem *item = *it;
+                item->trackGeometry(false);
+                item->releaseAfterTransition = true;
+                releasePendingTransition.append(item);
+                item->transitionNextReposition(transitioner, QQuickItemViewTransitioner::RemoveTransition, true);
+                it = removedItems->erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+}
+
+bool QQuickAbstractItemViewPrivate::prepareNonVisibleItemTransition(FxAbstractViewItem *item, const QRectF &viewBounds)
+{
+    // Called for items that have been removed from visibleItems and may now be
+    // transitioned out of the view. This applies to items that are being directly
+    // removed, or moved to outside of the view, as well as those that are
+    // displaced to a position outside of the view due to an insert or move.
+
+    if (!transitioner)
+        return false;
+
+    if (item->scheduledTransitionType() == QQuickItemViewTransitioner::MoveTransition)
+        repositionItemAt(item, item->index, 0);
+
+    if (item->prepareTransition(transitioner, viewBounds)) {
+        item->releaseAfterTransition = true;
+        return true;
+    }
+    return false;
+}
+
 void QQuickAbstractItemViewPrivate::viewItemTransitionFinished(QQuickItemViewTransitionableItem *item)
 {
     for (int i = 0; i < releasePendingTransition.count(); ++i) {

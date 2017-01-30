@@ -92,7 +92,7 @@ public:
     FxAbstractViewItem *newViewItem(int index, QQuickItem *item) override;
     void initializeViewItem(FxAbstractViewItem *item) override;
     bool releaseItem(FxAbstractViewItem *item) override;
-    void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) override;
+    void repositionItemAt(FxAbstractViewItem *item, int index, qreal sizeBuffer) override;
     void repositionPackageItemAt(QQuickItem *item, int index) override;
     void resetFirstItemPosition(qreal pos = 0.0) override;
     void adjustFirstItem(qreal forwards, qreal backwards, int) override;
@@ -811,7 +811,7 @@ void QQuickListViewPrivate::layoutVisibleItems(int fromModelIndex)
     }
 }
 
-void QQuickListViewPrivate::repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer)
+void QQuickListViewPrivate::repositionItemAt(FxAbstractViewItem *item, int index, qreal sizeBuffer)
 {
     static_cast<FxListItemSG *>(item)->setPosition(positionAt(index) + sizeBuffer);
 }

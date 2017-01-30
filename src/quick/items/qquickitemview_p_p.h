@@ -165,8 +165,6 @@ public:
             FxViewItem *prevFirstVisible, ChangeResult *insertionResult, ChangeResult *removalResult);
 
     void prepareVisibleItemTransitions();
-    void prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> *removedItems);
-    bool prepareNonVisibleItemTransition(FxViewItem *item, const QRectF &viewBounds);
 
     void checkVisible() const;
     void showVisibleItems() const;
@@ -221,7 +219,6 @@ protected:
     virtual bool addVisibleItems(qreal fillFrom, qreal fillTo, qreal bufferFrom, qreal bufferTo, bool doBuffer) = 0;
     virtual bool removeNonVisibleItems(qreal bufferFrom, qreal bufferTo) = 0;
 
-    virtual void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) = 0;
     virtual void resetFirstItemPosition(qreal pos = 0.0) = 0;
     virtual void adjustFirstItem(qreal forwards, qreal backwards, int changeBeforeVisible) = 0;
 
