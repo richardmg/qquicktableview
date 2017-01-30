@@ -61,12 +61,14 @@ QT_REQUIRE_CONFIG(quick_itemview);
 
 QT_BEGIN_NAMESPACE
 
+class QQmlChangeSet;
 class QQuickAbstractItemViewPrivate;
 
 class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
 {
     Q_OBJECT
 
+    Q_PROPERTY(QVariant model READ model WRITE setModel NOTIFY modelChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
@@ -109,6 +111,7 @@ public:
     ~QQuickAbstractItemView();
 
     QVariant model() const;
+    void setModel(const QVariant &);
 
     QQmlComponent *delegate() const;
 
@@ -161,6 +164,7 @@ public:
     Q_REVISION(1) Q_INVOKABLE void forceLayout();
 
 Q_SIGNALS:
+    void modelChanged();
     void countChanged();
     void currentIndexChanged();
     void currentItemChanged();
@@ -186,6 +190,7 @@ protected:
 
 protected Q_SLOTS:
     virtual void initItem(int index, QObject *item);
+    void modelUpdated(const QQmlChangeSet &changeSet, bool reset);
     void destroyingItem(QObject *item);
     virtual void trackedPositionChanged();
 

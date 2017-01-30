@@ -154,67 +154,6 @@ QQuickItemView::~QQuickItemView()
     delete d->footer;
 }
 
-void QQuickItemView::setModel(const QVariant &m)
-{
-    Q_D(QQuickItemView);
-    QVariant model = m;
-    if (model.userType() == qMetaTypeId<QJSValue>())
-        model = model.value<QJSValue>().toVariant();
-
-    if (d->modelVariant == model)
-        return;
-    if (d->model) {
-        disconnect(d->model, SIGNAL(modelUpdated(QQmlChangeSet,bool)),
-                this, SLOT(modelUpdated(QQmlChangeSet,bool)));
-        disconnect(d->model, SIGNAL(initItem(int,QObject*)), this, SLOT(initItem(int,QObject*)));
-        disconnect(d->model, SIGNAL(createdItem(int,QObject*)), this, SLOT(createdItem(int,QObject*)));
-        disconnect(d->model, SIGNAL(destroyingItem(QObject*)), this, SLOT(destroyingItem(QObject*)));
-    }
-
-    QQmlInstanceModel *oldModel = d->model;
-
-    d->clear();
-    d->model = 0;
-    d->setPosition(d->contentStartOffset());
-    d->modelVariant = model;
-
-    QObject *object = qvariant_cast<QObject*>(model);
-    QQmlInstanceModel *vim = 0;
-    if (object && (vim = qobject_cast<QQmlInstanceModel *>(object))) {
-        d->destroyOwnModel();
-        d->model = vim;
-    } else {
-        if (!d->createOwnModel())
-            d->model = oldModel;
-        if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model))
-            dataModel->setModel(model);
-    }
-
-    if (d->model) {
-        d->bufferMode = QQuickItemViewPrivate::BufferBefore | QQuickItemViewPrivate::BufferAfter;
-        connect(d->model, SIGNAL(createdItem(int,QObject*)), this, SLOT(createdItem(int,QObject*)));
-        connect(d->model, SIGNAL(initItem(int,QObject*)), this, SLOT(initItem(int,QObject*)));
-        connect(d->model, SIGNAL(destroyingItem(QObject*)), this, SLOT(destroyingItem(QObject*)));
-        if (isComponentComplete()) {
-            d->updateSectionCriteria();
-            d->refill();
-            d->currentIndex = -1;
-            setCurrentIndex(d->model->count() > 0 ? 0 : -1);
-            d->updateViewport();
-
-            if (d->transitioner && d->transitioner->populateTransition) {
-                d->transitioner->setPopulateTransitionEnabled(true);
-                d->forceLayoutPolish();
-            }
-        }
-
-        connect(d->model, SIGNAL(modelUpdated(QQmlChangeSet,bool)),
-                this, SLOT(modelUpdated(QQmlChangeSet,bool)));
-        emit countChanged();
-    }
-    emit modelChanged();
-}
-
 void QQuickItemView::setDelegate(QQmlComponent *delegate)
 {
     Q_D(QQuickItemView);
@@ -843,39 +782,6 @@ void QQuickItemView::destroyRemoved()
 
     // Correct the positioning of the items
     d->forceLayoutPolish();
-}
-
-void QQuickItemView::modelUpdated(const QQmlChangeSet &changeSet, bool reset)
-{
-    Q_D(QQuickItemView);
-    if (reset) {
-        if (d->transitioner)
-            d->transitioner->setPopulateTransitionEnabled(true);
-        d->moveReason = QQuickItemViewPrivate::SetIndex;
-        d->regenerate();
-        if (d->highlight && d->currentItem) {
-            if (d->autoHighlight)
-                d->resetHighlightPosition();
-            d->updateTrackedItem();
-        }
-        d->moveReason = QQuickItemViewPrivate::Other;
-        emit countChanged();
-        if (d->transitioner && d->transitioner->populateTransition)
-            d->forceLayoutPolish();
-    } else {
-        if (d->inLayout) {
-            d->bufferedChanges.prepare(d->currentIndex, d->itemCount);
-            d->bufferedChanges.applyChanges(changeSet);
-        } else {
-            if (d->bufferedChanges.hasPendingChanges()) {
-                d->currentChanges.applyBufferedChanges(d->bufferedChanges);
-                d->bufferedChanges.reset();
-            }
-            d->currentChanges.prepare(d->currentIndex, d->itemCount);
-            d->currentChanges.applyChanges(changeSet);
-        }
-        polish();
-    }
 }
 
 void QQuickItemView::animStopped()

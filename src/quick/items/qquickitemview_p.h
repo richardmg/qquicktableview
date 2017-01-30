@@ -63,15 +63,12 @@ QT_BEGIN_NAMESPACE
 
 Q_DECLARE_LOGGING_CATEGORY(lcItemViewDelegateLifecycle)
 
-class QQmlChangeSet;
-
 class QQuickItemViewPrivate;
 
 class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
 {
     Q_OBJECT
 
-    Q_PROPERTY(QVariant model READ model WRITE setModel NOTIFY modelChanged)
     Q_PROPERTY(QQmlComponent *delegate READ delegate WRITE setDelegate NOTIFY delegateChanged)
 
     Q_PROPERTY(int cacheBuffer READ cacheBuffer WRITE setCacheBuffer NOTIFY cacheBufferChanged)
@@ -94,8 +91,6 @@ class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
 public:
     QQuickItemView(QQuickFlickablePrivate &dd, QQuickItem *parent = 0);
     ~QQuickItemView();
-
-    void setModel(const QVariant &);
 
     void setDelegate(QQmlComponent *);
 
@@ -154,7 +149,6 @@ public:
     qreal originY() const override;
 
 Q_SIGNALS:
-    void modelChanged();
     void delegateChanged();
 
     void cacheBufferChanged();
@@ -185,7 +179,6 @@ protected:
 protected Q_SLOTS:
     void destroyRemoved();
     void createdItem(int index, QObject *item);
-    void modelUpdated(const QQmlChangeSet &changeSet, bool reset);
     void animStopped();
     void trackedPositionChanged() override;
 
