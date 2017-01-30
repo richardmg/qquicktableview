@@ -1079,33 +1079,12 @@ void QQuickItemViewPrivate::init()
 
 void QQuickItemViewPrivate::clear()
 {
-    currentChanges.reset();
-    timeline.clear();
-
     for (FxViewItem *item : qAsConst(visibleItems))
         releaseItem(item);
     visibleItems.clear();
     visibleIndex = 0;
 
-    for (FxAbstractViewItem *item : qAsConst(releasePendingTransition)) {
-        item->releaseAfterTransition = false;
-        releaseItem(item);
-    }
-    releasePendingTransition.clear();
-
-    releaseItem(currentItem);
-    currentItem = 0;
-    createHighlight();
-    trackedItem = 0;
-
-    if (requestedIndex >= 0) {
-        if (model)
-            model->cancel(requestedIndex);
-        requestedIndex = -1;
-    }
-
-    markExtentsDirty();
-    itemCount = 0;
+    QQuickAbstractItemViewPrivate::clear();
 }
 
 void QQuickItemViewPrivate::refill()

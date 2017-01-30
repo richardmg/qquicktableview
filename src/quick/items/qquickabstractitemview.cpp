@@ -220,6 +220,28 @@ void QQuickAbstractItemViewPrivate::init()
 
 void QQuickAbstractItemViewPrivate::clear()
 {
+    currentChanges.reset();
+    timeline.clear();
+
+    for (FxAbstractViewItem *item : qAsConst(releasePendingTransition)) {
+        item->releaseAfterTransition = false;
+        releaseItem(item);
+    }
+    releasePendingTransition.clear();
+
+    releaseItem(currentItem);
+    currentItem = 0;
+    createHighlight();
+    trackedItem = 0;
+
+    if (requestedIndex >= 0) {
+        if (model)
+            model->cancel(requestedIndex);
+        requestedIndex = -1;
+    }
+
+    markExtentsDirty();
+    itemCount = 0;
 }
 
 void QQuickAbstractItemViewPrivate::updateViewport()
