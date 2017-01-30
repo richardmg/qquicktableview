@@ -169,6 +169,7 @@ Q_SIGNALS:
 protected Q_SLOTS:
     virtual void initItem(int index, QObject *item);
     void destroyingItem(QObject *item);
+    virtual void trackedPositionChanged();
 
 protected:
     QQuickAbstractItemView(QQuickFlickablePrivate &dd, QQuickItem *parent = nullptr);

@@ -154,6 +154,7 @@ public:
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
 
     void updateCurrent(int modelIndex);
+    void updateTrackedItem();
     void updateUnrequestedIndexes();
     void updateUnrequestedPositions();
 

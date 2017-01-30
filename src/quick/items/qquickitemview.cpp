@@ -1798,18 +1798,6 @@ void QQuickItemView::createdItem(int index, QObject* object)
     }
 }
 
-void QQuickItemViewPrivate::updateTrackedItem()
-{
-    Q_Q(QQuickItemView);
-    FxAbstractViewItem *item = currentItem;
-    if (highlight)
-        item = highlight;
-    trackedItem = item;
-
-    if (trackedItem)
-        q->trackedPositionChanged();
-}
-
 void QQuickItemViewPrivate::updateVisibleIndex()
 {
     typedef QList<FxViewItem*>::const_iterator FxViewItemListConstIt;

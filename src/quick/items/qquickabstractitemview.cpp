@@ -403,6 +403,18 @@ void QQuickAbstractItemViewPrivate::updateCurrent(int modelIndex)
     releaseItem(oldCurrentItem);
 }
 
+void QQuickAbstractItemViewPrivate::updateTrackedItem()
+{
+    Q_Q(QQuickAbstractItemView);
+    FxAbstractViewItem *item = currentItem;
+    if (highlight)
+        item = highlight;
+    trackedItem = item;
+
+    if (trackedItem)
+        q->trackedPositionChanged();
+}
+
 void QQuickAbstractItemViewPrivate::updateUnrequestedIndexes()
 {
     Q_Q(QQuickAbstractItemView);
@@ -785,6 +797,10 @@ void QQuickAbstractItemView::destroyingItem(QObject *object)
         item->setParentItem(0);
         d->unrequestedItems.remove(item);
     }
+}
+
+void QQuickAbstractItemView::trackedPositionChanged()
+{
 }
 
 QT_END_NAMESPACE

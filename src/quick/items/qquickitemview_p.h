@@ -203,7 +203,7 @@ protected Q_SLOTS:
     void createdItem(int index, QObject *item);
     void modelUpdated(const QQmlChangeSet &changeSet, bool reset);
     void animStopped();
-    void trackedPositionChanged();
+    void trackedPositionChanged() override;
 
 private:
     Q_DECLARE_PRIVATE(QQuickItemView)
