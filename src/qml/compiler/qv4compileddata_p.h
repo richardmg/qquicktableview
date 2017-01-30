@@ -841,10 +841,14 @@ struct Q_QML_PRIVATE_EXPORT CompilationUnit : public QQmlRefCount
 
 #ifndef V4_BOOTSTRAP
     ExecutionEngine *engine;
+#endif
+
+    QV4::Heap::String **runtimeStrings; // Array
+
+#ifndef V4_BOOTSTRAP
     QString fileName() const { return data->stringAt(data->sourceFileIndex); }
     QUrl url() const { if (m_url.isNull) m_url = QUrl(fileName()); return m_url; }
 
-    QV4::Heap::String **runtimeStrings; // Array
     QV4::Lookup *runtimeLookups;
     QV4::Value *runtimeRegularExpressions;
     QV4::InternalClass **runtimeClasses;
@@ -855,7 +859,7 @@ struct Q_QML_PRIVATE_EXPORT CompilationUnit : public QQmlRefCount
     QQmlPropertyCacheVector propertyCaches;
     QQmlPropertyCache *rootPropertyCache() const { return propertyCaches.at(data->indexOfRootObject); }
 
-    QQmlRefPointer<QQmlTypeNameCache> importCache;
+    QQmlRefPointer<QQmlTypeNameCache> typeNameCache;
 
     // index is object index. This allows fast access to the
     // property data when initializing bindings, avoiding expensive
@@ -918,15 +922,23 @@ struct Q_QML_PRIVATE_EXPORT CompilationUnit : public QQmlRefCount
 
     void destroy() Q_DECL_OVERRIDE;
 
-    bool saveToDisk(const QUrl &unitUrl, QString *errorString);
     bool loadFromDisk(const QUrl &url, EvalISelFactory *iselFactory, QString *errorString);
 
 protected:
     virtual void linkBackendToEngine(QV4::ExecutionEngine *engine) = 0;
-    virtual void prepareCodeOffsetsForDiskStorage(CompiledData::Unit *unit);
-    virtual bool saveCodeToDisk(QIODevice *device, const CompiledData::Unit *unit, QString *errorString);
     virtual bool memoryMapCode(QString *errorString);
 #endif // V4_BOOTSTRAP
+
+public:
+#if defined(V4_BOOTSTRAP)
+    bool saveToDisk(const QString &unitUrl, QString *errorString);
+#else
+    bool saveToDisk(const QUrl &unitUrl, QString *errorString);
+#endif
+
+protected:
+    virtual void prepareCodeOffsetsForDiskStorage(CompiledData::Unit *unit);
+    virtual bool saveCodeToDisk(QIODevice *device, const CompiledData::Unit *unit, QString *errorString);
 };
 
 }
