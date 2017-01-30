@@ -152,6 +152,7 @@ public:
     int highlightMoveDuration;
 
     QQuickItemViewTransitioner *transitioner;
+    QList<FxAbstractViewItem *> releasePendingTransition;
 
     mutable qreal minExtent;
     mutable qreal maxExtent;

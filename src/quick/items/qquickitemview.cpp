@@ -1439,7 +1439,7 @@ void QQuickItemViewPrivate::clear()
     visibleItems.clear();
     visibleIndex = 0;
 
-    for (FxViewItem *item : qAsConst(releasePendingTransition)) {
+    for (FxAbstractViewItem *item : qAsConst(releasePendingTransition)) {
         item->releaseAfterTransition = false;
         releaseItem(item);
     }
@@ -1630,9 +1630,9 @@ void QQuickItemViewPrivate::layout()
         prepareVisibleItemTransitions();
 
         QRectF viewBounds(q->contentX(),  q->contentY(), q->width(), q->height());
-        for (QList<FxViewItem*>::Iterator it = releasePendingTransition.begin();
+        for (QList<FxAbstractViewItem*>::Iterator it = releasePendingTransition.begin();
              it != releasePendingTransition.end(); ) {
-            FxViewItem *item = *it;
+            FxViewItem *item = static_cast<FxViewItem *>(*it); // ###
             if (prepareNonVisibleItemTransition(item, viewBounds)) {
                 ++it;
             } else {
@@ -2015,7 +2015,7 @@ FxViewItem *QQuickItemViewPrivate::createItem(int modelIndex, bool asynchronous)
         if (releasePendingTransition.at(i)->index == modelIndex
                 && !releasePendingTransition.at(i)->isPendingRemoval()) {
             releasePendingTransition[i]->releaseAfterTransition = false;
-            return releasePendingTransition.takeAt(i);
+            return static_cast<FxViewItem *>(releasePendingTransition.takeAt(i)); // ###
         }
     }
 

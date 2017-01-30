@@ -250,7 +250,6 @@ public:
         MovedItem(FxViewItem *i, QQmlChangeSet::MoveKey k)
             : item(i), moveKey(k) {}
     };
-    QList<FxViewItem *> releasePendingTransition;
 
     bool highlightRangeStartValid : 1;
     bool highlightRangeEndValid : 1;
