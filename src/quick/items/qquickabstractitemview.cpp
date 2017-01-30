@@ -249,6 +249,13 @@ void QQuickAbstractItemViewPrivate::animationFinished(QAbstractAnimationJob *)
     q->polish();
 }
 
+void QQuickAbstractItemViewPrivate::mirrorChange()
+{
+    Q_Q(QQuickAbstractItemView);
+    regenerate();
+    emit q->effectiveLayoutDirectionChanged();
+}
+
 /*
   This may return 0 if the item is being created asynchronously.
   When the item becomes available, refill() will be called and the item

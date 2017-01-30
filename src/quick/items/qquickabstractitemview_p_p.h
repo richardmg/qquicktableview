@@ -147,7 +147,8 @@ public:
     virtual void layout();
     virtual void refill();
 
-    virtual void animationFinished(QAbstractAnimationJob *) override;
+    void animationFinished(QAbstractAnimationJob *) override;
+    void mirrorChange() override;
 
     FxAbstractViewItem *createItem(int modelIndex, bool asynchronous = false);
     virtual bool releaseItem(FxAbstractViewItem *item);

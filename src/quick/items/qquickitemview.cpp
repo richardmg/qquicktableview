@@ -1108,14 +1108,6 @@ void QQuickItemViewPrivate::clear()
     itemCount = 0;
 }
 
-
-void QQuickItemViewPrivate::mirrorChange()
-{
-    Q_Q(QQuickItemView);
-    regenerate();
-    emit q->effectiveLayoutDirectionChanged();
-}
-
 void QQuickItemViewPrivate::refill()
 {
     qreal s = qMax(size(), qreal(0.));

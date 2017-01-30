@@ -144,7 +144,6 @@ public:
     void layout() override;
     void refill() override;
     void refill(qreal from, qreal to);
-    void mirrorChange() override;
 
     void updateVisibleIndex();
     void positionViewAtIndex(int index, int mode);
