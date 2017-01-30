@@ -224,6 +224,29 @@ void QQuickAbstractItemViewPrivate::animationFinished(QAbstractAnimationJob *)
     q->polish();
 }
 
+bool QQuickAbstractItemViewPrivate::releaseItem(FxAbstractViewItem *item)
+{
+    Q_Q(QQuickAbstractItemView);
+    if (!item || !model)
+        return true;
+    if (trackedItem == item)
+        trackedItem = 0;
+    item->trackGeometry(false);
+
+    QQmlInstanceModel::ReleaseFlags flags = model->release(item->item);
+    if (item->item) {
+        if (flags == 0) {
+            // item was not destroyed, and we no longer reference it.
+            QQuickItemPrivate::get(item->item)->setCulled(true);
+            unrequestedItems.insert(item->item, model->indexOf(item->item, q));
+        } else if (flags & QQmlInstanceModel::Destroyed) {
+            item->item->setParentItem(0);
+        }
+    }
+    delete item;
+    return flags != QQmlInstanceModel::Referenced;
+}
+
 QQuickItem *QQuickAbstractItemViewPrivate::createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault) const
 {
     Q_Q(const QQuickAbstractItemView);

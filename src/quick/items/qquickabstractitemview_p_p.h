@@ -118,6 +118,8 @@ public:
 
     virtual void animationFinished(QAbstractAnimationJob *) override;
 
+    virtual bool releaseItem(FxAbstractViewItem *item);
+
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
 
     void createTransitioner();

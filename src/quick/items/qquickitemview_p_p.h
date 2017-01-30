@@ -171,7 +171,6 @@ public:
     void mirrorChange() override;
 
     FxViewItem *createItem(int modelIndex, bool asynchronous = false);
-    virtual bool releaseItem(FxViewItem *item);
 
     QQuickItem *createHighlightItem() const;
 

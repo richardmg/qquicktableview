@@ -2072,29 +2072,6 @@ void QQuickItemView::createdItem(int index, QObject* object)
     }
 }
 
-bool QQuickItemViewPrivate::releaseItem(FxViewItem *item)
-{
-    Q_Q(QQuickItemView);
-    if (!item || !model)
-        return true;
-    if (trackedItem == item)
-        trackedItem = 0;
-    item->trackGeometry(false);
-
-    QQmlInstanceModel::ReleaseFlags flags = model->release(item->item);
-    if (item->item) {
-        if (flags == 0) {
-            // item was not destroyed, and we no longer reference it.
-            QQuickItemPrivate::get(item->item)->setCulled(true);
-            unrequestedItems.insert(item->item, model->indexOf(item->item, q));
-        } else if (flags & QQmlInstanceModel::Destroyed) {
-            item->item->setParentItem(0);
-        }
-    }
-    delete item;
-    return flags != QQmlInstanceModel::Referenced;
-}
-
 QQuickItem *QQuickItemViewPrivate::createHighlightItem() const
 {
     return createComponentItem(highlightComponent, 0.0, true);
