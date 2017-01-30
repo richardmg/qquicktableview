@@ -1114,7 +1114,7 @@ void QQuickItemView::componentComplete()
     d->updateHeader();
     d->updateFooter();
     d->updateViewport();
-    d->setPosition(d->contentStartOffset());
+    d->resetPosition();
     if (d->transitioner)
         d->transitioner->setPopulateTransitionEnabled(true);
 
@@ -1366,7 +1366,7 @@ void QQuickItemViewPrivate::regenerate(bool orientationChanged)
         updateHeader();
         updateFooter();
         updateViewport();
-        setPosition(contentStartOffset());
+        resetPosition();
         refill();
         updateCurrent(currentIndex);
     }
@@ -1383,6 +1383,11 @@ void QQuickItemViewPrivate::updateViewport()
         q->setContentWidth(contentSize + extra);
 }
 
+void QQuickItemViewPrivate::resetPosition()
+{
+    setPosition(contentStartOffset());
+}
+
 void QQuickItemViewPrivate::layout()
 {
     Q_Q(QQuickItemView);
@@ -1393,7 +1398,7 @@ void QQuickItemViewPrivate::layout()
 
     if (!isValid() && !visibleItems.count()) {
         clear();
-        setPosition(contentStartOffset());
+        resetPosition();
         updateViewport();
         if (transitioner)
             transitioner->setPopulateTransitionEnabled(false);

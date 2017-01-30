@@ -137,6 +137,7 @@ public:
     void init() override;
     void clear() override;
     void updateViewport() override;
+    void resetPosition() override;
 
     void regenerate(bool orientationChanged=false);
     void layout() override;

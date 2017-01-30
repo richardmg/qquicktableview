@@ -141,6 +141,7 @@ public:
     virtual void init();
     virtual void clear();
     virtual void updateViewport();
+    virtual void resetPosition();
 
     virtual void layout();
     virtual void refill();

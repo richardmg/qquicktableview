@@ -226,6 +226,10 @@ void QQuickAbstractItemViewPrivate::updateViewport()
 {
 }
 
+void QQuickAbstractItemViewPrivate::resetPosition()
+{
+}
+
 void QQuickAbstractItemViewPrivate::layout()
 {
 }
