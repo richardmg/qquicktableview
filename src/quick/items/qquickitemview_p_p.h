@@ -176,19 +176,6 @@ public:
     void checkVisible() const;
     void showVisibleItems() const;
 
-    void markExtentsDirty() {
-        if (layoutOrientation() == Qt::Vertical)
-            vData.markExtentsDirty();
-        else
-            hData.markExtentsDirty();
-    }
-
-    bool hasPendingChanges() const {
-        return currentChanges.hasPendingChanges()
-                || bufferedChanges.hasPendingChanges()
-                ||runDelayedRemoveTransition;
-    }
-
     void refillOrLayout() {
         if (hasPendingChanges())
             layout();

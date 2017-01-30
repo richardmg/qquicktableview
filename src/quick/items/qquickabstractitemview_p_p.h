@@ -154,6 +154,19 @@ public:
 
     void createTransitioner();
 
+    void markExtentsDirty() {
+        if (layoutOrientation() == Qt::Vertical)
+            vData.markExtentsDirty();
+        else
+            hData.markExtentsDirty();
+    }
+
+    bool hasPendingChanges() const {
+        return currentChanges.hasPendingChanges()
+                || bufferedChanges.hasPendingChanges()
+                ||runDelayedRemoveTransition;
+    }
+
     void forceLayoutPolish() {
         Q_Q(QQuickAbstractItemView);
         forceLayout = true;
