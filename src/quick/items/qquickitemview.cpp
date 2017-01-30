@@ -1928,21 +1928,6 @@ void QQuickItemViewPrivate::updateTrackedItem()
         q->trackedPositionChanged();
 }
 
-void QQuickItemViewPrivate::updateUnrequestedIndexes()
-{
-    Q_Q(QQuickItemView);
-    for (QHash<QQuickItem*,int>::iterator it = unrequestedItems.begin(), end = unrequestedItems.end(); it != end; ++it)
-        *it = model->indexOf(it.key(), q);
-}
-
-void QQuickItemViewPrivate::updateUnrequestedPositions()
-{
-    for (QHash<QQuickItem*,int>::const_iterator it = unrequestedItems.cbegin(), cend = unrequestedItems.cend(); it != cend; ++it) {
-        if (it.value() >= 0)
-            repositionPackageItemAt(it.key(), it.value());
-    }
-}
-
 void QQuickItemViewPrivate::updateVisibleIndex()
 {
     typedef QList<FxViewItem*>::const_iterator FxViewItemListConstIt;

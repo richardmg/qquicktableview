@@ -347,6 +347,21 @@ QQuickItem *QQuickAbstractItemViewPrivate::createComponentItem(QQmlComponent *co
     return item;
 }
 
+void QQuickAbstractItemViewPrivate::updateUnrequestedIndexes()
+{
+    Q_Q(QQuickAbstractItemView);
+    for (QHash<QQuickItem *, int>::iterator it = unrequestedItems.begin(), end = unrequestedItems.end(); it != end; ++it)
+        *it = model->indexOf(it.key(), q);
+}
+
+void QQuickAbstractItemViewPrivate::updateUnrequestedPositions()
+{
+    for (QHash<QQuickItem *, int>::const_iterator it = unrequestedItems.cbegin(), cend = unrequestedItems.cend(); it != cend; ++it) {
+        if (it.value() >= 0)
+            repositionPackageItemAt(it.key(), it.value());
+    }
+}
+
 bool QQuickAbstractItemViewPrivate::createOwnModel()
 {
     Q_Q(QQuickAbstractItemView);

@@ -146,8 +146,6 @@ public:
 
     void updateCurrent(int modelIndex);
     void updateTrackedItem();
-    void updateUnrequestedIndexes();
-    void updateUnrequestedPositions();
     void updateVisibleIndex();
     void positionViewAtIndex(int index, int mode);
 
@@ -224,7 +222,6 @@ protected:
     virtual bool removeNonVisibleItems(qreal bufferFrom, qreal bufferTo) = 0;
 
     virtual void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) = 0;
-    virtual void repositionPackageItemAt(QQuickItem *item, int index) = 0;
     virtual void resetFirstItemPosition(qreal pos = 0.0) = 0;
     virtual void adjustFirstItem(qreal forwards, qreal backwards, int changeBeforeVisible) = 0;
 

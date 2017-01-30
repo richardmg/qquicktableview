@@ -150,6 +150,9 @@ public:
     QQuickItem *createHighlightItem() const;
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
 
+    void updateUnrequestedIndexes();
+    void updateUnrequestedPositions();
+
     bool createOwnModel();
     void destroyOwnModel();
 
@@ -234,6 +237,7 @@ protected:
     virtual void visibleItemsChanged() {}
 
     virtual FxAbstractViewItem *newViewItem(int index, QQuickItem *item) = 0;
+    virtual void repositionPackageItemAt(QQuickItem *item, int index) = 0;
 
     virtual void layoutVisibleItems(int fromModelIndex = 0) = 0;
     virtual void changedVisibleIndex(int newIndex) = 0;
