@@ -107,6 +107,10 @@ public:
 
     static inline QQuickAbstractItemViewPrivate *get(QQuickAbstractItemView *o) { return o->d_func(); }
 
+    virtual void init();
+    virtual void clear();
+    virtual void updateViewport();
+
     virtual void animationFinished(QAbstractAnimationJob *) override;
 
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;

@@ -174,6 +174,18 @@ QQuickAbstractItemViewPrivate::~QQuickAbstractItemViewPrivate()
     delete transitioner;
 }
 
+void QQuickAbstractItemViewPrivate::init()
+{
+}
+
+void QQuickAbstractItemViewPrivate::clear()
+{
+}
+
+void QQuickAbstractItemViewPrivate::updateViewport()
+{
+}
+
 void QQuickAbstractItemViewPrivate::animationFinished(QAbstractAnimationJob *)
 {
     Q_Q(QQuickAbstractItemView);

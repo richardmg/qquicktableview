@@ -164,9 +164,9 @@ public:
     int findLastIndexInView() const;
     int mapFromModel(int modelIndex) const;
 
-    virtual void init();
-    virtual void clear();
-    virtual void updateViewport();
+    void init() override;
+    void clear() override;
+    void updateViewport() override;
 
     void regenerate(bool orientationChanged=false);
     void layout();

@@ -1394,6 +1394,7 @@ int QQuickItemViewPrivate::mapFromModel(int modelIndex) const
 void QQuickItemViewPrivate::init()
 {
     Q_Q(QQuickItemView);
+    QQuickAbstractItemViewPrivate::init();
     q->setFlag(QQuickItem::ItemIsFocusScope);
     QObject::connect(q, SIGNAL(movementEnded()), q, SLOT(animStopped()));
     QObject::connect(q, &QQuickFlickable::interactiveChanged, q, &QQuickItemView::keyNavigationEnabledChanged);
