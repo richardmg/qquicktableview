@@ -743,27 +743,6 @@ void QQuickItemView::forceLayout()
         d->layout();
 }
 
-bool QQuickItemViewPrivate::createOwnModel()
-{
-    Q_Q(QQuickItemView);
-    if (!ownModel) {
-        model = new QQmlDelegateModel(qmlContext(q));
-        ownModel = true;
-        if (q->isComponentComplete())
-            static_cast<QQmlDelegateModel *>(model.data())->componentComplete();
-        return true;
-    }
-    return false;
-}
-
-void QQuickItemViewPrivate::destroyOwnModel()
-{
-    if (ownModel) {
-        delete model;
-        ownModel = false;
-    }
-}
-
 void QQuickItemViewPrivate::recreateVisibleItems()
 {
     for (FxViewItem *item : qAsConst(visibleItems))

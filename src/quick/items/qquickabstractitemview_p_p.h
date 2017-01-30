@@ -122,6 +122,9 @@ public:
 
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
 
+    bool createOwnModel();
+    void destroyOwnModel();
+
     void createTransitioner();
 
     void forceLayoutPolish() {

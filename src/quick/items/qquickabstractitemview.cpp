@@ -42,6 +42,7 @@
 
 #include <QtQml/private/qqmlglobal_p.h>
 #include <QtQml/qqmlcontext.h>
+#include <QtQml/private/qqmldelegatemodel_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -277,6 +278,27 @@ QQuickItem *QQuickAbstractItemViewPrivate::createComponentItem(QQmlComponent *co
     if (component)
         component->completeCreate();
     return item;
+}
+
+bool QQuickAbstractItemViewPrivate::createOwnModel()
+{
+    Q_Q(QQuickAbstractItemView);
+    if (!ownModel) {
+        model = new QQmlDelegateModel(qmlContext(q));
+        ownModel = true;
+        if (q->isComponentComplete())
+            static_cast<QQmlDelegateModel *>(model.data())->componentComplete();
+        return true;
+    }
+    return false;
+}
+
+void QQuickAbstractItemViewPrivate::destroyOwnModel()
+{
+    if (ownModel) {
+        delete model;
+        ownModel = false;
+    }
 }
 
 void QQuickAbstractItemViewPrivate::createTransitioner()

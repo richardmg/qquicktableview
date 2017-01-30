@@ -186,9 +186,6 @@ public:
     qreal calculatedMinExtent() const;
     qreal calculatedMaxExtent() const;
 
-    bool createOwnModel();
-    void destroyOwnModel();
-
     void recreateVisibleItems();
 
     void applyPendingChanges();
