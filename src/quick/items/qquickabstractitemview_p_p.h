@@ -140,6 +140,7 @@ public:
 
     int visibleIndex;
     int currentIndex;
+    FxAbstractViewItem *trackedItem;
     QHash<QQuickItem*,int> unrequestedItems;
     int requestedIndex;
     QPauseAnimationJob bufferPause;

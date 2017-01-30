@@ -170,6 +170,7 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
       moveReason(Other),
       visibleIndex(0),
       currentIndex(-1),
+      trackedItem(nullptr),
       requestedIndex(-1),
       highlightComponent(nullptr),
       highlightRange(QQuickItemView::NoHighlightRange),

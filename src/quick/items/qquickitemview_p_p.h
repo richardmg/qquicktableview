@@ -233,7 +233,6 @@ public:
 
     QList<FxViewItem *> visibleItems;
     FxViewItem *currentItem;
-    FxViewItem *trackedItem;
     QQuickItemViewChangeSet currentChanges;
     QQuickItemViewChangeSet bufferedChanges;
 

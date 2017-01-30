@@ -1035,8 +1035,9 @@ void QQuickItemView::trackedPositionChanged()
     if (!d->trackedItem || !d->currentItem)
         return;
     if (d->moveReason == QQuickItemViewPrivate::SetIndex) {
-        qreal trackedPos = d->trackedItem->position();
-        qreal trackedSize = d->trackedItem->size();
+        FxViewItem *trackedItem = static_cast<FxViewItem *>(d->trackedItem); // ###
+        qreal trackedPos = trackedItem->position();
+        qreal trackedSize = trackedItem->size();
         qreal viewPos = d->isContentFlowReversed() ? -d->position()-d->size() : d->position();
         qreal pos = viewPos;
         if (d->haveHighlightRange) {
@@ -1058,7 +1059,7 @@ void QQuickItemView::trackedPositionChanged()
                 trackedPos -= d->currentItem->sectionSize();
                 trackedSize += d->currentItem->sectionSize();
             }
-            qreal trackedEndPos = d->trackedItem->endPosition();
+            qreal trackedEndPos = trackedItem->endPosition();
             qreal toItemPos = d->currentItem->position();
             qreal toItemEndPos = d->currentItem->endPosition();
             if (d->showHeaderForIndex(d->currentIndex)) {
@@ -1259,7 +1260,7 @@ void QQuickItemView::componentComplete()
 
 QQuickItemViewPrivate::QQuickItemViewPrivate()
     : displayMarginBeginning(0), displayMarginEnd(0)
-    , currentItem(0), trackedItem(0)
+    , currentItem(0)
     , highlight(0), highlightRangeStart(0), highlightRangeEnd(0)
     , headerComponent(0), header(0), footerComponent(0), footer(0)
     , highlightRangeStartValid(false), highlightRangeEndValid(false)
