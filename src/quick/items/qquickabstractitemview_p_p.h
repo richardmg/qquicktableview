@@ -154,6 +154,7 @@ public:
     void destroyOwnModel();
 
     void createTransitioner();
+    void viewItemTransitionFinished(QQuickItemViewTransitionableItem *item) override;
 
     void markExtentsDirty() {
         if (layoutOrientation() == Qt::Vertical)

@@ -376,6 +376,16 @@ void QQuickAbstractItemViewPrivate::createTransitioner()
     }
 }
 
+void QQuickAbstractItemViewPrivate::viewItemTransitionFinished(QQuickItemViewTransitionableItem *item)
+{
+    for (int i = 0; i < releasePendingTransition.count(); ++i) {
+        if (releasePendingTransition.at(i)->transitionableItem == item) {
+            releaseItem(releasePendingTransition.takeAt(i));
+            return;
+        }
+    }
+}
+
 QQuickAbstractItemView::QQuickAbstractItemView(QQuickFlickablePrivate &dd, QQuickItem *parent)
     : QQuickFlickable(dd, parent)
 {

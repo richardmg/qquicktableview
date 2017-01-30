@@ -169,7 +169,6 @@ public:
     void prepareVisibleItemTransitions();
     void prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> *removedItems);
     bool prepareNonVisibleItemTransition(FxViewItem *item, const QRectF &viewBounds);
-    void viewItemTransitionFinished(QQuickItemViewTransitionableItem *item) override;
 
     void checkVisible() const;
     void showVisibleItems() const;

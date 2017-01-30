@@ -1897,16 +1897,6 @@ bool QQuickItemViewPrivate::prepareNonVisibleItemTransition(FxViewItem *item, co
     return false;
 }
 
-void QQuickItemViewPrivate::viewItemTransitionFinished(QQuickItemViewTransitionableItem *item)
-{
-    for (int i=0; i<releasePendingTransition.count(); i++) {
-        if (releasePendingTransition.at(i)->transitionableItem == item) {
-            releaseItem(releasePendingTransition.takeAt(i));
-            return;
-        }
-    }
-}
-
 void QQuickItemView::createdItem(int index, QObject* object)
 {
     Q_D(QQuickItemView);
