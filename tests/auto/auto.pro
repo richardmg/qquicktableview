@@ -1,19 +1,19 @@
 TEMPLATE=subdirs
 SUBDIRS=\
-    qml \
+#    qml \
     quick \
-    quicktest \
+#    quicktest \
     qmltest \
-    qmldevtools \
+#    qmldevtools \
     cmake \
     installed_cmake \
-    toolsupport
+#    toolsupport
 
-qtHaveModule(gui):qtConfig(opengl(es1|es2)?) {
-    SUBDIRS += particles
-    qtHaveModule(widgets): SUBDIRS += quickwidgets
+#qtHaveModule(gui):qtConfig(opengl(es1|es2)?) {
+#    SUBDIRS += particles
+#    qtHaveModule(widgets): SUBDIRS += quickwidgets
 
-}
+#}
 
 # console applications not supported
 uikit: SUBDIRS -= qmltest
