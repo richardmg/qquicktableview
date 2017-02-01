@@ -66,22 +66,6 @@ public:
     {
     }
 
-    qreal position() const override {
-        return rowPos();
-    }
-
-    qreal endPosition() const override {
-        return endRowPos();
-    }
-
-    qreal size() const override {
-        return view->flow() == QQuickGridView::FlowLeftToRight ? view->cellHeight() : view->cellWidth();
-    }
-
-    qreal sectionSize() const override {
-        return 0.0;
-    }
-
     qreal rowPos() const {
         if (view->flow() == QQuickGridView::FlowLeftToRight)
             return (view->verticalLayoutDirection() == QQuickItemView::BottomToTop ? -view->cellHeight()-itemY() : itemY());
@@ -167,6 +151,11 @@ public:
     qreal originPosition() const override;
     qreal lastPosition() const override;
 
+    qreal itemPosition(FxAbstractViewItem *item) const override;
+    qreal itemEndPosition(FxAbstractViewItem *item) const override;
+    qreal itemSize(FxAbstractViewItem *item) const override;
+    qreal itemSectionSize(FxAbstractViewItem *item) const override;
+
     qreal rowSize() const;
     qreal colSize() const;
     qreal colPosAt(int modelIndex) const;
@@ -250,6 +239,26 @@ bool QQuickGridViewPrivate::isContentFlowReversed() const
 
     return (flow == QQuickGridView::FlowLeftToRight && verticalLayoutDirection == QQuickItemView::BottomToTop)
             || (flow == QQuickGridView::FlowTopToBottom && q->effectiveLayoutDirection() == Qt::RightToLeft);
+}
+
+qreal QQuickGridViewPrivate::itemPosition(FxAbstractViewItem *item) const
+{
+    return static_cast<FxGridItemSG *>(item)->rowPos();
+}
+
+qreal QQuickGridViewPrivate::itemEndPosition(FxAbstractViewItem *item) const
+{
+    return static_cast<FxGridItemSG *>(item)->endRowPos();
+}
+
+qreal QQuickGridViewPrivate::itemSize(FxAbstractViewItem *) const
+{
+    return flow == QQuickGridView::FlowLeftToRight ? cellHeight : cellWidth;
+}
+
+qreal QQuickGridViewPrivate::itemSectionSize(FxAbstractViewItem *) const
+{
+    return 0.0;
 }
 
 void QQuickGridViewPrivate::changedVisibleIndex(int newIndex)
@@ -386,10 +395,9 @@ FxGridItemSG *QQuickGridViewPrivate::snapItemAt(qreal pos) const
     for (FxViewItem *item : visibleItems) {
         if (item->index == -1)
             continue;
-        FxGridItemSG *gridItem = static_cast<FxGridItemSG *>(item);
-        qreal itemTop = gridItem->position();
+        qreal itemTop = itemPosition(item);
         if (itemTop+rowSize()/2 >= pos && itemTop - rowSize()/2 <= pos)
-            return gridItem;
+            return static_cast<FxGridItemSG *>(item);
     }
     return 0;
 }
@@ -400,7 +408,7 @@ int QQuickGridViewPrivate::snapIndex() const
     for (FxViewItem *item : visibleItems) {
         if (item->index == -1)
             continue;
-        qreal itemTop = item->position();
+        qreal itemTop = itemPosition(item);
         FxGridItemSG *hItem = static_cast<FxGridItemSG*>(highlight);
         if (itemTop >= hItem->rowPos()-rowSize()/2 && itemTop < hItem->rowPos()+rowSize()/2) {
             FxGridItemSG *gridItem = static_cast<FxGridItemSG*>(item);
@@ -822,7 +830,7 @@ void QQuickGridViewPrivate::updateFooter()
             gridItem->setPosition(colOffset, endPos + rowOffset);
         } else {
             qreal visiblePos = isContentFlowReversed() ? -position() : position() + size();
-            if (endPos <= visiblePos || gridItem->endPosition() <= endPos + rowOffset)
+            if (endPos <= visiblePos || itemEndPosition(gridItem) <= endPos + rowOffset)
                 gridItem->setPosition(colOffset, endPos + rowOffset);
         }
     } else {
@@ -948,15 +956,15 @@ void QQuickGridViewPrivate::fixup(AxisData &data, qreal minExtent, qreal maxExte
                 pos = isContentFlowReversed() ? - headerPos + highlightRangeStart - size() : headerPos - highlightRangeStart;
             } else {
                 if (isContentFlowReversed())
-                    pos = qMax(qMin(-topItem->position() + highlightRangeStart - size(), -maxExtent), -minExtent);
+                    pos = qMax(qMin(-itemPosition(topItem) + highlightRangeStart - size(), -maxExtent), -minExtent);
                 else
-                    pos = qMax(qMin(topItem->position() - highlightRangeStart, -maxExtent), -minExtent);
+                    pos = qMax(qMin(itemPosition(topItem) - highlightRangeStart, -maxExtent), -minExtent);
             }
         } else if (bottomItem && isInBounds) {
             if (isContentFlowReversed())
-                pos = qMax(qMin(-bottomItem->position() + highlightRangeEnd - size(), -maxExtent), -minExtent);
+                pos = qMax(qMin(-itemPosition(bottomItem) + highlightRangeEnd - size(), -maxExtent), -minExtent);
             else
-                pos = qMax(qMin(bottomItem->position() - highlightRangeEnd, -maxExtent), -minExtent);
+                pos = qMax(qMin(itemPosition(bottomItem) - highlightRangeEnd, -maxExtent), -minExtent);
         } else {
             QQuickItemViewPrivate::fixup(data, minExtent, maxExtent);
             return;
@@ -2070,14 +2078,14 @@ void QQuickGridView::viewportMoved(Qt::Orientations orient)
         if (d->haveHighlightRange && d->highlightRange == StrictlyEnforceRange && d->highlight) {
             // reposition highlight
             FxGridItemSG *highlight = static_cast<FxGridItemSG *>(d->highlight);
-            qreal pos = highlight->position();
+            qreal pos = d->itemPosition(highlight);
             qreal viewPos = d->isContentFlowReversed() ? -d->position()-d->size() : d->position();
-            if (pos > viewPos + d->highlightRangeEnd - highlight->size())
-                pos = viewPos + d->highlightRangeEnd - highlight->size();
+            if (pos > viewPos + d->highlightRangeEnd - d->itemSize(highlight))
+                pos = viewPos + d->highlightRangeEnd - d->itemSize(highlight);
             if (pos < viewPos + d->highlightRangeStart)
                 pos = viewPos + d->highlightRangeStart;
 
-            if (pos != highlight->position()) {
+            if (pos != d->itemPosition(highlight)) {
                 d->highlightXAnimator->stop();
                 d->highlightYAnimator->stop();
                 highlight->setPosition(highlight->colPos(), pos);
@@ -2536,7 +2544,7 @@ void QQuickGridViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex
 
     for (int i=markerItemIndex+1; i<visibleItems.count(); i++) {
         FxGridItemSG *gridItem = static_cast<FxGridItemSG *>(visibleItems.at(i));
-        if (gridItem->position() >= viewEndPos)
+        if (itemPosition(gridItem) >= viewEndPos)
             break;
         if (!gridItem->transitionScheduledOrRunning()) {
             qreal origRowPos = gridItem->colPos();

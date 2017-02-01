@@ -68,12 +68,6 @@ class Q_AUTOTEST_EXPORT FxViewItem : public FxAbstractViewItem
 public:
     FxViewItem(QQuickItem *item, QQuickItemView *view, bool own, QQuickItemViewAttached *attached)
         : FxAbstractViewItem(item, view, own, attached) {}
-
-    // these are positions and sizes along the current direction of scrolling/flicking
-    virtual qreal position() const = 0;
-    virtual qreal endPosition() const = 0;
-    virtual qreal size() const = 0;
-    virtual qreal sectionSize() const = 0;
 };
 
 
@@ -127,6 +121,7 @@ public:
     qreal size() const;
     qreal startPosition() const;
     qreal endPosition() const;
+
     qreal contentStartOffset() const;
     int findLastVisibleIndex(int defaultValue = -1) const;
     FxViewItem *visibleItem(int modelIndex) const;
@@ -189,6 +184,12 @@ protected:
     virtual qreal endPositionAt(int index) const = 0;
     virtual qreal originPosition() const = 0;
     virtual qreal lastPosition() const = 0;
+
+    // these are positions and sizes along the current direction of scrolling/flicking
+    virtual qreal itemPosition(FxAbstractViewItem *item) const = 0;
+    virtual qreal itemEndPosition(FxAbstractViewItem *item) const = 0;
+    virtual qreal itemSize(FxAbstractViewItem *item) const = 0;
+    virtual qreal itemSectionSize(FxAbstractViewItem *item) const = 0;
 
     virtual qreal headerSize() const = 0;
     virtual qreal footerSize() const = 0;

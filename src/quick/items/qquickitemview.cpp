@@ -286,7 +286,7 @@ void QQuickItemViewPrivate::positionViewAtIndex(int index, int mode)
         item = visibleItem(idx);
     }
     if (item) {
-        const qreal itemPos = item->position();
+        const qreal itemPos = itemPosition(item);
         switch (mode) {
         case QQuickItemView::Beginning:
             pos = itemPos;
@@ -294,22 +294,22 @@ void QQuickItemViewPrivate::positionViewAtIndex(int index, int mode)
                 pos -= headerSize();
             break;
         case QQuickItemView::Center:
-            pos = itemPos - (viewSize - item->size())/2;
+            pos = itemPos - (viewSize - itemSize(item))/2;
             break;
         case QQuickItemView::End:
-            pos = itemPos - viewSize + item->size();
+            pos = itemPos - viewSize + itemSize(item);
             if (footer && (index >= modelCount || hasStickyFooter()))
                 pos += footerSize();
             break;
         case QQuickItemView::Visible:
             if (itemPos > pos + viewSize)
-                pos = itemPos - viewSize + item->size();
-            else if (item->endPosition() <= pos)
+                pos = itemPos - viewSize + itemSize(item);
+            else if (itemEndPosition(item) <= pos)
                 pos = itemPos;
             break;
         case QQuickItemView::Contain:
-            if (item->endPosition() >= pos + viewSize)
-                pos = itemPos - viewSize + item->size();
+            if (itemEndPosition(item) >= pos + viewSize)
+                pos = itemPos - viewSize + itemSize(item);
             if (itemPos < pos)
                 pos = itemPos;
             break;
@@ -430,7 +430,7 @@ qreal QQuickItemViewPrivate::minExtentForAxis(const AxisData &axisData, bool for
         extent += highlightStart;
         FxViewItem *firstItem = visibleItem(0);
         if (firstItem)
-            extent -= firstItem->sectionSize();
+            extent -= itemSectionSize(firstItem);
         extent = isContentFlowReversed()
                             ? qMin(extent, endPositionFirstItem + highlightEnd)
                             : qMax(extent, -(endPositionFirstItem - highlightEnd));
@@ -528,7 +528,7 @@ void QQuickItemViewPrivate::showVisibleItems() const
     for (FxViewItem *item : visibleItems) {
         qDebug() << "\t" << item->index
                  << item->item->objectName()
-                 << item->position();
+                 << itemPosition(item);
     }
 }
 
@@ -603,8 +603,8 @@ void QQuickItemView::trackedPositionChanged()
         return;
     if (d->moveReason == QQuickItemViewPrivate::SetIndex) {
         FxViewItem *trackedItem = static_cast<FxViewItem *>(d->trackedItem); // ###
-        qreal trackedPos = trackedItem->position();
-        qreal trackedSize = trackedItem->size();
+        qreal trackedPos = d->itemPosition(trackedItem);
+        qreal trackedSize = d->itemSize(trackedItem);
         qreal viewPos = d->isContentFlowReversed() ? -d->position()-d->size() : d->position();
         qreal pos = viewPos;
         if (d->haveHighlightRange) {
@@ -624,12 +624,12 @@ void QQuickItemView::trackedPositionChanged()
             FxViewItem *currentItem = static_cast<FxViewItem *>(d->currentItem);
             if (trackedItem != currentItem) {
                 // also make section header visible
-                trackedPos -= currentItem->sectionSize();
-                trackedSize += currentItem->sectionSize();
+                trackedPos -= d->itemSectionSize(currentItem);
+                trackedSize += d->itemSectionSize(currentItem);
             }
-            qreal trackedEndPos = trackedItem->endPosition();
-            qreal toItemPos = currentItem->position();
-            qreal toItemEndPos = currentItem->endPosition();
+            qreal trackedEndPos = d->itemEndPosition(trackedItem);
+            qreal toItemPos = d->itemPosition(currentItem);
+            qreal toItemEndPos = d->itemEndPosition(currentItem);
             if (d->showHeaderForIndex(d->currentIndex)) {
                 qreal startOffset = -d->contentStartOffset();
                 trackedPos -= startOffset;
@@ -663,8 +663,8 @@ void QQuickItemView::trackedPositionChanged()
                         pos = trackedPos;
                 } else {
                     pos = toItemEndPos - d->size();
-                    if (currentItem->size() > d->size())
-                        pos = currentItem->position();
+                    if (d->itemSize(currentItem) > d->size())
+                        pos = d->itemPosition(currentItem);
                 }
             }
             if (trackedPos < pos && toItemPos < pos)
@@ -890,7 +890,7 @@ FxViewItem *QQuickItemViewPrivate::visibleItem(int modelIndex) const {
 FxViewItem *QQuickItemViewPrivate::firstVisibleItem() const {
     const qreal pos = isContentFlowReversed() ? -position()-size() : position();
     for (FxViewItem *item : visibleItems) {
-        if (item->index != -1 && item->endPosition() > pos)
+        if (item->index != -1 && itemEndPosition(item) > pos)
             return item;
     }
     return visibleItems.count() ? visibleItems.first() : 0;
@@ -901,7 +901,7 @@ int QQuickItemViewPrivate::findLastIndexInView() const
     const qreal viewEndPos = isContentFlowReversed() ? -position() : position() + size();
     for (auto it = visibleItems.rbegin(), end = visibleItems.rend(); it != end; ++it) {
         auto item = *it;
-        if (item->index != -1 && item->position() <= viewEndPos)
+        if (item->index != -1 && itemPosition(item) <= viewEndPos)
             return item->index;
     }
     return -1;
@@ -1174,10 +1174,10 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
     QQmlNullableValue<qreal> prevViewPos;
     int prevFirstVisibleIndex = -1;
     if (prevFirstVisible) {
-        prevViewPos = prevFirstVisible->position();
+        prevViewPos = itemPosition(prevFirstVisible);
         prevFirstVisibleIndex = prevFirstVisible->index;
     }
-    qreal prevVisibleItemsFirstPos = visibleItems.count() ? visibleItems.constFirst()->position() : 0.0;
+    qreal prevVisibleItemsFirstPos = visibleItems.count() ? itemPosition(visibleItems.constFirst()) : 0.0;
 
     totalInsertionResult->visiblePos = prevViewPos;
     totalRemovalResult->visiblePos = prevViewPos;
@@ -1356,10 +1356,10 @@ bool QQuickItemViewPrivate::applyRemovalChange(const QQmlChangeSet::Change &remo
 void QQuickItemViewPrivate::removeItem(FxViewItem *item, const QQmlChangeSet::Change &removal, ChangeResult *removeResult)
 {
     if (removeResult->visiblePos.isValid()) {
-        if (item->position() < removeResult->visiblePos)
+        if (itemPosition(item) < removeResult->visiblePos)
             updateSizeChangesBeforeVisiblePos(item, removeResult);
         else
-            removeResult->sizeChangesAfterVisiblePos += item->size();
+            removeResult->sizeChangesAfterVisiblePos += itemSize(item);
     }
     if (removal.isMove()) {
         currentChanges.removedItems.insert(removal.moveKey(item->index), item);
@@ -1374,7 +1374,7 @@ void QQuickItemViewPrivate::removeItem(FxViewItem *item, const QQmlChangeSet::Ch
 
 void QQuickItemViewPrivate::updateSizeChangesBeforeVisiblePos(FxViewItem *item, ChangeResult *removeResult)
 {
-    removeResult->sizeChangesBeforeVisiblePos += item->size();
+    removeResult->sizeChangesBeforeVisiblePos += itemSize(item);
 }
 
 void QQuickItemViewPrivate::repositionFirstItem(FxViewItem *prevVisibleItemsFirst,
@@ -1402,7 +1402,7 @@ void QQuickItemViewPrivate::repositionFirstItem(FxViewItem *prevVisibleItemsFirs
             qreal moveBackwardsBy = 0;
 
             // shift visibleItems.first() relative to the number of added/removed items
-            const auto pos = visibleItems.constFirst()->position();
+            const auto pos = itemPosition(visibleItems.constFirst());
             if (pos > prevViewPos) {
                 moveForwardsBy = insertionResult->sizeChangesAfterVisiblePos;
                 moveBackwardsBy = removalResult->sizeChangesAfterVisiblePos;
