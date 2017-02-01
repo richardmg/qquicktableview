@@ -72,7 +72,7 @@ QT_BEGIN_NAMESPACE
 namespace QV4 {
 namespace JIT {
 
-template <typename JITAssembler = Assembler<AssemblerTargetConfiguration<DefaultPlatformMacroAssembler>>>
+template <typename JITAssembler = Assembler<DefaultAssemblerTargetConfiguration>>
 class Q_QML_EXPORT InstructionSelection:
         protected IR::IRDecoder,
         public EvalInstructionSelection
@@ -257,12 +257,6 @@ private:
         _as->storeBool(reg, target);
     }
 
-    #define isel_stringIfyx(s) #s
-    #define isel_stringIfy(s) isel_stringIfyx(s)
-
-    #define generateRuntimeCall(t, function, ...) \
-        _as->generateFunctionCallImp(Runtime::Method_##function##_NeedsExceptionCheck, t, "Runtime::" isel_stringIfy(function), RuntimeCall(qOffsetOf(QV4::Runtime, function)), __VA_ARGS__)
-
     int prepareVariableArguments(IR::ExprList* args);
     int prepareCallData(IR::ExprList* args, IR::Expr *thisObject);
 
@@ -298,13 +292,14 @@ private:
     RegisterInformation fpRegistersToSave;
 };
 
+template <typename JITAssembler = Assembler<DefaultAssemblerTargetConfiguration>>
 class Q_QML_EXPORT ISelFactory: public EvalISelFactory
 {
 public:
     ISelFactory() : EvalISelFactory(QStringLiteral("jit")) {}
     virtual ~ISelFactory() {}
     EvalInstructionSelection *create(QQmlEnginePrivate *qmlEngine, QV4::ExecutableAllocator *execAllocator, IR::Module *module, QV4::Compiler::JSUnitGenerator *jsGenerator) Q_DECL_OVERRIDE Q_DECL_FINAL
-    { return new InstructionSelection<>(qmlEngine, execAllocator, module, jsGenerator, this); }
+    { return new InstructionSelection<JITAssembler>(qmlEngine, execAllocator, module, jsGenerator, this); }
     bool jitCompileRegexps() const Q_DECL_OVERRIDE Q_DECL_FINAL
     { return true; }
     QQmlRefPointer<CompiledData::CompilationUnit> createUnitForLoading() Q_DECL_OVERRIDE Q_DECL_FINAL;

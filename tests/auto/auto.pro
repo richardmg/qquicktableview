@@ -18,6 +18,4 @@ SUBDIRS=\
 # console applications not supported
 uikit: SUBDIRS -= qmltest
 
-qmldevtools.CONFIG = host_build
-
 installed_cmake.depends = cmake
