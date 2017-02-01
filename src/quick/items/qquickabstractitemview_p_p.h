@@ -232,9 +232,6 @@ public:
     QQuickItemViewTransitioner *transitioner;
     QList<FxViewItem *> releasePendingTransition;
 
-    mutable qreal minExtent;
-    mutable qreal maxExtent;
-
     bool ownModel : 1;
     bool wrap : 1;
     bool keyNavigationEnabled : 1;

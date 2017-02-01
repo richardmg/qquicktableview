@@ -752,6 +752,7 @@ qreal QQuickItemView::originY() const
 QQuickItemViewPrivate::QQuickItemViewPrivate()
     : displayMarginBeginning(0), displayMarginEnd(0)
     , headerComponent(0), header(0), footerComponent(0), footer(0)
+    , minExtent(0), maxExtent(0)
 {
 }
 

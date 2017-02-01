@@ -182,8 +182,6 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
       highlightRangeEnd(0),
       highlightMoveDuration(150),
       transitioner(nullptr),
-      minExtent(0),
-      maxExtent(0),
       ownModel(false),
       wrap(false),
       keyNavigationEnabled(true),

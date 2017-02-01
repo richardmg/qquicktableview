@@ -165,6 +165,9 @@ public:
             : item(i), moveKey(k) {}
     };
 
+    mutable qreal minExtent;
+    mutable qreal maxExtent;
+
 protected:
     virtual qreal positionAt(int index) const = 0;
     virtual qreal endPositionAt(int index) const = 0;
