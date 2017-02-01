@@ -163,6 +163,7 @@ public:
     void updateUnrequestedIndexes();
     void updateUnrequestedPositions();
     void updateVisibleIndex();
+    virtual void positionViewAtIndex(int index, int mode) = 0;
 
     bool createOwnModel();
     void destroyOwnModel();

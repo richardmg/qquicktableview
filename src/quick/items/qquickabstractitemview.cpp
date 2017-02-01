@@ -1155,6 +1155,31 @@ void QQuickAbstractItemView::setHighlightMoveDuration(int duration)
     }
 }
 
+void QQuickAbstractItemView::positionViewAtIndex(int index, int mode)
+{
+    Q_D(QQuickAbstractItemView);
+    if (!d->isValid() || index < 0 || index >= d->model->count())
+        return;
+    d->positionViewAtIndex(index, mode);
+}
+
+
+void QQuickAbstractItemView::positionViewAtBeginning()
+{
+    Q_D(QQuickAbstractItemView);
+    if (!d->isValid())
+        return;
+    d->positionViewAtIndex(-1, Beginning);
+}
+
+void QQuickAbstractItemView::positionViewAtEnd()
+{
+    Q_D(QQuickAbstractItemView);
+    if (!d->isValid())
+        return;
+    d->positionViewAtIndex(d->model->count(), End);
+}
+
 static FxViewItem *fxViewItemAtPosition(const QList<FxViewItem *> &items, qreal x, qreal y)
 {
     for (FxViewItem *item : items) {

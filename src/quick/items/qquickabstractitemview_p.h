@@ -198,6 +198,12 @@ public:
     int highlightMoveDuration() const;
     virtual void setHighlightMoveDuration(int);
 
+    enum PositionMode { Beginning, Center, End, Visible, Contain, SnapPosition };
+    Q_ENUM(PositionMode)
+
+    Q_INVOKABLE void positionViewAtIndex(int index, int mode);
+    Q_INVOKABLE void positionViewAtBeginning();
+    Q_INVOKABLE void positionViewAtEnd();
     Q_INVOKABLE int indexAt(qreal x, qreal y) const;
     Q_INVOKABLE QQuickItem *itemAt(qreal x, qreal y) const;
     Q_REVISION(1) Q_INVOKABLE void forceLayout();

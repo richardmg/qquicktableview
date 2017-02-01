@@ -333,31 +333,6 @@ void QQuickItemViewPrivate::positionViewAtIndex(int index, int mode)
     fixupPosition();
 }
 
-void QQuickItemView::positionViewAtIndex(int index, int mode)
-{
-    Q_D(QQuickItemView);
-    if (!d->isValid() || index < 0 || index >= d->model->count())
-        return;
-    d->positionViewAtIndex(index, mode);
-}
-
-
-void QQuickItemView::positionViewAtBeginning()
-{
-    Q_D(QQuickItemView);
-    if (!d->isValid())
-        return;
-    d->positionViewAtIndex(-1, Beginning);
-}
-
-void QQuickItemView::positionViewAtEnd()
-{
-    Q_D(QQuickItemView);
-    if (!d->isValid())
-        return;
-    d->positionViewAtIndex(d->model->count(), End);
-}
-
 qreal QQuickItemViewPrivate::minExtentForAxis(const AxisData &axisData, bool forXAxis) const
 {
     Q_Q(const QQuickItemView);

@@ -95,13 +95,6 @@ public:
     void setHeader(QQmlComponent *);
     QQuickItem *headerItem() const;
 
-    enum PositionMode { Beginning, Center, End, Visible, Contain, SnapPosition };
-    Q_ENUM(PositionMode)
-
-    Q_INVOKABLE void positionViewAtIndex(int index, int mode);
-    Q_INVOKABLE void positionViewAtBeginning();
-    Q_INVOKABLE void positionViewAtEnd();
-
     void setContentX(qreal pos) override;
     void setContentY(qreal pos) override;
     qreal originX() const override;
