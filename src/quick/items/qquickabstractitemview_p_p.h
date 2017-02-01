@@ -276,6 +276,8 @@ protected:
     virtual void initializeCurrentItem() {}
     virtual void updateSectionCriteria() {}
     virtual void updateSections() {}
+
+    void itemGeometryChanged(QQuickItem *item, QQuickGeometryChange change, const QRectF &) override;
 };
 
 QT_END_NAMESPACE

@@ -372,7 +372,7 @@ void QQuickItemViewPrivate::itemGeometryChanged(QQuickItem *item, QQuickGeometry
                                                 const QRectF &oldGeometry)
 {
     Q_Q(QQuickItemView);
-    QQuickFlickablePrivate::itemGeometryChanged(item, change, oldGeometry);
+    QQuickAbstractItemViewPrivate::itemGeometryChanged(item, change, oldGeometry);
     if (!q->isComponentComplete())
         return;
 
@@ -389,22 +389,6 @@ void QQuickItemViewPrivate::itemGeometryChanged(QQuickItem *item, QQuickGeometry
         if (!q->isMoving() && !q->isFlicking())
             fixupPosition();
     }
-
-    if (currentItem && currentItem->item == item) {
-        // don't allow item movement transitions to trigger a re-layout and
-        // start new transitions
-        bool prevInLayout = inLayout;
-        if (!inLayout) {
-            FxViewItem *actualItem = transitioner ? visibleItem(currentIndex) : 0;
-            if (actualItem && actualItem->transitionRunning())
-                inLayout = true;
-        }
-        updateHighlight();
-        inLayout = prevInLayout;
-    }
-
-    if (trackedItem && trackedItem->item == item)
-        q->trackedPositionChanged();
 }
 
 void QQuickItemView::trackedPositionChanged()
