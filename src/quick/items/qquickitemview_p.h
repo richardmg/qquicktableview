@@ -126,7 +126,6 @@ protected:
     qreal maxXExtent() const override;
 
 protected Q_SLOTS:
-    void destroyRemoved();
     void trackedPositionChanged() override;
 
 private:

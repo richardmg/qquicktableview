@@ -237,6 +237,7 @@ protected:
     void componentComplete() override;
 
 protected Q_SLOTS:
+    void destroyRemoved();
     void createdItem(int index, QObject *item);
     virtual void initItem(int index, QObject *item);
     void modelUpdated(const QQmlChangeSet &changeSet, bool reset);

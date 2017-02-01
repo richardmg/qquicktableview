@@ -571,31 +571,6 @@ void QQuickItemViewPrivate::itemGeometryChanged(QQuickItem *item, QQuickGeometry
         q->trackedPositionChanged();
 }
 
-void QQuickItemView::destroyRemoved()
-{
-    Q_D(QQuickItemView);
-    for (QList<FxViewItem*>::Iterator it = d->visibleItems.begin();
-            it != d->visibleItems.end();) {
-        FxViewItem *item = *it;
-        if (item->index == -1 && (!item->attached || item->attached->delayRemove() == false)) {
-            if (d->transitioner && d->transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, true)) {
-                // don't remove from visibleItems until next layout()
-                d->runDelayedRemoveTransition = true;
-                QObject::disconnect(item->attached, SIGNAL(delayRemoveChanged()), this, SLOT(destroyRemoved()));
-                ++it;
-            } else {
-                d->releaseItem(item);
-                it = d->visibleItems.erase(it);
-            }
-        } else {
-            ++it;
-        }
-    }
-
-    // Correct the positioning of the items
-    d->forceLayoutPolish();
-}
-
 void QQuickItemView::trackedPositionChanged()
 {
     Q_D(QQuickItemView);
