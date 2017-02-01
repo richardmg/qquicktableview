@@ -305,6 +305,18 @@ bool QQuickAbstractItemViewPrivate::isValid() const
     return model && model->count() && model->isValid();
 }
 
+FxViewItem *QQuickAbstractItemViewPrivate::visibleItem(int modelIndex) const
+{
+    if (modelIndex >= visibleIndex && modelIndex < visibleIndex + visibleItems.count()) {
+        for (int i = modelIndex - visibleIndex; i < visibleItems.count(); ++i) {
+            FxViewItem *item = visibleItems.at(i);
+            if (item->index == modelIndex)
+                return item;
+        }
+    }
+    return 0;
+}
+
 void QQuickAbstractItemViewPrivate::init()
 {
     Q_Q(QQuickAbstractItemView);

@@ -641,17 +641,6 @@ int QQuickItemViewPrivate::findLastVisibleIndex(int defaultValue) const
     return defaultValue;
 }
 
-FxViewItem *QQuickItemViewPrivate::visibleItem(int modelIndex) const {
-    if (modelIndex >= visibleIndex && modelIndex < visibleIndex + visibleItems.count()) {
-        for (int i = modelIndex - visibleIndex; i < visibleItems.count(); ++i) {
-            FxViewItem *item = visibleItems.at(i);
-            if (item->index == modelIndex)
-                return item;
-        }
-    }
-    return 0;
-}
-
 // should rename to firstItemInView() to avoid confusion with other "*visible*" methods
 // that don't look at the view position and size
 FxViewItem *QQuickItemViewPrivate::firstVisibleItem() const {

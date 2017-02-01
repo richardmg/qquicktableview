@@ -137,6 +137,7 @@ public:
     enum MovementReason { Other, SetIndex, Mouse };
 
     bool isValid() const;
+    FxViewItem *visibleItem(int modelIndex) const;
 
     virtual void init();
     virtual void clear();
