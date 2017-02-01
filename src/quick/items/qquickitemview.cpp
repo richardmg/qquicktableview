@@ -1114,7 +1114,7 @@ void QQuickItemViewPrivate::layout()
         prepareVisibleItemTransitions();
 
         QRectF viewBounds(q->contentX(),  q->contentY(), q->width(), q->height());
-        for (QList<FxAbstractViewItem*>::Iterator it = releasePendingTransition.begin();
+        for (QList<FxViewItem*>::Iterator it = releasePendingTransition.begin();
              it != releasePendingTransition.end(); ) {
             FxViewItem *item = static_cast<FxViewItem *>(*it); // ###
             if (prepareNonVisibleItemTransition(item, viewBounds)) {
@@ -1273,7 +1273,7 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
 
     // Whatever removed/moved items remain are no longer visible items.
     prepareRemoveTransitions(&currentChanges.removedItems);
-    for (QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *>::Iterator it = currentChanges.removedItems.begin();
+    for (QHash<QQmlChangeSet::MoveKey, FxViewItem *>::Iterator it = currentChanges.removedItems.begin();
          it != currentChanges.removedItems.end(); ++it) {
         releaseItem(it.value());
     }

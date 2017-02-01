@@ -52,7 +52,7 @@ QT_BEGIN_NAMESPACE
 #define QML_VIEW_DEFAULTCACHEBUFFER 320
 #endif
 
-FxAbstractViewItem::FxAbstractViewItem(QQuickItem *i, QQuickAbstractItemView *v, bool own, QQuickAbstractItemViewAttached *attached)
+FxViewItem::FxViewItem(QQuickItem *i, QQuickAbstractItemView *v, bool own, QQuickAbstractItemViewAttached *attached)
     : item(i)
     , view(v)
     , transitionableItem(0)
@@ -65,7 +65,7 @@ FxAbstractViewItem::FxAbstractViewItem(QQuickItem *i, QQuickAbstractItemView *v,
         attached->setView(view);
 }
 
-FxAbstractViewItem::~FxAbstractViewItem()
+FxViewItem::~FxViewItem()
 {
     delete transitionableItem;
     if (ownItem && item) {
@@ -76,17 +76,17 @@ FxAbstractViewItem::~FxAbstractViewItem()
     }
 }
 
-qreal FxAbstractViewItem::itemX() const
+qreal FxViewItem::itemX() const
 {
     return transitionableItem ? transitionableItem->itemX() : (item ? item->x() : 0);
 }
 
-qreal FxAbstractViewItem::itemY() const
+qreal FxViewItem::itemY() const
 {
     return transitionableItem ? transitionableItem->itemY() : (item ? item->y() : 0);
 }
 
-void FxAbstractViewItem::moveTo(const QPointF &pos, bool immediate)
+void FxViewItem::moveTo(const QPointF &pos, bool immediate)
 {
     if (transitionableItem)
         transitionableItem->moveTo(pos, immediate);
@@ -94,7 +94,7 @@ void FxAbstractViewItem::moveTo(const QPointF &pos, bool immediate)
         item->setPosition(pos);
 }
 
-void FxAbstractViewItem::setVisible(bool visible)
+void FxViewItem::setVisible(bool visible)
 {
     if (!visible && transitionableItem && transitionableItem->transitionScheduledOrRunning())
         return;
@@ -102,7 +102,7 @@ void FxAbstractViewItem::setVisible(bool visible)
         QQuickItemPrivate::get(item)->setCulled(!visible);
 }
 
-void FxAbstractViewItem::trackGeometry(bool track)
+void FxViewItem::trackGeometry(bool track)
 {
     if (track) {
         if (!trackGeom) {
@@ -123,27 +123,27 @@ void FxAbstractViewItem::trackGeometry(bool track)
     }
 }
 
-QQuickItemViewTransitioner::TransitionType FxAbstractViewItem::scheduledTransitionType() const
+QQuickItemViewTransitioner::TransitionType FxViewItem::scheduledTransitionType() const
 {
     return transitionableItem ? transitionableItem->nextTransitionType : QQuickItemViewTransitioner::NoTransition;
 }
 
-bool FxAbstractViewItem::transitionScheduledOrRunning() const
+bool FxViewItem::transitionScheduledOrRunning() const
 {
     return transitionableItem ? transitionableItem->transitionScheduledOrRunning() : false;
 }
 
-bool FxAbstractViewItem::transitionRunning() const
+bool FxViewItem::transitionRunning() const
 {
     return transitionableItem ? transitionableItem->transitionRunning() : false;
 }
 
-bool FxAbstractViewItem::isPendingRemoval() const
+bool FxViewItem::isPendingRemoval() const
 {
     return transitionableItem ? transitionableItem->isPendingRemoval() : false;
 }
 
-void FxAbstractViewItem::transitionNextReposition(QQuickItemViewTransitioner *transitioner, QQuickItemViewTransitioner::TransitionType type, bool asTarget)
+void FxViewItem::transitionNextReposition(QQuickItemViewTransitioner *transitioner, QQuickItemViewTransitioner::TransitionType type, bool asTarget)
 {
     if (!transitioner)
         return;
@@ -152,12 +152,12 @@ void FxAbstractViewItem::transitionNextReposition(QQuickItemViewTransitioner *tr
     transitioner->transitionNextReposition(transitionableItem, type, asTarget);
 }
 
-bool FxAbstractViewItem::prepareTransition(QQuickItemViewTransitioner *transitioner, const QRectF &viewBounds)
+bool FxViewItem::prepareTransition(QQuickItemViewTransitioner *transitioner, const QRectF &viewBounds)
 {
     return transitionableItem ? transitionableItem->prepareTransition(transitioner, index, viewBounds) : false;
 }
 
-void FxAbstractViewItem::startTransition(QQuickItemViewTransitioner *transitioner)
+void FxViewItem::startTransition(QQuickItemViewTransitioner *transitioner)
 {
     if (transitionableItem)
         transitionableItem->startTransition(transitioner, index);
@@ -231,7 +231,7 @@ void QQuickAbstractItemViewPrivate::clear()
     currentChanges.reset();
     timeline.clear();
 
-    for (FxAbstractViewItem *item : qAsConst(releasePendingTransition)) {
+    for (FxViewItem *item : qAsConst(releasePendingTransition)) {
         item->releaseAfterTransition = false;
         releaseItem(item);
     }
@@ -295,7 +295,7 @@ void QQuickAbstractItemViewPrivate::mirrorChange()
   When the item becomes available, refill() will be called and the item
   will be returned on the next call to createItem().
 */
-FxAbstractViewItem *QQuickAbstractItemViewPrivate::createItem(int modelIndex, bool asynchronous)
+FxViewItem *QQuickAbstractItemViewPrivate::createItem(int modelIndex, bool asynchronous)
 {
     Q_Q(QQuickAbstractItemView);
 
@@ -331,7 +331,7 @@ FxAbstractViewItem *QQuickAbstractItemViewPrivate::createItem(int modelIndex, bo
         item->setParentItem(q->contentItem());
         if (requestedIndex == modelIndex)
             requestedIndex = -1;
-        FxAbstractViewItem *viewItem = newViewItem(modelIndex, item);
+        FxViewItem *viewItem = newViewItem(modelIndex, item);
         if (viewItem) {
             viewItem->index = modelIndex;
             // do other set up for the new item that should not happen
@@ -344,7 +344,7 @@ FxAbstractViewItem *QQuickAbstractItemViewPrivate::createItem(int modelIndex, bo
     }
 }
 
-bool QQuickAbstractItemViewPrivate::releaseItem(FxAbstractViewItem *item)
+bool QQuickAbstractItemViewPrivate::releaseItem(FxViewItem *item)
 {
     Q_Q(QQuickAbstractItemView);
     if (!item || !model)
@@ -430,7 +430,7 @@ void QQuickAbstractItemViewPrivate::updateCurrent(int modelIndex)
         return;
     }
 
-    FxAbstractViewItem *oldCurrentItem = currentItem;
+    FxViewItem *oldCurrentItem = currentItem;
     int oldCurrentIndex = currentIndex;
     currentIndex = modelIndex;
     currentItem = createItem(modelIndex, false);
@@ -455,7 +455,7 @@ void QQuickAbstractItemViewPrivate::updateCurrent(int modelIndex)
 void QQuickAbstractItemViewPrivate::updateTrackedItem()
 {
     Q_Q(QQuickAbstractItemView);
-    FxAbstractViewItem *item = currentItem;
+    FxViewItem *item = currentItem;
     if (highlight)
         item = highlight;
     trackedItem = item;
@@ -515,18 +515,18 @@ void QQuickAbstractItemViewPrivate::createTransitioner()
     }
 }
 
-void QQuickAbstractItemViewPrivate::prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> *removedItems)
+void QQuickAbstractItemViewPrivate::prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxViewItem *> *removedItems)
 {
     if (!transitioner)
         return;
 
     if (transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, true)
             || transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, false)) {
-        for (QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *>::Iterator it = removedItems->begin();
+        for (QHash<QQmlChangeSet::MoveKey, FxViewItem *>::Iterator it = removedItems->begin();
              it != removedItems->end(); ) {
             bool isRemove = it.key().moveId < 0;
             if (isRemove) {
-                FxAbstractViewItem *item = *it;
+                FxViewItem *item = *it;
                 item->trackGeometry(false);
                 item->releaseAfterTransition = true;
                 releasePendingTransition.append(item);
@@ -539,7 +539,7 @@ void QQuickAbstractItemViewPrivate::prepareRemoveTransitions(QHash<QQmlChangeSet
     }
 }
 
-bool QQuickAbstractItemViewPrivate::prepareNonVisibleItemTransition(FxAbstractViewItem *item, const QRectF &viewBounds)
+bool QQuickAbstractItemViewPrivate::prepareNonVisibleItemTransition(FxViewItem *item, const QRectF &viewBounds)
 {
     // Called for items that have been removed from visibleItems and may now be
     // transitioned out of the view. This applies to items that are being directly

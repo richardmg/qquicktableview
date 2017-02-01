@@ -64,11 +64,11 @@ QT_REQUIRE_CONFIG(quick_itemview);
 
 QT_BEGIN_NAMESPACE
 
-class Q_AUTOTEST_EXPORT FxAbstractViewItem
+class Q_AUTOTEST_EXPORT FxViewItem
 {
 public:
-    FxAbstractViewItem(QQuickItem *, QQuickAbstractItemView *, bool own, QQuickAbstractItemViewAttached *attached);
-    virtual ~FxAbstractViewItem();
+    FxViewItem(QQuickItem *, QQuickAbstractItemView *, bool own, QQuickAbstractItemViewAttached *attached);
+    virtual ~FxViewItem();
 
     qreal itemX() const;
     qreal itemY() const;
@@ -116,7 +116,7 @@ public:
     int itemCount;
     int newCurrentIndex;
     QQmlChangeSet pendingChanges;
-    QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> removedItems;
+    QHash<QQmlChangeSet::MoveKey, FxViewItem *> removedItems;
 
     bool active : 1;
     bool currentChanged : 1;
@@ -151,8 +151,8 @@ public:
     void animationFinished(QAbstractAnimationJob *) override;
     void mirrorChange() override;
 
-    FxAbstractViewItem *createItem(int modelIndex, bool asynchronous = false);
-    virtual bool releaseItem(FxAbstractViewItem *item);
+    FxViewItem *createItem(int modelIndex, bool asynchronous = false);
+    virtual bool releaseItem(FxViewItem *item);
 
     QQuickItem *createHighlightItem() const;
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
@@ -168,8 +168,8 @@ public:
     void applyPendingChanges();
 
     void createTransitioner();
-    void prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxAbstractViewItem *> *removedItems);
-    bool prepareNonVisibleItemTransition(FxAbstractViewItem *item, const QRectF &viewBounds);
+    void prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxViewItem *> *removedItems);
+    bool prepareNonVisibleItemTransition(FxViewItem *item, const QRectF &viewBounds);
     void viewItemTransitionFinished(QQuickItemViewTransitionableItem *item) override;
 
     void markExtentsDirty() {
@@ -210,8 +210,8 @@ public:
 
     int visibleIndex;
     int currentIndex;
-    FxAbstractViewItem *currentItem;
-    FxAbstractViewItem *trackedItem;
+    FxViewItem *currentItem;
+    FxViewItem *trackedItem;
     QHash<QQuickItem*,int> unrequestedItems;
     int requestedIndex;
     QQuickItemViewChangeSet currentChanges;
@@ -219,14 +219,14 @@ public:
     QPauseAnimationJob bufferPause;
 
     QQmlComponent *highlightComponent;
-    FxAbstractViewItem *highlight;
+    FxViewItem *highlight;
     int highlightRange;     // enum value
     qreal highlightRangeStart;
     qreal highlightRangeEnd;
     int highlightMoveDuration;
 
     QQuickItemViewTransitioner *transitioner;
-    QList<FxAbstractViewItem *> releasePendingTransition;
+    QList<FxViewItem *> releasePendingTransition;
 
     mutable qreal minExtent;
     mutable qreal maxExtent;
@@ -260,8 +260,8 @@ protected:
 
     virtual void visibleItemsChanged() {}
 
-    virtual FxAbstractViewItem *newViewItem(int index, QQuickItem *item) = 0;
-    virtual void repositionItemAt(FxAbstractViewItem *item, int index, qreal sizeBuffer) = 0;
+    virtual FxViewItem *newViewItem(int index, QQuickItem *item) = 0;
+    virtual void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) = 0;
     virtual void repositionPackageItemAt(QQuickItem *item, int index) = 0;
 
     virtual void layoutVisibleItems(int fromModelIndex = 0) = 0;
@@ -269,7 +269,7 @@ protected:
 
     virtual bool needsRefillForAddedOrRemovedIndex(int) const { return false; }
 
-    virtual void initializeViewItem(FxAbstractViewItem *) {}
+    virtual void initializeViewItem(FxViewItem *) {}
     virtual void initializeCurrentItem() {}
     virtual void updateSectionCriteria() {}
     virtual void updateSections() {}

@@ -63,14 +63,6 @@ QT_REQUIRE_CONFIG(quick_itemview);
 QT_BEGIN_NAMESPACE
 
 
-class Q_AUTOTEST_EXPORT FxViewItem : public FxAbstractViewItem
-{
-public:
-    FxViewItem(QQuickItem *item, QQuickItemView *view, bool own, QQuickItemViewAttached *attached)
-        : FxAbstractViewItem(item, view, own, attached) {}
-};
-
-
 class Q_AUTOTEST_EXPORT QQuickItemViewPrivate : public QQuickAbstractItemViewPrivate
 {
     Q_DECLARE_PUBLIC(QQuickItemView)
@@ -186,10 +178,10 @@ protected:
     virtual qreal lastPosition() const = 0;
 
     // these are positions and sizes along the current direction of scrolling/flicking
-    virtual qreal itemPosition(FxAbstractViewItem *item) const = 0;
-    virtual qreal itemEndPosition(FxAbstractViewItem *item) const = 0;
-    virtual qreal itemSize(FxAbstractViewItem *item) const = 0;
-    virtual qreal itemSectionSize(FxAbstractViewItem *item) const = 0;
+    virtual qreal itemPosition(FxViewItem *item) const = 0;
+    virtual qreal itemEndPosition(FxViewItem *item) const = 0;
+    virtual qreal itemSize(FxViewItem *item) const = 0;
+    virtual qreal itemSectionSize(FxViewItem *item) const = 0;
 
     virtual qreal headerSize() const = 0;
     virtual qreal footerSize() const = 0;

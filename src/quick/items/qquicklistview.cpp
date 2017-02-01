@@ -75,10 +75,10 @@ public:
     qreal originPosition() const override;
     qreal lastPosition() const override;
 
-    qreal itemPosition(FxAbstractViewItem *item) const override;
-    qreal itemEndPosition(FxAbstractViewItem *item) const override;
-    qreal itemSize(FxAbstractViewItem *item) const override;
-    qreal itemSectionSize(FxAbstractViewItem *item) const override;
+    qreal itemPosition(FxViewItem *item) const override;
+    qreal itemEndPosition(FxViewItem *item) const override;
+    qreal itemSize(FxViewItem *item) const override;
+    qreal itemSectionSize(FxViewItem *item) const override;
 
     FxViewItem *itemBefore(int modelIndex) const;
     QString sectionAt(int modelIndex);
@@ -94,10 +94,10 @@ public:
 
     void removeItem(FxViewItem *item);
 
-    FxAbstractViewItem *newViewItem(int index, QQuickItem *item) override;
-    void initializeViewItem(FxAbstractViewItem *item) override;
-    bool releaseItem(FxAbstractViewItem *item) override;
-    void repositionItemAt(FxAbstractViewItem *item, int index, qreal sizeBuffer) override;
+    FxViewItem *newViewItem(int index, QQuickItem *item) override;
+    void initializeViewItem(FxViewItem *item) override;
+    bool releaseItem(FxViewItem *item) override;
+    void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) override;
     void repositionPackageItemAt(QQuickItem *item, int index) override;
     void resetFirstItemPosition(qreal pos = 0.0) override;
     void adjustFirstItem(qreal forwards, qreal backwards, int) override;
@@ -356,7 +356,7 @@ bool QQuickListViewPrivate::isBottomToTop() const
     return orient == QQuickListView::Vertical && verticalLayoutDirection == QQuickItemView::BottomToTop;
 }
 
-qreal QQuickListViewPrivate::itemPosition(FxAbstractViewItem *item) const
+qreal QQuickListViewPrivate::itemPosition(FxViewItem *item) const
 {
     Q_Q(const QQuickListView);
     FxListItemSG *listItem = static_cast<FxListItemSG *>(item);
@@ -370,7 +370,7 @@ qreal QQuickListViewPrivate::itemPosition(FxAbstractViewItem *item) const
     }
 }
 
-qreal QQuickListViewPrivate::itemSize(FxAbstractViewItem *item) const
+qreal QQuickListViewPrivate::itemSize(FxViewItem *item) const
 {
     FxListItemSG *listItem = static_cast<FxListItemSG *>(item);
     if (QQuickItem *section = listItem->section())
@@ -379,7 +379,7 @@ qreal QQuickListViewPrivate::itemSize(FxAbstractViewItem *item) const
         return (orient == QQuickListView::Vertical ? listItem->itemHeight() : listItem->itemWidth());
 }
 
-qreal QQuickListViewPrivate::itemSectionSize(FxAbstractViewItem *item) const
+qreal QQuickListViewPrivate::itemSectionSize(FxViewItem *item) const
 {
     FxListItemSG *listItem = static_cast<FxListItemSG *>(item);
     if (QQuickItem *section = listItem->section())
@@ -387,7 +387,7 @@ qreal QQuickListViewPrivate::itemSectionSize(FxAbstractViewItem *item) const
     return 0.0;
 }
 
-qreal QQuickListViewPrivate::itemEndPosition(FxAbstractViewItem *item) const
+qreal QQuickListViewPrivate::itemEndPosition(FxViewItem *item) const
 {
     Q_Q(const QQuickListView);
     FxListItemSG *listItem = static_cast<FxListItemSG *>(item);
@@ -591,7 +591,7 @@ void QQuickListViewPrivate::clear()
     QQuickItemViewPrivate::clear();
 }
 
-FxAbstractViewItem *QQuickListViewPrivate::newViewItem(int modelIndex, QQuickItem *item)
+FxViewItem *QQuickListViewPrivate::newViewItem(int modelIndex, QQuickItem *item)
 {
     Q_Q(QQuickListView);
 
@@ -619,7 +619,7 @@ FxAbstractViewItem *QQuickListViewPrivate::newViewItem(int modelIndex, QQuickIte
     return listItem;
 }
 
-void QQuickListViewPrivate::initializeViewItem(FxAbstractViewItem *item)
+void QQuickListViewPrivate::initializeViewItem(FxViewItem *item)
 {
     QQuickItemViewPrivate::initializeViewItem(item);
 
@@ -632,7 +632,7 @@ void QQuickListViewPrivate::initializeViewItem(FxAbstractViewItem *item)
     }
 }
 
-bool QQuickListViewPrivate::releaseItem(FxAbstractViewItem *item)
+bool QQuickListViewPrivate::releaseItem(FxViewItem *item)
 {
     if (!item || !model)
         return true;
@@ -831,7 +831,7 @@ void QQuickListViewPrivate::layoutVisibleItems(int fromModelIndex)
     }
 }
 
-void QQuickListViewPrivate::repositionItemAt(FxAbstractViewItem *item, int index, qreal sizeBuffer)
+void QQuickListViewPrivate::repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer)
 {
     static_cast<FxListItemSG *>(item)->setPosition(positionAt(index) + sizeBuffer);
 }
@@ -3232,7 +3232,7 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
         } else {
             for (i = count-1; i >= 0 && pos >= from; --i) {
                 // item is before first visible e.g. in cache buffer
-                FxAbstractViewItem *item = 0;
+                FxViewItem *item = 0;
                 if (change.isMove() && (item = currentChanges.removedItems.take(change.moveKey(modelIndex + i))))
                     item->index = modelIndex + i;
                 if (!item)
@@ -3276,7 +3276,7 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
         visibleAffected = count > 0 && pos < to;
 
         for (int i = 0; i < count && pos <= to; ++i) {
-            FxAbstractViewItem *item = 0;
+            FxViewItem *item = 0;
             if (change.isMove() && (item = currentChanges.removedItems.take(change.moveKey(modelIndex + i))))
                 item->index = modelIndex + i;
             bool newItem = !item;

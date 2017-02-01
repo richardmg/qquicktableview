@@ -151,10 +151,10 @@ public:
     qreal originPosition() const override;
     qreal lastPosition() const override;
 
-    qreal itemPosition(FxAbstractViewItem *item) const override;
-    qreal itemEndPosition(FxAbstractViewItem *item) const override;
-    qreal itemSize(FxAbstractViewItem *item) const override;
-    qreal itemSectionSize(FxAbstractViewItem *item) const override;
+    qreal itemPosition(FxViewItem *item) const override;
+    qreal itemEndPosition(FxViewItem *item) const override;
+    qreal itemSize(FxViewItem *item) const override;
+    qreal itemSectionSize(FxViewItem *item) const override;
 
     qreal rowSize() const;
     qreal colSize() const;
@@ -173,9 +173,9 @@ public:
 
     void removeItem(FxViewItem *item);
 
-    FxAbstractViewItem *newViewItem(int index, QQuickItem *item) override;
-    void initializeViewItem(FxAbstractViewItem *item) override;
-    void repositionItemAt(FxAbstractViewItem *item, int index, qreal sizeBuffer) override;
+    FxViewItem *newViewItem(int index, QQuickItem *item) override;
+    void initializeViewItem(FxViewItem *item) override;
+    void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) override;
     void repositionPackageItemAt(QQuickItem *item, int index) override;
     void resetFirstItemPosition(qreal pos = 0.0) override;
     void adjustFirstItem(qreal forwards, qreal backwards, int changeBeforeVisible) override;
@@ -241,22 +241,22 @@ bool QQuickGridViewPrivate::isContentFlowReversed() const
             || (flow == QQuickGridView::FlowTopToBottom && q->effectiveLayoutDirection() == Qt::RightToLeft);
 }
 
-qreal QQuickGridViewPrivate::itemPosition(FxAbstractViewItem *item) const
+qreal QQuickGridViewPrivate::itemPosition(FxViewItem *item) const
 {
     return static_cast<FxGridItemSG *>(item)->rowPos();
 }
 
-qreal QQuickGridViewPrivate::itemEndPosition(FxAbstractViewItem *item) const
+qreal QQuickGridViewPrivate::itemEndPosition(FxViewItem *item) const
 {
     return static_cast<FxGridItemSG *>(item)->endRowPos();
 }
 
-qreal QQuickGridViewPrivate::itemSize(FxAbstractViewItem *) const
+qreal QQuickGridViewPrivate::itemSize(FxViewItem *) const
 {
     return flow == QQuickGridView::FlowLeftToRight ? cellHeight : cellWidth;
 }
 
-qreal QQuickGridViewPrivate::itemSectionSize(FxAbstractViewItem *) const
+qreal QQuickGridViewPrivate::itemSectionSize(FxViewItem *) const
 {
     return 0.0;
 }
@@ -466,14 +466,14 @@ void QQuickGridViewPrivate::resetColumns()
     columns = qMax(1, qFloor(length / colSize()));
 }
 
-FxAbstractViewItem *QQuickGridViewPrivate::newViewItem(int modelIndex, QQuickItem *item)
+FxViewItem *QQuickGridViewPrivate::newViewItem(int modelIndex, QQuickItem *item)
 {
     Q_Q(QQuickGridView);
     Q_UNUSED(modelIndex);
     return new FxGridItemSG(item, q, false);
 }
 
-void QQuickGridViewPrivate::initializeViewItem(FxAbstractViewItem *item)
+void QQuickGridViewPrivate::initializeViewItem(FxViewItem *item)
 {
     QQuickItemViewPrivate::initializeViewItem(item);
 
@@ -655,7 +655,7 @@ void QQuickGridViewPrivate::layoutVisibleItems(int fromModelIndex)
     }
 }
 
-void QQuickGridViewPrivate::repositionItemAt(FxAbstractViewItem *item, int index, qreal sizeBuffer)
+void QQuickGridViewPrivate::repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer)
 {
     int count = sizeBuffer / rowSize();
     static_cast<FxGridItemSG *>(item)->setPosition(colPosAt(index + count), rowPosAt(index + count));
@@ -2423,7 +2423,7 @@ bool QQuickGridViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
         } else {
             while (i >= 0) {
                 // item is before first visible e.g. in cache buffer
-                FxAbstractViewItem *item = 0;
+                FxViewItem *item = 0;
                 if (change.isMove() && (item = currentChanges.removedItems.take(change.moveKey(modelIndex + i))))
                     item->index = modelIndex + i;
                 if (!item)
@@ -2475,7 +2475,7 @@ bool QQuickGridViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
         int i = 0;
         int to = buffer+displayMarginEnd+tempPos+size()-1;
         while (i < count && rowPos <= to + rowSize()*(columns - colNum)/qreal(columns+1)) {
-            FxAbstractViewItem *item = 0;
+            FxViewItem *item = 0;
             if (change.isMove() && (item = currentChanges.removedItems.take(change.moveKey(modelIndex + i))))
                 item->index = modelIndex + i;
             bool newItem = !item;
