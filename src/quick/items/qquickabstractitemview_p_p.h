@@ -55,7 +55,7 @@
 
 QT_REQUIRE_CONFIG(quick_itemview);
 
-#include "qquickitemview_p.h"
+#include "qquickabstractitemview_p.h"
 #include "qquickitemviewtransition_p.h"
 #include "qquickflickable_p_p.h"
 
@@ -209,7 +209,7 @@ public:
     int buffer;
     int bufferMode;
     Qt::LayoutDirection layoutDirection;
-    QQuickItemView::VerticalLayoutDirection verticalLayoutDirection;
+    QQuickAbstractItemView::VerticalLayoutDirection verticalLayoutDirection;
 
     MovementReason moveReason;
 
