@@ -195,6 +195,7 @@ public:
     virtual void regenerate();
     virtual void layout();
     virtual void refill();
+    virtual bool addRemoveVisibleItems();
     virtual void recreateVisibleItems(); // ### TODO: better name
 
     void animationFinished(QAbstractAnimationJob *) override;

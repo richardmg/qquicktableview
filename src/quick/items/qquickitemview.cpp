@@ -655,26 +655,22 @@ void QQuickItemViewPrivate::init()
     q->setFlickableDirection(QQuickFlickable::VerticalFlick);
 }
 
-void QQuickItemViewPrivate::refill()
+bool QQuickItemViewPrivate::addRemoveVisibleItems()
 {
-    qreal s = qMax(size(), qreal(0.));
-    const auto pos = position();
-    if (isContentFlowReversed())
-        refill(-pos - displayMarginBeginning-s, -pos + displayMarginEnd);
-    else
-        refill(pos - displayMarginBeginning, pos + displayMarginEnd+s);
-}
-
-void QQuickItemViewPrivate::refill(qreal from, qreal to)
-{
-    Q_Q(QQuickItemView);
-    if (!isValid() || !q->isComponentComplete())
-        return;
-
     bufferPause.stop();
     currentChanges.reset();
 
-    int prevCount = itemCount;
+    qreal from, to;
+    qreal s = qMax(size(), qreal(0.));
+    const auto pos = position();
+    if (isContentFlowReversed()) {
+        from = -pos - displayMarginBeginning - s;
+        to = -pos + displayMarginEnd;
+    } else {
+        from = pos - displayMarginBeginning;
+        to = pos + displayMarginEnd + s;
+    }
+
     itemCount = model->count();
     qreal bufferFrom = from - buffer;
     qreal bufferTo = to + buffer;
@@ -697,17 +693,7 @@ void QQuickItemViewPrivate::refill(qreal from, qreal to)
             added |= addVisibleItems(fillFrom, fillTo, bufferFrom, bufferTo, true);
         }
     }
-
-    if (added || removed) {
-        markExtentsDirty();
-        updateBeginningEnd();
-        visibleItemsChanged();
-        updateHeaders();
-        updateViewport();
-    }
-
-    if (prevCount != itemCount)
-        emit q->countChanged();
+    return added || removed;
 }
 
 void QQuickItemViewPrivate::orientationChange()

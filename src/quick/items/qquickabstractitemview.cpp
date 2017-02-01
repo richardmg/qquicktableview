@@ -481,6 +481,27 @@ void QQuickAbstractItemViewPrivate::layout()
 
 void QQuickAbstractItemViewPrivate::refill()
 {
+    Q_Q(QQuickAbstractItemView);
+    if (!isValid() || !q->isComponentComplete())
+        return;
+
+    int prevCount = itemCount;
+
+    if (addRemoveVisibleItems()) {
+        markExtentsDirty();
+        updateBeginningEnd();
+        visibleItemsChanged();
+        updateHeaders();
+        updateViewport();
+    }
+
+    if (prevCount != itemCount)
+        emit q->countChanged();
+}
+
+bool QQuickAbstractItemViewPrivate::addRemoveVisibleItems()
+{
+    return false;
 }
 
 void QQuickAbstractItemViewPrivate::recreateVisibleItems()

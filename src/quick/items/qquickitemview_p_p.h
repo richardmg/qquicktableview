@@ -88,8 +88,7 @@ public:
     void resetPosition() override;
 
     void orientationChange();
-    void refill() override;
-    void refill(qreal from, qreal to);
+    bool addRemoveVisibleItems() override;
 
     void positionViewAtIndex(int index, int mode) override;
 
