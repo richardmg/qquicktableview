@@ -791,8 +791,7 @@ void QQuickItemView::componentComplete()
     QQuickFlickable::componentComplete();
 
     d->updateSectionCriteria();
-    d->updateHeader();
-    d->updateFooter();
+    d->updateHeaders();
     d->updateViewport();
     d->resetPosition();
     if (d->transitioner)
@@ -988,8 +987,7 @@ void QQuickItemViewPrivate::refill(qreal from, qreal to)
         markExtentsDirty();
         updateBeginningEnd();
         visibleItemsChanged();
-        updateHeader();
-        updateFooter();
+        updateHeaders();
         updateViewport();
     }
 
@@ -1003,8 +1001,7 @@ void QQuickItemViewPrivate::regenerate()
     if (q->isComponentComplete()) {
         currentChanges.reset();
         clear();
-        updateHeader();
-        updateFooter();
+        updateHeaders();
         updateViewport();
         resetPosition();
         refill();
@@ -1033,6 +1030,12 @@ void QQuickItemViewPrivate::updateViewport()
         q->setContentHeight(contentSize + extra);
     else
         q->setContentWidth(contentSize + extra);
+}
+
+void QQuickItemViewPrivate::updateHeaders()
+{
+    updateHeader();
+    updateFooter();
 }
 
 void QQuickItemViewPrivate::resetPosition()
@@ -1098,8 +1101,7 @@ void QQuickItemViewPrivate::layout()
         refill();
     }
 
-    updateHeader();
-    updateFooter();
+    updateHeaders();
     updateViewport();
     updateUnrequestedPositions();
 

@@ -124,6 +124,7 @@ public:
     void init() override;
     void clear() override;
     void updateViewport() override;
+    void updateHeaders() override;
     void resetPosition() override;
 
     void regenerate() override;
