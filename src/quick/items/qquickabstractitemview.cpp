@@ -529,6 +529,18 @@ void QQuickAbstractItemViewPrivate::createTransitioner()
     }
 }
 
+void QQuickAbstractItemViewPrivate::prepareVisibleItemTransitions()
+{
+    Q_Q(QQuickAbstractItemView);
+    if (!transitioner)
+        return;
+
+    // must call for every visible item to init or discard transitions
+    QRectF viewBounds(q->contentX(), q->contentY(), q->width(), q->height());
+    for (int i=0; i<visibleItems.count(); i++)
+        visibleItems[i]->prepareTransition(transitioner, viewBounds);
+}
+
 void QQuickAbstractItemViewPrivate::prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxViewItem *> *removedItems)
 {
     if (!transitioner)

@@ -1370,18 +1370,6 @@ void QQuickItemViewPrivate::repositionFirstItem(FxViewItem *prevVisibleItemsFirs
     }
 }
 
-void QQuickItemViewPrivate::prepareVisibleItemTransitions()
-{
-    Q_Q(QQuickItemView);
-    if (!transitioner)
-        return;
-
-    // must call for every visible item to init or discard transitions
-    QRectF viewBounds(q->contentX(), q->contentY(), q->width(), q->height());
-    for (int i=0; i<visibleItems.count(); i++)
-        visibleItems[i]->prepareTransition(transitioner, viewBounds);
-}
-
 void QQuickItemViewPrivate::updateVisibleIndex()
 {
     typedef QList<FxViewItem*>::const_iterator FxViewItemListConstIt;

@@ -149,8 +149,6 @@ public:
     void repositionFirstItem(FxViewItem *prevVisibleItemsFirst, qreal prevVisibleItemsFirstPos,
             FxViewItem *prevFirstVisible, ChangeResult *insertionResult, ChangeResult *removalResult);
 
-    void prepareVisibleItemTransitions();
-
     void checkVisible() const;
     void showVisibleItems() const;
 
