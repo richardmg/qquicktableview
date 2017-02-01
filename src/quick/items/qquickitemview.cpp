@@ -358,29 +358,6 @@ void QQuickItemView::positionViewAtEnd()
     d->positionViewAtIndex(d->model->count(), End);
 }
 
-static FxViewItem * fxViewItemAtPosition(const QList<FxViewItem *> &items, qreal x, qreal y)
-{
-    for (FxViewItem *item : items) {
-        if (item->contains(x, y))
-            return item;
-    }
-    return nullptr;
-}
-
-int QQuickItemView::indexAt(qreal x, qreal y) const
-{
-    Q_D(const QQuickItemView);
-    const FxViewItem *item = fxViewItemAtPosition(d->visibleItems, x, y);
-    return item ? item->index : -1;
-}
-
-QQuickItem *QQuickItemView::itemAt(qreal x, qreal y) const
-{
-    Q_D(const QQuickItemView);
-    const FxViewItem *item = fxViewItemAtPosition(d->visibleItems, x, y);
-    return item ? item->item : nullptr;
-}
-
 qreal QQuickItemViewPrivate::minExtentForAxis(const AxisData &axisData, bool forXAxis) const
 {
     Q_Q(const QQuickItemView);

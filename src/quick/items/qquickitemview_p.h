@@ -99,8 +99,6 @@ public:
     Q_ENUM(PositionMode)
 
     Q_INVOKABLE void positionViewAtIndex(int index, int mode);
-    Q_INVOKABLE int indexAt(qreal x, qreal y) const;
-    Q_INVOKABLE QQuickItem *itemAt(qreal x, qreal y) const;
     Q_INVOKABLE void positionViewAtBeginning();
     Q_INVOKABLE void positionViewAtEnd();
 

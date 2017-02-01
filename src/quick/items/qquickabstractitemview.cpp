@@ -1155,6 +1155,29 @@ void QQuickAbstractItemView::setHighlightMoveDuration(int duration)
     }
 }
 
+static FxViewItem *fxViewItemAtPosition(const QList<FxViewItem *> &items, qreal x, qreal y)
+{
+    for (FxViewItem *item : items) {
+        if (item->contains(x, y))
+            return item;
+    }
+    return nullptr;
+}
+
+int QQuickAbstractItemView::indexAt(qreal x, qreal y) const
+{
+    Q_D(const QQuickAbstractItemView);
+    const FxViewItem *item = fxViewItemAtPosition(d->visibleItems, x, y);
+    return item ? item->index : -1;
+}
+
+QQuickItem *QQuickAbstractItemView::itemAt(qreal x, qreal y) const
+{
+    Q_D(const QQuickAbstractItemView);
+    const FxViewItem *item = fxViewItemAtPosition(d->visibleItems, x, y);
+    return item ? item->item : nullptr;
+}
+
 void QQuickAbstractItemView::forceLayout()
 {
     Q_D(QQuickAbstractItemView);
