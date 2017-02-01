@@ -960,20 +960,6 @@ void QQuickItemViewPrivate::refill(qreal from, qreal to)
         emit q->countChanged();
 }
 
-void QQuickItemViewPrivate::regenerate()
-{
-    Q_Q(QQuickItemView);
-    if (q->isComponentComplete()) {
-        currentChanges.reset();
-        clear();
-        updateHeaders();
-        updateViewport();
-        resetPosition();
-        refill();
-        updateCurrent(currentIndex);
-    }
-}
-
 void QQuickItemViewPrivate::orientationChange()
 {
     Q_Q(QQuickItemView);

@@ -127,7 +127,6 @@ public:
     void updateHeaders() override;
     void resetPosition() override;
 
-    void regenerate() override;
     void orientationChange();
     void layout() override;
     void refill() override;

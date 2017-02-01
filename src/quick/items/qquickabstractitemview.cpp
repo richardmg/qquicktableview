@@ -266,6 +266,16 @@ void QQuickAbstractItemViewPrivate::resetPosition()
 
 void QQuickAbstractItemViewPrivate::regenerate()
 {
+    Q_Q(QQuickAbstractItemView);
+    if (q->isComponentComplete()) {
+        currentChanges.reset();
+        clear();
+        updateHeaders();
+        updateViewport();
+        resetPosition();
+        refill();
+        updateCurrent(currentIndex);
+    }
 }
 
 void QQuickAbstractItemViewPrivate::layout()
