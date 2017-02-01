@@ -172,7 +172,7 @@ public:
     qreal colPosAt(int modelIndex) const;
     qreal rowPosAt(int modelIndex) const;
     qreal snapPosAt(qreal pos) const;
-    FxViewItem *snapItemAt(qreal pos) const;
+    FxGridItemSG *snapItemAt(qreal pos) const;
     int snapIndex() const;
     qreal contentXForPosition(qreal pos) const;
     qreal contentYForPosition(qreal pos) const;
@@ -381,14 +381,15 @@ qreal QQuickGridViewPrivate::snapPosAt(qreal pos) const
     return snapPos;
 }
 
-FxViewItem *QQuickGridViewPrivate::snapItemAt(qreal pos) const
+FxGridItemSG *QQuickGridViewPrivate::snapItemAt(qreal pos) const
 {
     for (FxViewItem *item : visibleItems) {
         if (item->index == -1)
             continue;
-        qreal itemTop = item->position();
+        FxGridItemSG *gridItem = static_cast<FxGridItemSG *>(item);
+        qreal itemTop = gridItem->position();
         if (itemTop+rowSize()/2 >= pos && itemTop - rowSize()/2 <= pos)
-            return item;
+            return gridItem;
     }
     return 0;
 }
@@ -927,17 +928,17 @@ void QQuickGridViewPrivate::fixup(AxisData &data, qreal minExtent, qreal maxExte
                 bias = -bias;
             tempPosition -= bias;
         }
-        FxViewItem *topItem = snapItemAt(tempPosition+highlightRangeStart);
+        FxGridItemSG *topItem = snapItemAt(tempPosition+highlightRangeStart);
         if (strictHighlightRange && currentItem && (!topItem || topItem->index != currentIndex)) {
             // StrictlyEnforceRange always keeps an item in range
             updateHighlight();
-            topItem = static_cast<FxViewItem *>(currentItem); // ###
+            topItem = static_cast<FxGridItemSG *>(currentItem);
         }
-        FxViewItem *bottomItem = snapItemAt(tempPosition+highlightRangeEnd);
+        FxGridItemSG *bottomItem = snapItemAt(tempPosition+highlightRangeEnd);
         if (strictHighlightRange && currentItem && (!bottomItem || bottomItem->index != currentIndex)) {
             // StrictlyEnforceRange always keeps an item in range
             updateHighlight();
-            bottomItem = static_cast<FxViewItem *>(currentItem); // ###
+            bottomItem = static_cast<FxGridItemSG *>(currentItem);
         }
         qreal pos;
         bool isInBounds = -position() > maxExtent && -position() <= minExtent;
