@@ -275,101 +275,6 @@ void QQuickItemView::setFooter(QQmlComponent *footerComponent)
     }
 }
 
-QQuickItemView::HighlightRangeMode QQuickItemView::highlightRangeMode() const
-{
-    Q_D(const QQuickItemView);
-    return static_cast<QQuickItemView::HighlightRangeMode>(d->highlightRange);
-}
-
-void QQuickItemView::setHighlightRangeMode(HighlightRangeMode mode)
-{
-    Q_D(QQuickItemView);
-    if (d->highlightRange == mode)
-        return;
-    d->highlightRange = mode;
-    d->haveHighlightRange = d->highlightRange != NoHighlightRange && d->highlightRangeStart <= d->highlightRangeEnd;
-    if (isComponentComplete()) {
-        d->updateViewport();
-        d->fixupPosition();
-    }
-    emit highlightRangeModeChanged();
-}
-
-//###Possibly rename these properties, since they are very useful even without a highlight?
-qreal QQuickItemView::preferredHighlightBegin() const
-{
-    Q_D(const QQuickItemView);
-    return d->highlightRangeStart;
-}
-
-void QQuickItemView::setPreferredHighlightBegin(qreal start)
-{
-    Q_D(QQuickItemView);
-    d->highlightRangeStartValid = true;
-    if (d->highlightRangeStart == start)
-        return;
-    d->highlightRangeStart = start;
-    d->haveHighlightRange = d->highlightRange != NoHighlightRange && d->highlightRangeStart <= d->highlightRangeEnd;
-    if (isComponentComplete()) {
-        d->updateViewport();
-        if (!isMoving() && !isFlicking())
-            d->fixupPosition();
-    }
-    emit preferredHighlightBeginChanged();
-}
-
-void QQuickItemView::resetPreferredHighlightBegin()
-{
-    Q_D(QQuickItemView);
-    d->highlightRangeStartValid = false;
-    if (d->highlightRangeStart == 0)
-        return;
-    d->highlightRangeStart = 0;
-    if (isComponentComplete()) {
-        d->updateViewport();
-        if (!isMoving() && !isFlicking())
-            d->fixupPosition();
-    }
-    emit preferredHighlightBeginChanged();
-}
-
-qreal QQuickItemView::preferredHighlightEnd() const
-{
-    Q_D(const QQuickItemView);
-    return d->highlightRangeEnd;
-}
-
-void QQuickItemView::setPreferredHighlightEnd(qreal end)
-{
-    Q_D(QQuickItemView);
-    d->highlightRangeEndValid = true;
-    if (d->highlightRangeEnd == end)
-        return;
-    d->highlightRangeEnd = end;
-    d->haveHighlightRange = d->highlightRange != NoHighlightRange && d->highlightRangeStart <= d->highlightRangeEnd;
-    if (isComponentComplete()) {
-        d->updateViewport();
-        if (!isMoving() && !isFlicking())
-            d->fixupPosition();
-    }
-    emit preferredHighlightEndChanged();
-}
-
-void QQuickItemView::resetPreferredHighlightEnd()
-{
-    Q_D(QQuickItemView);
-    d->highlightRangeEndValid = false;
-    if (d->highlightRangeEnd == 0)
-        return;
-    d->highlightRangeEnd = 0;
-    if (isComponentComplete()) {
-        d->updateViewport();
-        if (!isMoving() && !isFlicking())
-            d->fixupPosition();
-    }
-    emit preferredHighlightEndChanged();
-}
-
 void QQuickItemViewPrivate::positionViewAtIndex(int index, int mode)
 {
     Q_Q(QQuickItemView);
@@ -934,9 +839,7 @@ void QQuickItemView::componentComplete()
 
 QQuickItemViewPrivate::QQuickItemViewPrivate()
     : displayMarginBeginning(0), displayMarginEnd(0)
-    , highlightRangeStart(0), highlightRangeEnd(0)
     , headerComponent(0), header(0), footerComponent(0), footer(0)
-    , highlightRangeStartValid(false), highlightRangeEndValid(false)
 {
 }
 

@@ -79,10 +79,6 @@ class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
     Q_PROPERTY(QQmlComponent *footer READ footer WRITE setFooter NOTIFY footerChanged)
     Q_PROPERTY(QQuickItem *footerItem READ footerItem NOTIFY footerItemChanged)
 
-    Q_PROPERTY(HighlightRangeMode highlightRangeMode READ highlightRangeMode WRITE setHighlightRangeMode NOTIFY highlightRangeModeChanged)
-    Q_PROPERTY(qreal preferredHighlightBegin READ preferredHighlightBegin WRITE setPreferredHighlightBegin NOTIFY preferredHighlightBeginChanged RESET resetPreferredHighlightBegin)
-    Q_PROPERTY(qreal preferredHighlightEnd READ preferredHighlightEnd WRITE setPreferredHighlightEnd NOTIFY preferredHighlightEndChanged RESET resetPreferredHighlightEnd)
-
 public:
     QQuickItemView(QQuickFlickablePrivate &dd, QQuickItem *parent = 0);
     ~QQuickItemView();
@@ -102,19 +98,6 @@ public:
     QQmlComponent *header() const;
     void setHeader(QQmlComponent *);
     QQuickItem *headerItem() const;
-
-    enum HighlightRangeMode { NoHighlightRange, ApplyRange, StrictlyEnforceRange };
-    Q_ENUM(HighlightRangeMode)
-    HighlightRangeMode highlightRangeMode() const;
-    void setHighlightRangeMode(HighlightRangeMode mode);
-
-    qreal preferredHighlightBegin() const;
-    void setPreferredHighlightBegin(qreal);
-    void resetPreferredHighlightBegin();
-
-    qreal preferredHighlightEnd() const;
-    void setPreferredHighlightEnd(qreal);
-    void resetPreferredHighlightEnd();
 
     enum PositionMode { Beginning, Center, End, Visible, Contain, SnapPosition };
     Q_ENUM(PositionMode)
@@ -140,10 +123,6 @@ Q_SIGNALS:
     void footerChanged();
     void headerItemChanged();
     void footerItemChanged();
-
-    void highlightRangeModeChanged();
-    void preferredHighlightBeginChanged();
-    void preferredHighlightEndChanged();
 
 protected:
     void componentComplete() override;

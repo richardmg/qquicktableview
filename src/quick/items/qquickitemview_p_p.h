@@ -172,9 +172,6 @@ public:
 
     QList<FxViewItem *> visibleItems;
 
-    qreal highlightRangeStart;
-    qreal highlightRangeEnd;
-
     QQmlComponent *headerComponent;
     FxViewItem *header;
     QQmlComponent *footerComponent;
@@ -186,9 +183,6 @@ public:
         MovedItem(FxViewItem *i, QQmlChangeSet::MoveKey k)
             : item(i), moveKey(k) {}
     };
-
-    bool highlightRangeStartValid : 1;
-    bool highlightRangeEndValid : 1;
 
 protected:
     virtual qreal positionAt(int index) const = 0;

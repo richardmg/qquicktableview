@@ -94,6 +94,9 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
     Q_PROPERTY(QQmlComponent *highlight READ highlight WRITE setHighlight NOTIFY highlightChanged)
     Q_PROPERTY(QQuickItem *highlightItem READ highlightItem NOTIFY highlightItemChanged)
     Q_PROPERTY(bool highlightFollowsCurrentItem READ highlightFollowsCurrentItem WRITE setHighlightFollowsCurrentItem NOTIFY highlightFollowsCurrentItemChanged)
+    Q_PROPERTY(HighlightRangeMode highlightRangeMode READ highlightRangeMode WRITE setHighlightRangeMode NOTIFY highlightRangeModeChanged)
+    Q_PROPERTY(qreal preferredHighlightBegin READ preferredHighlightBegin WRITE setPreferredHighlightBegin NOTIFY preferredHighlightBeginChanged RESET resetPreferredHighlightBegin)
+    Q_PROPERTY(qreal preferredHighlightEnd READ preferredHighlightEnd WRITE setPreferredHighlightEnd NOTIFY preferredHighlightEndChanged RESET resetPreferredHighlightEnd)
     Q_PROPERTY(int highlightMoveDuration READ highlightMoveDuration WRITE setHighlightMoveDuration NOTIFY highlightMoveDurationChanged)
 
 public:
@@ -176,6 +179,20 @@ public:
     bool highlightFollowsCurrentItem() const;
     virtual void setHighlightFollowsCurrentItem(bool);
 
+    enum HighlightRangeMode { NoHighlightRange, ApplyRange, StrictlyEnforceRange };
+    Q_ENUM(HighlightRangeMode)
+
+    HighlightRangeMode highlightRangeMode() const;
+    void setHighlightRangeMode(HighlightRangeMode mode);
+
+    qreal preferredHighlightBegin() const;
+    void setPreferredHighlightBegin(qreal);
+    void resetPreferredHighlightBegin();
+
+    qreal preferredHighlightEnd() const;
+    void setPreferredHighlightEnd(qreal);
+    void resetPreferredHighlightEnd();
+
     int highlightMoveDuration() const;
     virtual void setHighlightMoveDuration(int);
 
@@ -207,6 +224,9 @@ Q_SIGNALS:
     void highlightChanged();
     void highlightItemChanged();
     void highlightFollowsCurrentItemChanged();
+    void highlightRangeModeChanged();
+    void preferredHighlightBeginChanged();
+    void preferredHighlightEndChanged();
     void highlightMoveDurationChanged();
 
 protected:

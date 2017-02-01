@@ -220,6 +220,8 @@ public:
     QQmlComponent *highlightComponent;
     FxAbstractViewItem *highlight;
     int highlightRange;     // enum value
+    qreal highlightRangeStart;
+    qreal highlightRangeEnd;
     int highlightMoveDuration;
 
     QQuickItemViewTransitioner *transitioner;
@@ -238,6 +240,8 @@ public:
     bool currentIndexCleared : 1;
     bool haveHighlightRange : 1;
     bool autoHighlight : 1;
+    bool highlightRangeStartValid : 1;
+    bool highlightRangeEndValid : 1;
     bool fillCacheBuffer : 1;
     bool inRequest : 1;
     bool runDelayedRemoveTransition : 1;

@@ -168,7 +168,7 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
       buffer(QML_VIEW_DEFAULTCACHEBUFFER),
       bufferMode(BufferBefore | BufferAfter),
       layoutDirection(Qt::LeftToRight),
-      verticalLayoutDirection(QQuickItemView::TopToBottom), // ###
+      verticalLayoutDirection(QQuickAbstractItemView::TopToBottom),
       moveReason(Other),
       visibleIndex(0),
       currentIndex(-1),
@@ -177,7 +177,9 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
       requestedIndex(-1),
       highlightComponent(nullptr),
       highlight(nullptr),
-      highlightRange(QQuickItemView::NoHighlightRange), // ###
+      highlightRange(QQuickAbstractItemView::NoHighlightRange),
+      highlightRangeStart(0),
+      highlightRangeEnd(0),
       highlightMoveDuration(150),
       transitioner(nullptr),
       minExtent(0),
@@ -192,6 +194,8 @@ QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
       currentIndexCleared(false),
       haveHighlightRange(false),
       autoHighlight(true),
+      highlightRangeStartValid(false),
+      highlightRangeEndValid(false),
       fillCacheBuffer(false),
       inRequest(false),
       runDelayedRemoveTransition(false),
@@ -961,6 +965,101 @@ void QQuickAbstractItemView::setHighlightFollowsCurrentItem(bool autoHighlight)
     }
 }
 
+QQuickAbstractItemView::HighlightRangeMode QQuickAbstractItemView::highlightRangeMode() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return static_cast<QQuickAbstractItemView::HighlightRangeMode>(d->highlightRange);
+}
+
+void QQuickAbstractItemView::setHighlightRangeMode(HighlightRangeMode mode)
+{
+    Q_D(QQuickAbstractItemView);
+    if (d->highlightRange == mode)
+        return;
+    d->highlightRange = mode;
+    d->haveHighlightRange = d->highlightRange != NoHighlightRange && d->highlightRangeStart <= d->highlightRangeEnd;
+    if (isComponentComplete()) {
+        d->updateViewport();
+        d->fixupPosition();
+    }
+    emit highlightRangeModeChanged();
+}
+
+//###Possibly rename these properties, since they are very useful even without a highlight?
+qreal QQuickAbstractItemView::preferredHighlightBegin() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->highlightRangeStart;
+}
+
+void QQuickAbstractItemView::setPreferredHighlightBegin(qreal start)
+{
+    Q_D(QQuickAbstractItemView);
+    d->highlightRangeStartValid = true;
+    if (d->highlightRangeStart == start)
+        return;
+    d->highlightRangeStart = start;
+    d->haveHighlightRange = d->highlightRange != NoHighlightRange && d->highlightRangeStart <= d->highlightRangeEnd;
+    if (isComponentComplete()) {
+        d->updateViewport();
+        if (!isMoving() && !isFlicking())
+            d->fixupPosition();
+    }
+    emit preferredHighlightBeginChanged();
+}
+
+void QQuickAbstractItemView::resetPreferredHighlightBegin()
+{
+    Q_D(QQuickAbstractItemView);
+    d->highlightRangeStartValid = false;
+    if (d->highlightRangeStart == 0)
+        return;
+    d->highlightRangeStart = 0;
+    if (isComponentComplete()) {
+        d->updateViewport();
+        if (!isMoving() && !isFlicking())
+            d->fixupPosition();
+    }
+    emit preferredHighlightBeginChanged();
+}
+
+qreal QQuickAbstractItemView::preferredHighlightEnd() const
+{
+    Q_D(const QQuickAbstractItemView);
+    return d->highlightRangeEnd;
+}
+
+void QQuickAbstractItemView::setPreferredHighlightEnd(qreal end)
+{
+    Q_D(QQuickAbstractItemView);
+    d->highlightRangeEndValid = true;
+    if (d->highlightRangeEnd == end)
+        return;
+    d->highlightRangeEnd = end;
+    d->haveHighlightRange = d->highlightRange != NoHighlightRange && d->highlightRangeStart <= d->highlightRangeEnd;
+    if (isComponentComplete()) {
+        d->updateViewport();
+        if (!isMoving() && !isFlicking())
+            d->fixupPosition();
+    }
+    emit preferredHighlightEndChanged();
+}
+
+void QQuickAbstractItemView::resetPreferredHighlightEnd()
+{
+    Q_D(QQuickAbstractItemView);
+    d->highlightRangeEndValid = false;
+    if (d->highlightRangeEnd == 0)
+        return;
+    d->highlightRangeEnd = 0;
+    if (isComponentComplete()) {
+        d->updateViewport();
+        if (!isMoving() && !isFlicking())
+            d->fixupPosition();
+    }
+    emit preferredHighlightEndChanged();
+}
+
 int QQuickAbstractItemView::highlightMoveDuration() const
 {
     Q_D(const QQuickAbstractItemView);
@@ -1049,7 +1148,7 @@ void QQuickAbstractItemView::animStopped()
     Q_D(QQuickAbstractItemView);
     d->bufferMode = QQuickAbstractItemViewPrivate::BufferBefore | QQuickAbstractItemViewPrivate::BufferAfter;
     d->refillOrLayout();
-    if (d->haveHighlightRange && d->highlightRange == QQuickItemView::StrictlyEnforceRange) // ###
+    if (d->haveHighlightRange && d->highlightRange == StrictlyEnforceRange)
         d->updateHighlight();
 }
 
