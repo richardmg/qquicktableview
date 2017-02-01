@@ -895,16 +895,6 @@ void QQuickItemViewPrivate::init()
     q->setFlickableDirection(QQuickFlickable::VerticalFlick);
 }
 
-void QQuickItemViewPrivate::clear()
-{
-    for (FxViewItem *item : qAsConst(visibleItems))
-        releaseItem(item);
-    visibleItems.clear();
-    visibleIndex = 0;
-
-    QQuickAbstractItemViewPrivate::clear();
-}
-
 void QQuickItemViewPrivate::refill()
 {
     qreal s = qMax(size(), qreal(0.));

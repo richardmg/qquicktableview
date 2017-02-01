@@ -122,7 +122,6 @@ public:
     int mapFromModel(int modelIndex) const;
 
     void init() override;
-    void clear() override;
     void updateViewport() override;
     void updateHeaders() override;
     void resetPosition() override;

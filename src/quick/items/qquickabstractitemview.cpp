@@ -231,6 +231,11 @@ void QQuickAbstractItemViewPrivate::clear()
     currentChanges.reset();
     timeline.clear();
 
+    for (FxViewItem *item : qAsConst(visibleItems))
+        releaseItem(item);
+    visibleItems.clear();
+    visibleIndex = 0;
+
     for (FxViewItem *item : qAsConst(releasePendingTransition)) {
         item->releaseAfterTransition = false;
         releaseItem(item);
