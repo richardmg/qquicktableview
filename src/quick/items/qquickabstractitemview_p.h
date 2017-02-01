@@ -235,6 +235,7 @@ Q_SIGNALS:
 protected:
     void updatePolish() override;
     void componentComplete() override;
+    void geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry) override;
 
 protected Q_SLOTS:
     void destroyRemoved();

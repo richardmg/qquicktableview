@@ -654,15 +654,6 @@ void QQuickItemView::trackedPositionChanged()
     }
 }
 
-void QQuickItemView::geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry)
-{
-    Q_D(QQuickItemView);
-    d->markExtentsDirty();
-    if (isComponentComplete() && (d->isValid() || !d->visibleItems.isEmpty()))
-        d->forceLayoutPolish();
-    QQuickFlickable::geometryChanged(newGeometry, oldGeometry);
-}
-
 qreal QQuickItemView::minYExtent() const
 {
     Q_D(const QQuickItemView);

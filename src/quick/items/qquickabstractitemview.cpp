@@ -1189,6 +1189,15 @@ void QQuickAbstractItemView::componentComplete()
         emit countChanged();
 }
 
+void QQuickAbstractItemView::geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry)
+{
+    Q_D(QQuickAbstractItemView);
+    d->markExtentsDirty();
+    if (isComponentComplete() && (d->isValid() || !d->visibleItems.isEmpty()))
+        d->forceLayoutPolish();
+    QQuickFlickable::geometryChanged(newGeometry, oldGeometry);
+}
+
 void QQuickAbstractItemView::destroyRemoved()
 {
     Q_D(QQuickAbstractItemView);

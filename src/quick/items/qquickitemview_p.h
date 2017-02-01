@@ -119,7 +119,6 @@ Q_SIGNALS:
     void footerItemChanged();
 
 protected:
-    void geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry) override;
     qreal minYExtent() const override;
     qreal maxYExtent() const override;
     qreal minXExtent() const override;
