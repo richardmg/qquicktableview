@@ -530,22 +530,6 @@ qreal QQuickItemView::maxXExtent() const
     return d->maxExtent;
 }
 
-void QQuickItemView::setContentX(qreal pos)
-{
-    Q_D(QQuickItemView);
-    // Positioning the view manually should override any current movement state
-    d->moveReason = QQuickItemViewPrivate::Other;
-    QQuickFlickable::setContentX(pos);
-}
-
-void QQuickItemView::setContentY(qreal pos)
-{
-    Q_D(QQuickItemView);
-    // Positioning the view manually should override any current movement state
-    d->moveReason = QQuickItemViewPrivate::Other;
-    QQuickFlickable::setContentY(pos);
-}
-
 qreal QQuickItemView::originX() const
 {
     Q_D(const QQuickItemView);

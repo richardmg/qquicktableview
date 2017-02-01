@@ -208,6 +208,9 @@ public:
     Q_INVOKABLE QQuickItem *itemAt(qreal x, qreal y) const;
     Q_REVISION(1) Q_INVOKABLE void forceLayout();
 
+    void setContentX(qreal pos) override;
+    void setContentY(qreal pos) override;
+
 Q_SIGNALS:
     void modelChanged();
     void delegateChanged();

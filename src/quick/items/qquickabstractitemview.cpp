@@ -1341,6 +1341,22 @@ void QQuickAbstractItemView::forceLayout()
         d->layout();
 }
 
+void QQuickAbstractItemView::setContentX(qreal pos)
+{
+    Q_D(QQuickAbstractItemView);
+    // Positioning the view manually should override any current movement state
+    d->moveReason = QQuickAbstractItemViewPrivate::Other;
+    QQuickFlickable::setContentX(pos);
+}
+
+void QQuickAbstractItemView::setContentY(qreal pos)
+{
+    Q_D(QQuickAbstractItemView);
+    // Positioning the view manually should override any current movement state
+    d->moveReason = QQuickAbstractItemViewPrivate::Other;
+    QQuickFlickable::setContentY(pos);
+}
+
 void QQuickAbstractItemView::updatePolish()
 {
     Q_D(QQuickAbstractItemView);

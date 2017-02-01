@@ -95,8 +95,6 @@ public:
     void setHeader(QQmlComponent *);
     QQuickItem *headerItem() const;
 
-    void setContentX(qreal pos) override;
-    void setContentY(qreal pos) override;
     qreal originX() const override;
     qreal originY() const override;
 
