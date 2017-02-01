@@ -236,6 +236,7 @@ protected:
     void updatePolish() override;
 
 protected Q_SLOTS:
+    void createdItem(int index, QObject *item);
     virtual void initItem(int index, QObject *item);
     void modelUpdated(const QQmlChangeSet &changeSet, bool reset);
     void destroyingItem(QObject *item);

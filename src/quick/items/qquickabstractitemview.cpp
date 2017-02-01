@@ -1111,6 +1111,25 @@ void QQuickAbstractItemView::updatePolish()
     d->layout();
 }
 
+void QQuickAbstractItemView::createdItem(int index, QObject* object)
+{
+    Q_D(QQuickAbstractItemView);
+
+    QQuickItem* item = qmlobject_cast<QQuickItem*>(object);
+    if (!d->inRequest) {
+        d->unrequestedItems.insert(item, index);
+        d->requestedIndex = -1;
+        if (d->hasPendingChanges())
+            d->layout();
+        else
+            d->refill();
+        if (d->unrequestedItems.contains(item))
+            d->repositionPackageItemAt(item, index);
+        else if (index == d->currentIndex)
+            d->updateCurrent(index);
+    }
+}
+
 void QQuickAbstractItemView::initItem(int, QObject *object)
 {
     QQuickItem* item = qmlobject_cast<QQuickItem*>(object);

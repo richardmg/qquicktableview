@@ -128,7 +128,6 @@ protected:
 
 protected Q_SLOTS:
     void destroyRemoved();
-    void createdItem(int index, QObject *item);
     void trackedPositionChanged() override;
 
 private:

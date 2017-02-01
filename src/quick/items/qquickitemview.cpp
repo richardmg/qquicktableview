@@ -1429,25 +1429,6 @@ void QQuickItemViewPrivate::prepareVisibleItemTransitions()
         visibleItems[i]->prepareTransition(transitioner, viewBounds);
 }
 
-void QQuickItemView::createdItem(int index, QObject* object)
-{
-    Q_D(QQuickItemView);
-
-    QQuickItem* item = qmlobject_cast<QQuickItem*>(object);
-    if (!d->inRequest) {
-        d->unrequestedItems.insert(item, index);
-        d->requestedIndex = -1;
-        if (d->hasPendingChanges())
-            d->layout();
-        else
-            d->refill();
-        if (d->unrequestedItems.contains(item))
-            d->repositionPackageItemAt(item, index);
-        else if (index == d->currentIndex)
-            d->updateCurrent(index);
-    }
-}
-
 void QQuickItemViewPrivate::updateVisibleIndex()
 {
     typedef QList<FxViewItem*>::const_iterator FxViewItemListConstIt;
