@@ -132,7 +132,6 @@ public:
     void refill() override;
     void refill(qreal from, qreal to);
 
-    void updateVisibleIndex();
     void positionViewAtIndex(int index, int mode);
 
     qreal minExtentForAxis(const AxisData &axisData, bool forXAxis) const;

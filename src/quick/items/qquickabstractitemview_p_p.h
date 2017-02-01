@@ -162,6 +162,7 @@ public:
     void updateTrackedItem();
     void updateUnrequestedIndexes();
     void updateUnrequestedPositions();
+    void updateVisibleIndex();
 
     bool createOwnModel();
     void destroyOwnModel();

@@ -1370,17 +1370,4 @@ void QQuickItemViewPrivate::repositionFirstItem(FxViewItem *prevVisibleItemsFirs
     }
 }
 
-void QQuickItemViewPrivate::updateVisibleIndex()
-{
-    typedef QList<FxViewItem*>::const_iterator FxViewItemListConstIt;
-
-    visibleIndex = 0;
-    for (FxViewItemListConstIt it = visibleItems.constBegin(), cend = visibleItems.constEnd(); it != cend; ++it) {
-        if ((*it)->index != -1) {
-            visibleIndex = (*it)->index;
-            break;
-        }
-    }
-}
-
 QT_END_NAMESPACE
