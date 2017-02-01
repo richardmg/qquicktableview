@@ -216,6 +216,10 @@ bool QQuickAbstractItemViewPrivate::isValid() const
 
 void QQuickAbstractItemViewPrivate::init()
 {
+    Q_Q(QQuickAbstractItemView);
+    q->setFlag(QQuickItem::ItemIsFocusScope);
+    QObject::connect(q, SIGNAL(movementEnded()), q, SLOT(animStopped()));
+    QObject::connect(q, &QQuickFlickable::interactiveChanged, q, &QQuickAbstractItemView::keyNavigationEnabledChanged);
 }
 
 void QQuickAbstractItemViewPrivate::clear()
