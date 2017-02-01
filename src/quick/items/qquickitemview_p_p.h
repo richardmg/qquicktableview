@@ -157,8 +157,6 @@ public:
     int displayMarginBeginning;
     int displayMarginEnd;
 
-    QList<FxViewItem *> visibleItems;
-
     QQmlComponent *headerComponent;
     FxViewItem *header;
     QQmlComponent *footerComponent;

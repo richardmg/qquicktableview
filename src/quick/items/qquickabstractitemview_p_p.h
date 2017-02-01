@@ -209,6 +209,7 @@ public:
 
     MovementReason moveReason;
 
+    QList<FxViewItem *> visibleItems;
     int visibleIndex;
     int currentIndex;
     FxViewItem *currentItem;
