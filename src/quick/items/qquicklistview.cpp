@@ -78,7 +78,7 @@ public:
     FxViewItem *itemBefore(int modelIndex) const;
     QString sectionAt(int modelIndex);
     qreal snapPosAt(qreal pos);
-    FxViewItem *snapItemAt(qreal pos);
+    FxListItemSG *snapItemAt(qreal pos);
 
     void init() override;
     void clear() override;
@@ -514,7 +514,7 @@ QString QQuickListViewPrivate::sectionAt(int modelIndex)
 
 qreal QQuickListViewPrivate::snapPosAt(qreal pos)
 {
-    if (FxViewItem *snapItem = snapItemAt(pos))
+    if (FxListItemSG *snapItem = snapItemAt(pos))
         return snapItem->position();
     if (visibleItems.count()) {
         qreal firstPos = (*visibleItems.constBegin())->position();
@@ -527,19 +527,20 @@ qreal QQuickListViewPrivate::snapPosAt(qreal pos)
     return qRound((pos - originPosition()) / averageSize) * averageSize + originPosition();
 }
 
-FxViewItem *QQuickListViewPrivate::snapItemAt(qreal pos)
+FxListItemSG *QQuickListViewPrivate::snapItemAt(qreal pos)
 {
-    FxViewItem *snapItem = 0;
+    FxListItemSG *snapItem = 0;
     qreal prevItemSize = 0;
     for (FxViewItem *item : qAsConst(visibleItems)) {
         if (item->index == -1)
             continue;
-        qreal itemTop = item->position();
-        if (highlight && itemTop >= pos && item->endPosition() <= pos + static_cast<FxViewItem *>(highlight)->size())
-            return item;
-        if (itemTop+item->size()/2 >= pos && itemTop-prevItemSize/2 < pos)
-            snapItem = item;
-        prevItemSize = item->size();
+        FxListItemSG *listItem = static_cast<FxListItemSG *>(item);
+        qreal itemTop = listItem->position();
+        if (highlight && itemTop >= pos && listItem->endPosition() <= pos + static_cast<FxViewItem *>(highlight)->size())
+            return listItem;
+        if (itemTop+listItem->size()/2 >= pos && itemTop-prevItemSize/2 < pos)
+            snapItem = listItem;
+        prevItemSize = listItem->size();
     }
     return snapItem;
 }
@@ -1498,17 +1499,17 @@ void QQuickListViewPrivate::fixup(AxisData &data, qreal minExtent, qreal maxExte
                 bias = -bias;
             tempPosition -= bias;
         }
-        FxViewItem *topItem = snapItemAt(tempPosition+highlightRangeStart);
+        FxListItemSG *topItem = snapItemAt(tempPosition+highlightRangeStart);
         if (strictHighlightRange && currentItem && (!topItem || topItem->index != currentIndex)) {
             // StrictlyEnforceRange always keeps an item in range
             updateHighlight();
-            topItem = static_cast<FxViewItem *>(currentItem); // ###
+            topItem = static_cast<FxListItemSG *>(currentItem);
         }
-        FxViewItem *bottomItem = snapItemAt(tempPosition+highlightRangeEnd);
+        FxListItemSG *bottomItem = snapItemAt(tempPosition+highlightRangeEnd);
         if (strictHighlightRange && currentItem && (!bottomItem || bottomItem->index != currentIndex)) {
             // StrictlyEnforceRange always keeps an item in range
             updateHighlight();
-            bottomItem = static_cast<FxViewItem *>(currentItem); // ###
+            bottomItem = static_cast<FxListItemSG *>(currentItem);
         }
         qreal pos;
         bool isInBounds = -position() > maxExtent && -position() <= minExtent;
@@ -2961,7 +2962,7 @@ void QQuickListView::viewportMoved(Qt::Orientations orient)
             }
 
             // update current index
-            if (FxViewItem *snapItem = d->snapItemAt(highlight->position())) {
+            if (FxListItemSG *snapItem = d->snapItemAt(highlight->position())) {
                 if (snapItem->index >= 0 && snapItem->index != d->currentIndex)
                     d->updateCurrent(snapItem->index);
             }
