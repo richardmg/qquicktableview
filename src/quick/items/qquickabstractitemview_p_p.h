@@ -146,6 +146,7 @@ public:
     virtual void regenerate();
     virtual void layout();
     virtual void refill();
+    virtual void recreateVisibleItems(); // ### TODO: better name
 
     void animationFinished(QAbstractAnimationJob *) override;
     void mirrorChange() override;

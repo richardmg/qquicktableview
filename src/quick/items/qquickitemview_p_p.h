@@ -153,7 +153,7 @@ public:
     qreal calculatedMinExtent() const;
     qreal calculatedMaxExtent() const;
 
-    void recreateVisibleItems();
+    void recreateVisibleItems() override;
 
     bool applyModelChanges(ChangeResult *insertionResult, ChangeResult *removalResult);
     bool applyRemovalChange(const QQmlChangeSet::Change &removal, ChangeResult *changeResult, int *removedCount);

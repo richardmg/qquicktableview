@@ -272,6 +272,10 @@ void QQuickAbstractItemViewPrivate::refill()
 {
 }
 
+void QQuickAbstractItemViewPrivate::recreateVisibleItems()
+{
+}
+
 void QQuickAbstractItemViewPrivate::animationFinished(QAbstractAnimationJob *)
 {
     Q_Q(QQuickAbstractItemView);
