@@ -234,6 +234,7 @@ Q_SIGNALS:
 
 protected:
     void updatePolish() override;
+    void componentComplete() override;
 
 protected Q_SLOTS:
     void createdItem(int index, QObject *item);

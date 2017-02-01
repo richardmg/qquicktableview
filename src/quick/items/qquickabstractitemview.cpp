@@ -1115,6 +1115,40 @@ void QQuickAbstractItemView::updatePolish()
     d->layout();
 }
 
+void QQuickAbstractItemView::componentComplete()
+{
+    Q_D(QQuickAbstractItemView);
+    if (d->model && d->ownModel)
+        static_cast<QQmlDelegateModel *>(d->model.data())->componentComplete();
+
+    QQuickFlickable::componentComplete();
+
+    d->updateSectionCriteria();
+    d->updateHeaders();
+    d->updateViewport();
+    d->resetPosition();
+    if (d->transitioner)
+        d->transitioner->setPopulateTransitionEnabled(true);
+
+    if (d->isValid()) {
+        d->refill();
+        d->moveReason = QQuickAbstractItemViewPrivate::SetIndex;
+        if (d->currentIndex < 0 && !d->currentIndexCleared)
+            d->updateCurrent(0);
+        else
+            d->updateCurrent(d->currentIndex);
+        if (d->highlight && d->currentItem) {
+            if (d->autoHighlight)
+                d->resetHighlightPosition();
+            d->updateTrackedItem();
+        }
+        d->moveReason = QQuickAbstractItemViewPrivate::Other;
+        d->fixupPosition();
+    }
+    if (d->model && d->model->count())
+        emit countChanged();
+}
+
 void QQuickAbstractItemView::createdItem(int index, QObject* object)
 {
     Q_D(QQuickAbstractItemView);

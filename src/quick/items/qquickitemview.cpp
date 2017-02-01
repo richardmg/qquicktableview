@@ -782,41 +782,6 @@ qreal QQuickItemView::originY() const
     return QQuickFlickable::originY();
 }
 
-void QQuickItemView::componentComplete()
-{
-    Q_D(QQuickItemView);
-    if (d->model && d->ownModel)
-        static_cast<QQmlDelegateModel *>(d->model.data())->componentComplete();
-
-    QQuickFlickable::componentComplete();
-
-    d->updateSectionCriteria();
-    d->updateHeaders();
-    d->updateViewport();
-    d->resetPosition();
-    if (d->transitioner)
-        d->transitioner->setPopulateTransitionEnabled(true);
-
-    if (d->isValid()) {
-        d->refill();
-        d->moveReason = QQuickItemViewPrivate::SetIndex;
-        if (d->currentIndex < 0 && !d->currentIndexCleared)
-            d->updateCurrent(0);
-        else
-            d->updateCurrent(d->currentIndex);
-        if (d->highlight && d->currentItem) {
-            if (d->autoHighlight)
-                d->resetHighlightPosition();
-            d->updateTrackedItem();
-        }
-        d->moveReason = QQuickItemViewPrivate::Other;
-        d->fixupPosition();
-    }
-    if (d->model && d->model->count())
-        emit countChanged();
-}
-
-
 
 QQuickItemViewPrivate::QQuickItemViewPrivate()
     : displayMarginBeginning(0), displayMarginEnd(0)
