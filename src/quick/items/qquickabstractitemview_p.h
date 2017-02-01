@@ -69,6 +69,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
     Q_OBJECT
 
     Q_PROPERTY(QVariant model READ model WRITE setModel NOTIFY modelChanged)
+    Q_PROPERTY(QQmlComponent *delegate READ delegate WRITE setDelegate NOTIFY delegateChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
@@ -123,6 +124,7 @@ public:
     void setModel(const QVariant &);
 
     QQmlComponent *delegate() const;
+    void setDelegate(QQmlComponent *);
 
     int count() const;
 
@@ -200,6 +202,7 @@ public:
 
 Q_SIGNALS:
     void modelChanged();
+    void delegateChanged();
     void countChanged();
     void currentIndexChanged();
     void currentItemChanged();

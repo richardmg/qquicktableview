@@ -662,6 +662,24 @@ QQmlComponent *QQuickAbstractItemView::delegate() const
     return 0;
 }
 
+void QQuickAbstractItemView::setDelegate(QQmlComponent *delegate)
+{
+    Q_D(QQuickAbstractItemView);
+    if (delegate == this->delegate())
+        return;
+    d->createOwnModel();
+    if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model)) {
+        int oldCount = dataModel->count();
+        dataModel->setDelegate(delegate);
+        if (isComponentComplete())
+            d->recreateVisibleItems();
+        if (oldCount != dataModel->count())
+            emit countChanged();
+    }
+    emit delegateChanged();
+    d->delegateValidated = false;
+}
+
 int QQuickAbstractItemView::count() const
 {
     Q_D(const QQuickAbstractItemView);

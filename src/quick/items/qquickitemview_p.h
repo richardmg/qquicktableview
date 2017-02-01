@@ -69,8 +69,6 @@ class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
 {
     Q_OBJECT
 
-    Q_PROPERTY(QQmlComponent *delegate READ delegate WRITE setDelegate NOTIFY delegateChanged)
-
     Q_PROPERTY(int displayMarginBeginning READ displayMarginBeginning WRITE setDisplayMarginBeginning NOTIFY displayMarginBeginningChanged REVISION 2)
     Q_PROPERTY(int displayMarginEnd READ displayMarginEnd WRITE setDisplayMarginEnd NOTIFY displayMarginEndChanged REVISION 2)
 
@@ -82,8 +80,6 @@ class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
 public:
     QQuickItemView(QQuickFlickablePrivate &dd, QQuickItem *parent = 0);
     ~QQuickItemView();
-
-    void setDelegate(QQmlComponent *);
 
     int displayMarginBeginning() const;
     void setDisplayMarginBeginning(int);
@@ -114,8 +110,6 @@ public:
     qreal originY() const override;
 
 Q_SIGNALS:
-    void delegateChanged();
-
     void displayMarginBeginningChanged();
     void displayMarginEndChanged();
 

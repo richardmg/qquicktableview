@@ -154,24 +154,6 @@ QQuickItemView::~QQuickItemView()
     delete d->footer;
 }
 
-void QQuickItemView::setDelegate(QQmlComponent *delegate)
-{
-    Q_D(QQuickItemView);
-    if (delegate == this->delegate())
-        return;
-    d->createOwnModel();
-    if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model)) {
-        int oldCount = dataModel->count();
-        dataModel->setDelegate(delegate);
-        if (isComponentComplete())
-            d->recreateVisibleItems();
-        if (oldCount != dataModel->count())
-            emit countChanged();
-    }
-    emit delegateChanged();
-    d->delegateValidated = false;
-}
-
 int QQuickItemView::displayMarginBeginning() const
 {
     Q_D(const QQuickItemView);
