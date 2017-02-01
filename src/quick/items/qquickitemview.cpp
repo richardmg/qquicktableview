@@ -140,16 +140,11 @@ void QQuickItemViewChangeSet::reset()
 QQuickItemView::QQuickItemView(QQuickFlickablePrivate &dd, QQuickItem *parent)
     : QQuickAbstractItemView(dd, parent)
 {
-    Q_D(QQuickItemView);
-    d->init();
 }
 
 QQuickItemView::~QQuickItemView()
 {
     Q_D(QQuickItemView);
-    d->clear();
-    if (d->ownModel)
-        delete d->model;
     delete d->header;
     delete d->footer;
 }

@@ -630,10 +630,16 @@ void QQuickAbstractItemViewPrivate::viewItemTransitionFinished(QQuickItemViewTra
 QQuickAbstractItemView::QQuickAbstractItemView(QQuickFlickablePrivate &dd, QQuickItem *parent)
     : QQuickFlickable(dd, parent)
 {
+    Q_D(QQuickAbstractItemView);
+    d->init();
 }
 
 QQuickAbstractItemView::~QQuickAbstractItemView()
 {
+    Q_D(QQuickAbstractItemView);
+    d->clear();
+    if (d->ownModel)
+        delete d->model;
 }
 
 QQuickItem *QQuickAbstractItemView::currentItem() const
