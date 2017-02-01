@@ -291,6 +291,22 @@ void QQuickAbstractItemViewPrivate::refill()
 
 void QQuickAbstractItemViewPrivate::recreateVisibleItems()
 {
+    for (FxViewItem *item : qAsConst(visibleItems))
+        releaseItem(item);
+    visibleItems.clear();
+    releaseItem(currentItem);
+    currentItem = 0;
+    updateSectionCriteria();
+    refill();
+    moveReason = SetIndex;
+    updateCurrent(currentIndex);
+    if (highlight && currentItem) {
+        if (autoHighlight)
+            resetHighlightPosition();
+        updateTrackedItem();
+    }
+    moveReason = Other;
+    updateViewport();
 }
 
 void QQuickAbstractItemViewPrivate::animationFinished(QAbstractAnimationJob *)

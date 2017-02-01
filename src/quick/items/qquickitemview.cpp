@@ -381,26 +381,6 @@ QQuickItem *QQuickItemView::itemAt(qreal x, qreal y) const
     return item ? item->item : nullptr;
 }
 
-void QQuickItemViewPrivate::recreateVisibleItems()
-{
-    for (FxViewItem *item : qAsConst(visibleItems))
-        releaseItem(item);
-    visibleItems.clear();
-    releaseItem(currentItem);
-    currentItem = 0;
-    updateSectionCriteria();
-    refill();
-    moveReason = QQuickItemViewPrivate::SetIndex;
-    updateCurrent(currentIndex);
-    if (highlight && currentItem) {
-        if (autoHighlight)
-            resetHighlightPosition();
-        updateTrackedItem();
-    }
-    moveReason = QQuickItemViewPrivate::Other;
-    updateViewport();
-}
-
 qreal QQuickItemViewPrivate::minExtentForAxis(const AxisData &axisData, bool forXAxis) const
 {
     Q_Q(const QQuickItemView);
