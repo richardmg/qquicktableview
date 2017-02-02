@@ -78,7 +78,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
     Q_PROPERTY(QQuickItem *footerItem READ footerItem NOTIFY footerItemChanged)
 
 public:
-    QQuickItemView(QQuickFlickablePrivate &dd, QQuickItem *parent = 0);
+    QQuickItemView(QQuickItemViewPrivate &dd, QQuickItem *parent = 0);
     ~QQuickItemView();
 
     int displayMarginBeginning() const;

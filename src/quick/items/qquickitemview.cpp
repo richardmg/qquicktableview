@@ -46,7 +46,7 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcItemViewDelegateLifecycle, "qt.quick.itemview.lifecycle")
 
-QQuickItemView::QQuickItemView(QQuickFlickablePrivate &dd, QQuickItem *parent)
+QQuickItemView::QQuickItemView(QQuickItemViewPrivate &dd, QQuickItem *parent)
     : QQuickAbstractItemView(dd, parent)
 {
 }
