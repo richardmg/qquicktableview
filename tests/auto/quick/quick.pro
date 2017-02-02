@@ -69,11 +69,11 @@ QUICKTESTS =  \
     qquickmousearea \
 #    qquickmultipointtoucharea \
 #    qquickpainteditem \
-#    qquickpathview \
+    qquickpathview \
 #    qquickpincharea \
 #    qquickpositioners \
 #    qquickrectangle \
-#    qquickrepeater \
+    qquickrepeater \
 #    qquickshortcut \
 #    qquicktext \
 #    qquicktextdocument \
