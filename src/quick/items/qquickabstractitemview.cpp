@@ -52,7 +52,7 @@ QT_BEGIN_NAMESPACE
 #define QML_VIEW_DEFAULTCACHEBUFFER 320
 #endif
 
-FxViewItem::FxViewItem(QQuickItem *i, QQuickAbstractItemView *v, bool own, QQuickAbstractItemViewAttached *attached)
+FxViewItem::FxViewItem(QQuickItem *i, QQuickAbstractItemView *v, bool own, QQuickItemViewAttached *attached)
     : item(i)
     , view(v)
     , transitionableItem(0)

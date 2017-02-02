@@ -67,7 +67,7 @@ QT_BEGIN_NAMESPACE
 class Q_AUTOTEST_EXPORT FxViewItem
 {
 public:
-    FxViewItem(QQuickItem *, QQuickAbstractItemView *, bool own, QQuickAbstractItemViewAttached *attached);
+    FxViewItem(QQuickItem *, QQuickAbstractItemView *, bool own, QQuickItemViewAttached *attached);
     virtual ~FxViewItem();
 
     qreal itemX() const;
@@ -93,7 +93,7 @@ public:
     QPointer<QQuickItem> item;
     QQuickAbstractItemView *view;
     QQuickItemViewTransitionableItem *transitionableItem;
-    QQuickAbstractItemViewAttached *attached;
+    QQuickItemViewAttached *attached;
     int index;
     bool ownItem;
     bool releaseAfterTransition;

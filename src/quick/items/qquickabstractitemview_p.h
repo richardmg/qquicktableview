@@ -264,7 +264,7 @@ private:
     Q_DECLARE_PRIVATE(QQuickAbstractItemView)
 };
 
-class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemViewAttached : public QObject
+class Q_QUICK_PRIVATE_EXPORT QQuickItemViewAttached : public QObject
 {
     Q_OBJECT
 
@@ -277,7 +277,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemViewAttached : public QObject
     Q_PROPERTY(QString nextSection READ nextSection NOTIFY nextSectionChanged)
 
 public:
-    QQuickAbstractItemViewAttached(QObject *parent)
+    QQuickItemViewAttached(QObject *parent)
         : QObject(parent), m_isCurrent(false), m_delayRemove(false) { }
 
     QQuickAbstractItemView *view() const { return m_view; }

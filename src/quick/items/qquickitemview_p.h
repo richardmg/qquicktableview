@@ -121,17 +121,6 @@ private:
 };
 
 
-class Q_QUICK_PRIVATE_EXPORT QQuickItemViewAttached : public QQuickAbstractItemViewAttached
-{
-    Q_OBJECT
-
-public:
-    QQuickItemViewAttached(QObject *parent)
-        : QQuickAbstractItemViewAttached(parent) {}
-    ~QQuickItemViewAttached() {}
-};
-
-
 QT_END_NAMESPACE
 
 #endif // QQUICKITEMVIEW_P_H
