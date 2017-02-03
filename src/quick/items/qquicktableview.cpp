@@ -50,6 +50,12 @@ public:
     FxTableItemSG(QQuickItem *i, QQuickTableView *v, bool own) : FxViewItem(i, v, own, static_cast<QQuickItemViewAttached*>(qmlAttachedPropertiesObject<QQuickTableView>(i)))
     {
     }
+
+    bool contains(qreal x, qreal y) const override
+    {
+        return x >= itemX() && x < itemX() + itemWidth() &&
+               y >= itemY() && y < itemY() + itemHeight();
+    }
 };
 
 class QQuickTableViewPrivate : public QQuickAbstractItemViewPrivate
