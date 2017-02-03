@@ -72,7 +72,7 @@ public:
     void updateHighlight() override { }
     void resetHighlightPosition() override { }
     void fixupPosition() override { }
-    FxViewItem *newViewItem(int index, QQuickItem *item) override { Q_UNUSED(index); Q_UNUSED(item); return nullptr; }
+    FxViewItem *newViewItem(int index, QQuickItem *item) override;
     void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) override { Q_UNUSED(item); Q_UNUSED(index); Q_UNUSED(sizeBuffer); }
     void repositionPackageItemAt(QQuickItem *item, int index) override { Q_UNUSED(item); Q_UNUSED(index); }
     void layoutVisibleItems(int fromModelIndex = 0) override { Q_UNUSED(fromModelIndex); }
@@ -86,6 +86,13 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     : rows(-1),
       columns(-1)
 {
+}
+
+FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
+{
+    Q_Q(QQuickTableView);
+    Q_UNUSED(index);
+    return new FxTableItemSG(item, q, false);
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
