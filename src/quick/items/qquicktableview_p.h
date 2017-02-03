@@ -88,6 +88,9 @@ Q_SIGNALS:
     void rowsChanged();
     void columnsChanged();
 
+protected:
+    void componentComplete() override;
+
 private:
     Q_DISABLE_COPY(QQuickTableView)
     Q_DECLARE_PRIVATE(QQuickTableView)

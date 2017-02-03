@@ -77,7 +77,8 @@ public:
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
-    : rows(0), columns(1)
+    : rows(-1),
+      columns(-1)
 {
 }
 
@@ -89,7 +90,9 @@ QQuickTableView::QQuickTableView(QQuickItem *parent)
 int QQuickTableView::rows() const
 {
     Q_D(const QQuickTableView);
-    return d->rows;
+    if (QQmlDelegateModel *delegateModel = qobject_cast<QQmlDelegateModel *>(d->model.data()))
+        return delegateModel->rows();
+    return qMax(0, d->rows);
 }
 
 void QQuickTableView::setRows(int rows)
@@ -99,18 +102,29 @@ void QQuickTableView::setRows(int rows)
         return;
 
     d->rows = rows;
+    if (d->componentComplete && d->model && d->ownModel)
+        static_cast<QQmlDelegateModel *>(d->model.data())->setRows(rows);
     emit rowsChanged();
 }
 
 void QQuickTableView::resetRows()
 {
-    setRows(0);
+    Q_D(QQuickTableView);
+    if (d->rows == -1)
+        return;
+
+    d->rows = -1;
+    if (d->componentComplete && d->model && d->ownModel)
+        static_cast<QQmlDelegateModel *>(d->model.data())->resetRows();
+    emit rowsChanged();
 }
 
 int QQuickTableView::columns() const
 {
     Q_D(const QQuickTableView);
-    return d->columns;
+    if (QQmlDelegateModel *delegateModel = qobject_cast<QQmlDelegateModel *>(d->model.data()))
+        return delegateModel->columns();
+    return qMax(1, d->columns);
 }
 
 void QQuickTableView::setColumns(int columns)
@@ -120,17 +134,39 @@ void QQuickTableView::setColumns(int columns)
         return;
 
     d->columns = columns;
+    if (d->componentComplete && d->model && d->ownModel)
+        static_cast<QQmlDelegateModel *>(d->model.data())->setColumns(columns);
     emit columnsChanged();
 }
 
 void QQuickTableView::resetColumns()
 {
-    setColumns(1);
+    Q_D(QQuickTableView);
+    if (d->columns == -1)
+        return;
+
+    d->columns = -1;
+    if (d->componentComplete && d->model && d->ownModel)
+        static_cast<QQmlDelegateModel *>(d->model.data())->resetColumns();
+    emit columnsChanged();
 }
 
 QQuickTableViewAttached *QQuickTableView::qmlAttachedProperties(QObject *obj)
 {
     return new QQuickTableViewAttached(obj);
+}
+
+void QQuickTableView::componentComplete()
+{
+    Q_D(QQuickTableView);
+    if (d->model && d->ownModel) {
+        QQmlDelegateModel *delegateModel = static_cast<QQmlDelegateModel *>(d->model.data());
+        if (d->rows > 0)
+            delegateModel->setRows(d->rows);
+        if (d->columns > 0)
+            delegateModel->setColumns(d->columns);
+    }
+    QQuickAbstractItemView::componentComplete();
 }
 
 QT_END_NAMESPACE
