@@ -1,5 +1,6 @@
 /****************************************************************************
 **
+** Copyright (C) 2017 Crimson AS <info@crimson.no>
 ** Copyright (C) 2016 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
@@ -333,6 +334,8 @@ private slots:
     void stringify_qtbug_50592();
     void instanceof_data();
     void instanceof();
+    void constkw_data();
+    void constkw();
 
 private:
 //    static void propertyVarWeakRefCallback(v8::Persistent<v8::Value> object, void* parameter);
@@ -8182,6 +8185,95 @@ void tst_qqmlecmascript::instanceof()
         QCOMPARE(ret.toString(), expectedValue.toString());
     }
 }
+
+void tst_qqmlecmascript::constkw_data()
+{
+    QTest::addColumn<QString>("sourceCode");
+    QTest::addColumn<bool>("exceptionExpected");
+    QTest::addColumn<QVariant>("expectedValue");
+
+    QTest::newRow("simpleconst")
+        << "const v = 5\n"
+           "v\n"
+        << false
+        << QVariant(5);
+    QTest::newRow("twoconst")
+        << "const v = 5, i = 10\n"
+           "v + i\n"
+        << false
+        << QVariant(15);
+    QTest::newRow("constandvar")
+        << "const v = 5\n"
+           "var i = 20\n"
+           "v + i\n"
+        << false
+        << QVariant(25);
+    QTest::newRow("const-multiple-scopes-same-var")
+        << "const v = 3\n"
+           "function f() { const v = 1; return v; }\n"
+           "v + f()\n"
+        << false
+        << QVariant(4);
+
+    // error cases
+    QTest::newRow("const-no-initializer")
+        << "const v\n"
+        << true
+        << QVariant("SyntaxError: Missing initializer in const declaration");
+    QTest::newRow("const-no-initializer-comma")
+        << "const v = 1, i\n"
+        << true
+        << QVariant("SyntaxError: Missing initializer in const declaration");
+    QTest::newRow("const-no-duplicate")
+        << "const v = 1, v = 2\n"
+        << true
+        << QVariant("SyntaxError: Identifier v has already been declared");
+    QTest::newRow("const-no-duplicate-2")
+        << "const v = 1\n"
+           "const v = 2\n"
+        << true
+        << QVariant("SyntaxError: Identifier v has already been declared");
+    QTest::newRow("const-no-duplicate-var")
+        << "const v = 1\n"
+           "var v = 1\n"
+        << true
+        << QVariant("SyntaxError: Identifier v has already been declared");
+    QTest::newRow("var-no-duplicate-const")
+        << "var v = 1\n"
+           "const v = 1\n"
+        << true
+        << QVariant("SyntaxError: Identifier v has already been declared");
+    QTest::newRow("const-no-duplicate-let")
+        << "const v = 1\n"
+           "let v = 1\n"
+        << true
+        << QVariant("SyntaxError: Identifier v has already been declared");
+    QTest::newRow("let-no-duplicate-const")
+        << "let v = 1\n"
+           "const v = 1\n"
+        << true
+        << QVariant("SyntaxError: Identifier v has already been declared");
+}
+
+void tst_qqmlecmascript::constkw()
+{
+    QFETCH(QString, sourceCode);
+    QFETCH(bool, exceptionExpected);
+    QFETCH(QVariant, expectedValue);
+
+    QJSEngine engine;
+    QJSValue ret = engine.evaluate(sourceCode);
+
+    if (!exceptionExpected) {
+        QVERIFY2(!ret.isError(), qPrintable(ret.toString()));
+        QCOMPARE(ret.toVariant(), expectedValue);
+    } else {
+        QVERIFY2(ret.isError(), qPrintable(ret.toString()));
+        QCOMPARE(ret.toString(), expectedValue.toString());
+    }
+}
+
+
 
 QTEST_MAIN(tst_qqmlecmascript)
 
