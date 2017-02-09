@@ -217,6 +217,7 @@ public:
     void destroyOwnModel();
 
     void applyPendingChanges();
+    virtual bool applyModelChanges(ChangeResult *insertionResult, ChangeResult *removalResult) = 0;
 
     void createTransitioner();
     void prepareVisibleItemTransitions();

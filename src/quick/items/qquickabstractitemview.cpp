@@ -384,6 +384,99 @@ void QQuickAbstractItemViewPrivate::regenerate()
 
 void QQuickAbstractItemViewPrivate::layout()
 {
+    Q_Q(QQuickAbstractItemView);
+    if (inLayout)
+        return;
+
+    inLayout = true;
+
+    if (!isValid() && !visibleItems.count()) {
+        clear();
+        resetPosition();
+        updateViewport();
+        if (transitioner)
+            transitioner->setPopulateTransitionEnabled(false);
+        inLayout = false;
+        return;
+    }
+
+    if (runDelayedRemoveTransition && transitioner
+            && transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, false)) {
+        // assume that any items moving now are moving due to the remove - if they schedule
+        // a different transition, that will override this one anyway
+        for (int i=0; i<visibleItems.count(); i++)
+            visibleItems[i]->transitionNextReposition(transitioner, QQuickItemViewTransitioner::RemoveTransition, false);
+    }
+
+    ChangeResult insertionPosChanges;
+    ChangeResult removalPosChanges;
+    if (!applyModelChanges(&insertionPosChanges, &removalPosChanges) && !forceLayout) {
+        if (fillCacheBuffer) {
+            fillCacheBuffer = false;
+            refill();
+        }
+        inLayout = false;
+        return;
+    }
+    forceLayout = false;
+
+    if (transitioner && transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) {
+        for (FxViewItem *item : qAsConst(visibleItems)) {
+            if (!item->transitionScheduledOrRunning())
+                item->transitionNextReposition(transitioner, QQuickItemViewTransitioner::PopulateTransition, true);
+        }
+    }
+
+    updateSections();
+    layoutVisibleItems();
+
+    int lastIndexInView = findLastIndexInView();
+    refill();
+    markExtentsDirty();
+    updateHighlight();
+
+    if (!q->isMoving() && !q->isFlicking()) {
+        fixupPosition();
+        refill();
+    }
+
+    updateHeaders();
+    updateViewport();
+    updateUnrequestedPositions();
+
+    if (transitioner) {
+        // items added in the last refill() may need to be transitioned in - e.g. a remove
+        // causes items to slide up into view
+        if (transitioner->canTransition(QQuickItemViewTransitioner::MoveTransition, false)
+                || transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, false)) {
+            translateAndTransitionItemsAfter(lastIndexInView, insertionPosChanges, removalPosChanges);
+        }
+
+        prepareVisibleItemTransitions();
+
+        QRectF viewBounds(q->contentX(),  q->contentY(), q->width(), q->height());
+        for (QList<FxViewItem*>::Iterator it = releasePendingTransition.begin();
+             it != releasePendingTransition.end(); ) {
+            FxViewItem *item = static_cast<FxViewItem *>(*it); // ###
+            if (prepareNonVisibleItemTransition(item, viewBounds)) {
+                ++it;
+            } else {
+                releaseItem(item);
+                it = releasePendingTransition.erase(it);
+            }
+        }
+
+        for (int i=0; i<visibleItems.count(); i++)
+            visibleItems[i]->startTransition(transitioner);
+        for (int i=0; i<releasePendingTransition.count(); i++)
+            releasePendingTransition[i]->startTransition(transitioner);
+
+        transitioner->setPopulateTransitionEnabled(false);
+        transitioner->resetTargetLists();
+    }
+
+    runDelayedRemoveTransition = false;
+    inLayout = false;
 }
 
 void QQuickAbstractItemViewPrivate::refill()

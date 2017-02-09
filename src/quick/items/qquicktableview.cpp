@@ -69,6 +69,7 @@ public:
     FxViewItem *firstVisibleItem() const override { return nullptr; }
     int findLastIndexInView() const override { return -1; }
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
+    bool applyModelChanges(ChangeResult *insertionResult, ChangeResult *removalResult) override { Q_UNUSED(insertionResult); Q_UNUSED(removalResult); return false; }
     Qt::Orientation layoutOrientation() const override { return Qt::Vertical; }
     bool isContentFlowReversed() const override { return false; }
     void createHighlight() override { }

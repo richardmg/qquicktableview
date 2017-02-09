@@ -88,7 +88,6 @@ public:
     void resetPosition() override;
 
     void orientationChange();
-    void layout() override;
     void refill() override;
     void refill(qreal from, qreal to);
 
@@ -99,7 +98,7 @@ public:
     qreal calculatedMinExtent() const;
     qreal calculatedMaxExtent() const;
 
-    bool applyModelChanges(ChangeResult *insertionResult, ChangeResult *removalResult);
+    bool applyModelChanges(ChangeResult *insertionResult, ChangeResult *removalResult) override;
     bool applyRemovalChange(const QQmlChangeSet::Change &removal, ChangeResult *changeResult, int *removedCount);
     void removeItem(FxViewItem *item, const QQmlChangeSet::Change &removal, ChangeResult *removeResult);
     virtual void updateSizeChangesBeforeVisiblePos(FxViewItem *item, ChangeResult *removeResult);
