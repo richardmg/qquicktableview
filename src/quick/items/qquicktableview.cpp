@@ -65,6 +65,9 @@ class QQuickTableViewPrivate : public QQuickAbstractItemViewPrivate
 public:
     QQuickTableViewPrivate();
 
+    int findLastVisibleIndex(int defaultValue = -1) const override { return defaultValue; }
+    FxViewItem *firstVisibleItem() const override { return nullptr; }
+    int findLastIndexInView() const override { return -1; }
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     Qt::Orientation layoutOrientation() const override { return Qt::Vertical; }
     bool isContentFlowReversed() const override { return false; }
