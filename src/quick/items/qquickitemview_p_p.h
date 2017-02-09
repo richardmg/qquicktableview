@@ -159,8 +159,6 @@ protected:
     virtual bool applyInsertionChange(const QQmlChangeSet::Change &insert, ChangeResult *changeResult,
                 QList<FxViewItem *> *newItems, QList<MovedItem> *movingIntoView) = 0;
 
-    virtual void translateAndTransitionItemsAfter(int afterIndex, const ChangeResult &insertionResult, const ChangeResult &removalResult) = 0;
-
     void itemGeometryChanged(QQuickItem *item, QQuickGeometryChange change, const QRectF &) override;
 };
 

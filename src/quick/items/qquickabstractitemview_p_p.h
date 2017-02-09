@@ -318,6 +318,7 @@ protected:
     virtual void changedVisibleIndex(int newIndex) = 0;
 
     virtual bool needsRefillForAddedOrRemovedIndex(int) const { return false; }
+    virtual void translateAndTransitionItemsAfter(int afterIndex, const ChangeResult &insertionResult, const ChangeResult &removalResult) = 0;
 
     virtual void initializeViewItem(FxViewItem *) {}
     virtual void initializeCurrentItem() {}

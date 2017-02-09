@@ -80,6 +80,7 @@ public:
     void repositionPackageItemAt(QQuickItem *item, int index) override { Q_UNUSED(item); Q_UNUSED(index); }
     void layoutVisibleItems(int fromModelIndex = 0) override { Q_UNUSED(fromModelIndex); }
     void changedVisibleIndex(int newIndex) override { Q_UNUSED(newIndex); }
+    void translateAndTransitionItemsAfter(int afterIndex, const ChangeResult &insertionResult, const ChangeResult &removalResult) override { Q_UNUSED(afterIndex); Q_UNUSED(insertionResult); Q_UNUSED(removalResult); }
 
     int rows;
     int columns;
