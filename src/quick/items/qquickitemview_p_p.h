@@ -72,29 +72,35 @@ public:
     static inline QQuickItemViewPrivate *get(QQuickItemView *o) { return o->d_func(); }
 
     struct ChangeResult {
-        QQmlNullableValue<qreal> visiblePos;
+        QQmlNullableValue<QVariant> visiblePos;
         bool changedFirstItem;
-        qreal sizeChangesBeforeVisiblePos;
-        qreal sizeChangesAfterVisiblePos;
+        // ### FIXME: ChangeResults are allocated on the stack in layout().
+        //            => Get rid of the heap allocation (QVariant) somehow...
+        QVariant sizeChangesBeforeVisiblePos; // ###
+        QVariant sizeChangesAfterVisiblePos; // ###
         int countChangeBeforeVisible;
         int countChangeAfterVisibleItems;
 
         ChangeResult()
             : visiblePos(0), changedFirstItem(false),
-              sizeChangesBeforeVisiblePos(0), sizeChangesAfterVisiblePos(0),
               countChangeBeforeVisible(0), countChangeAfterVisibleItems(0) {}
 
-        ChangeResult(const QQmlNullableValue<qreal> &p)
+        ChangeResult(const QQmlNullableValue<QVariant> &p)
             : visiblePos(p), changedFirstItem(false),
-              sizeChangesBeforeVisiblePos(0), sizeChangesAfterVisiblePos(0),
               countChangeBeforeVisible(0), countChangeAfterVisibleItems(0) {}
 
         ChangeResult &operator+=(const ChangeResult &other) {
             if (&other == this)
                 return *this;
             changedFirstItem &= other.changedFirstItem;
-            sizeChangesBeforeVisiblePos += other.sizeChangesBeforeVisiblePos;
-            sizeChangesAfterVisiblePos += other.sizeChangesAfterVisiblePos;
+            if (sizeChangesBeforeVisiblePos.userType() == QMetaType::QSizeF)
+                sizeChangesBeforeVisiblePos = sizeChangesBeforeVisiblePos.toSizeF() + other.sizeChangesBeforeVisiblePos.toSizeF();
+            else
+                sizeChangesBeforeVisiblePos = sizeChangesBeforeVisiblePos.toReal() + other.sizeChangesBeforeVisiblePos.toReal();
+            if (sizeChangesAfterVisiblePos.userType() == QMetaType::QSizeF)
+                sizeChangesAfterVisiblePos = sizeChangesAfterVisiblePos.toSizeF() + other.sizeChangesAfterVisiblePos.toSizeF();
+            else
+                sizeChangesAfterVisiblePos = sizeChangesAfterVisiblePos.toReal() + other.sizeChangesAfterVisiblePos.toReal();
             countChangeBeforeVisible += other.countChangeBeforeVisible;
             countChangeAfterVisibleItems += other.countChangeAfterVisibleItems;
             return *this;

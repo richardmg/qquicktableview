@@ -3218,7 +3218,7 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
     }
 
     bool visibleAffected = false;
-    if (insertResult->visiblePos.isValid() && pos < insertResult->visiblePos) {
+    if (insertResult->visiblePos.isValid() && pos < insertResult->visiblePos.value.toReal()) {
         // Insert items before the visible item.
         int insertionIdx = index;
         int i = 0;
@@ -3227,7 +3227,7 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
         if (insertionIdx < visibleIndex) {
             if (pos >= from) {
                 // items won't be visible, just note the size for repositioning
-                insertResult->sizeChangesBeforeVisiblePos += count * (averageSize + spacing);
+                insertResult->sizeChangesBeforeVisiblePos = insertResult->sizeChangesBeforeVisiblePos.toReal() + count * (averageSize + spacing);
             }
         } else {
             for (i = count-1; i >= 0 && pos >= from; --i) {
@@ -3251,7 +3251,7 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
                     else
                         static_cast<FxListItemSG *>(item)->setPosition(pos, true);
                 }
-                insertResult->sizeChangesBeforeVisiblePos += itemSize(item) + spacing;
+                insertResult->sizeChangesBeforeVisiblePos = insertResult->sizeChangesBeforeVisiblePos.toReal() + itemSize(item) + spacing;
                 pos -= itemSize(item) + spacing;
                 index++;
             }
@@ -3300,7 +3300,7 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
                 else
                     static_cast<FxListItemSG *>(item)->setPosition(pos, true);
             }
-            insertResult->sizeChangesAfterVisiblePos += itemSize(item) + spacing;
+            insertResult->sizeChangesAfterVisiblePos = insertResult->sizeChangesAfterVisiblePos.toReal() + itemSize(item) + spacing;
             pos += itemSize(item) + spacing;
             ++index;
         }
@@ -3313,7 +3313,7 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
                 qreal prevPos = itemPosition(prevItem);
                 while (i < visibleItems.count()) {
                     FxListItemSG *nvItem = static_cast<FxListItemSG *>(visibleItems.takeLast());
-                    insertResult->sizeChangesAfterVisiblePos -= itemSize(nvItem) + spacing;
+                    insertResult->sizeChangesAfterVisiblePos = insertResult->sizeChangesAfterVisiblePos.toReal() - itemSize(nvItem) - spacing;
                     addedItems->removeOne(nvItem);
                     if (nvItem->transitionScheduledOrRunning())
                         nvItem->setPosition(prevPos + (nvItem->index - prevItem->index) * averageSize);
@@ -3346,7 +3346,7 @@ void QQuickListViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex
         return;
 
     const qreal viewEndPos = isContentFlowReversed() ? -position() : position() + size();
-    qreal sizeRemoved = -removalResult.sizeChangesAfterVisiblePos
+    qreal sizeRemoved = -removalResult.sizeChangesAfterVisiblePos.toReal()
             - (removalResult.countChangeAfterVisibleItems * (averageSize + spacing));
 
     for (int i=markerItemIndex+1; i<visibleItems.count(); i++) {
