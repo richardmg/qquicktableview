@@ -174,7 +174,7 @@ public:
     void destroyOwnModel();
 
     void applyPendingChanges();
-    virtual bool applyModelChanges(ChangeResult *insertionResult, ChangeResult *removalResult) = 0;
+    virtual bool applyModelChanges() = 0;
 
     void createTransitioner();
     void prepareVisibleItemTransitions();
@@ -276,7 +276,7 @@ protected:
     virtual void changedVisibleIndex(int newIndex) = 0;
 
     virtual bool needsRefillForAddedOrRemovedIndex(int) const { return false; }
-    virtual void translateAndTransitionItemsAfter(int afterIndex, const ChangeResult &insertionResult, const ChangeResult &removalResult) = 0;
+    virtual void translateAndTransitionItemsAfter(int afterIndex) = 0;
 
     virtual void initializeViewItem(FxViewItem *) {}
     virtual void initializeCurrentItem() {}

@@ -741,11 +741,14 @@ static int findMoveKeyIndex(QQmlChangeSet::MoveKey key, const QVector<QQmlChange
     return -1;
 }
 
-bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult, ChangeResult *totalRemovalResult)
+bool QQuickItemViewPrivate::applyModelChanges()
 {
     Q_Q(QQuickItemView);
     if (!q->isComponentComplete() || !hasPendingChanges())
         return false;
+
+    insertionPosChanges.reset();
+    removalPosChanges.reset();
 
     if (bufferedChanges.hasPendingChanges()) {
         currentChanges.applyBufferedChanges(bufferedChanges);
@@ -771,8 +774,8 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
     }
     qreal prevVisibleItemsFirstPos = visibleItems.count() ? itemPosition(visibleItems.constFirst()) : 0.0;
 
-    totalInsertionResult->visiblePos = prevViewPos;
-    totalRemovalResult->visiblePos = prevViewPos;
+    insertionPosChanges.visiblePos = prevViewPos;
+    removalPosChanges.visiblePos = prevViewPos;
 
     const QVector<QQmlChangeSet::Change> &removals = currentChanges.pendingChanges.removes();
     const QVector<QQmlChangeSet::Change> &insertions = currentChanges.pendingChanges.inserts();
@@ -807,7 +810,7 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
             }
         }
     }
-    *totalRemovalResult += removalResult;
+    removalPosChanges += removalResult;
     if (!removals.isEmpty()) {
         updateVisibleIndex();
 
@@ -829,7 +832,7 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
             visibleAffected = true;
         if (wasEmpty && !visibleItems.isEmpty())
             resetFirstItemPosition();
-        *totalInsertionResult += insertionResult;
+        insertionPosChanges += insertionResult;
 
         // set positions correctly for the next insertion
         if (i < insertions.count() - 1) {
@@ -851,9 +854,9 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
             int fromIndex = findMoveKeyIndex(m.moveKey, removals);
             if (fromIndex >= 0) {
                 if (prevFirstVisibleIndex >= 0 && fromIndex < prevFirstVisibleIndex)
-                    repositionItemAt(m.item, fromIndex, -totalInsertionResult->sizeChangesAfterVisiblePos);
+                    repositionItemAt(m.item, fromIndex, -insertionPosChanges.sizeChangesAfterVisiblePos);
                 else
-                    repositionItemAt(m.item, fromIndex, totalInsertionResult->sizeChangesAfterVisiblePos);
+                    repositionItemAt(m.item, fromIndex, insertionPosChanges.sizeChangesAfterVisiblePos);
                 m.item->transitionNextReposition(transitioner, QQuickItemViewTransitioner::MoveTransition, true);
             }
         }

@@ -187,7 +187,7 @@ public:
     void setPosition(qreal pos) override;
     void layoutVisibleItems(int fromModelIndex = 0) override;
     bool applyInsertionChange(const QQmlChangeSet::Change &insert, ChangeResult *changeResult, QList<FxViewItem *> *addedItems, QList<MovedItem> *movingIntoView) override;
-    void translateAndTransitionItemsAfter(int afterModelIndex, const ChangeResult &insertionResult, const ChangeResult &removalResult) override;
+    void translateAndTransitionItemsAfter(int afterModelIndex) override;
     bool needsRefillForAddedOrRemovedIndex(int index) const override;
 
     qreal headerSize() const override;
@@ -2517,7 +2517,7 @@ bool QQuickGridViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
     return visibleItems.count() > prevVisibleCount;
 }
 
-void QQuickGridViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex, const ChangeResult &insertionResult, const ChangeResult &removalResult)
+void QQuickGridViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex)
 {
     if (!transitioner)
         return;
@@ -2533,14 +2533,14 @@ void QQuickGridViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex
         return;
 
     const qreal viewEndPos = isContentFlowReversed() ? -position() : position() + size();
-    int countItemsRemoved = -(removalResult.sizeChangesAfterVisiblePos / rowSize());
+    int countItemsRemoved = -(removalPosChanges.sizeChangesAfterVisiblePos / rowSize());
 
     // account for whether first item has changed if < 1 row was removed before visible
-    int changeBeforeVisible = insertionResult.countChangeBeforeVisible - removalResult.countChangeBeforeVisible;
+    int changeBeforeVisible = insertionPosChanges.countChangeBeforeVisible - removalPosChanges.countChangeBeforeVisible;
     if (changeBeforeVisible != 0)
         countItemsRemoved += (changeBeforeVisible % columns) - (columns - 1);
 
-    countItemsRemoved -= removalResult.countChangeAfterVisibleItems;
+    countItemsRemoved -= removalPosChanges.countChangeAfterVisibleItems;
 
     for (int i=markerItemIndex+1; i<visibleItems.count(); i++) {
         FxGridItemSG *gridItem = static_cast<FxGridItemSG *>(visibleItems.at(i));

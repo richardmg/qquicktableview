@@ -408,9 +408,7 @@ void QQuickAbstractItemViewPrivate::layout()
             visibleItems[i]->transitionNextReposition(transitioner, QQuickItemViewTransitioner::RemoveTransition, false);
     }
 
-    ChangeResult insertionPosChanges;
-    ChangeResult removalPosChanges;
-    if (!applyModelChanges(&insertionPosChanges, &removalPosChanges) && !forceLayout) {
+    if (!applyModelChanges() && !forceLayout) {
         if (fillCacheBuffer) {
             fillCacheBuffer = false;
             refill();
@@ -449,7 +447,7 @@ void QQuickAbstractItemViewPrivate::layout()
         // causes items to slide up into view
         if (transitioner->canTransition(QQuickItemViewTransitioner::MoveTransition, false)
                 || transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, false)) {
-            translateAndTransitionItemsAfter(lastIndexInView, insertionPosChanges, removalPosChanges);
+            translateAndTransitionItemsAfter(lastIndexInView);
         }
 
         prepareVisibleItemTransitions();

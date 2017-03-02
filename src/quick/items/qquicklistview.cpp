@@ -111,7 +111,7 @@ public:
     void layoutVisibleItems(int fromModelIndex = 0) override;
 
     bool applyInsertionChange(const QQmlChangeSet::Change &insert, ChangeResult *changeResult, QList<FxViewItem *> *addedItems, QList<MovedItem> *movingIntoView) override;
-    void translateAndTransitionItemsAfter(int afterIndex, const ChangeResult &insertionResult, const ChangeResult &removalResult) override;
+    void translateAndTransitionItemsAfter(int afterIndex) override;
 
     void updateSectionCriteria() override;
     void updateSections() override;
@@ -3328,10 +3328,8 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
     return visibleAffected;
 }
 
-void QQuickListViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex, const ChangeResult &insertionResult, const ChangeResult &removalResult)
+void QQuickListViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex)
 {
-    Q_UNUSED(insertionResult);
-
     if (!transitioner)
         return;
 
@@ -3346,8 +3344,8 @@ void QQuickListViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex
         return;
 
     const qreal viewEndPos = isContentFlowReversed() ? -position() : position() + size();
-    qreal sizeRemoved = -removalResult.sizeChangesAfterVisiblePos
-            - (removalResult.countChangeAfterVisibleItems * (averageSize + spacing));
+    qreal sizeRemoved = -removalPosChanges.sizeChangesAfterVisiblePos
+            - (removalPosChanges.countChangeAfterVisibleItems * (averageSize + spacing));
 
     for (int i=markerItemIndex+1; i<visibleItems.count(); i++) {
         FxListItemSG *listItem = static_cast<FxListItemSG *>(visibleItems.at(i));

@@ -135,7 +135,7 @@ public:
     qreal calculatedMinExtent() const;
     qreal calculatedMaxExtent() const;
 
-    bool applyModelChanges(ChangeResult *insertionResult, ChangeResult *removalResult) override;
+    bool applyModelChanges() override;
     bool applyRemovalChange(const QQmlChangeSet::Change &removal, ChangeResult *changeResult, int *removedCount);
     void removeItem(FxViewItem *item, const QQmlChangeSet::Change &removal, ChangeResult *removeResult);
     virtual void updateSizeChangesBeforeVisiblePos(FxViewItem *item, ChangeResult *removeResult);
@@ -159,6 +159,9 @@ public:
         MovedItem(FxViewItem *i, QQmlChangeSet::MoveKey k)
             : item(i), moveKey(k) {}
     };
+
+    ChangeResult insertionPosChanges;
+    ChangeResult removalPosChanges;
 
     mutable qreal minExtent;
     mutable qreal maxExtent;
