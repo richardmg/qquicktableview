@@ -2410,7 +2410,7 @@ bool QQuickGridViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
     }
 
     int prevVisibleCount = visibleItems.count();
-    if (insertResult->visiblePos.isValid() && rowPos < insertResult->visiblePos.value.toReal()) {
+    if (insertResult->visiblePos.isValid() && rowPos < insertResult->visiblePos) {
         // Insert items before the visible item.
         int insertionIdx = index;
         int i = count - 1;
@@ -2419,7 +2419,7 @@ bool QQuickGridViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
         if (rowPos > from && insertionIdx < visibleIndex) {
                 // items won't be visible, just note the size for repositioning
                 insertResult->countChangeBeforeVisible += count;
-                insertResult->sizeChangesBeforeVisiblePos = insertResult->sizeChangesBeforeVisiblePos.toReal() + ((count + columns - 1) / columns) * rowSize();
+                insertResult->sizeChangesBeforeVisiblePos += ((count + columns - 1) / columns) * rowSize();
         } else {
             while (i >= 0) {
                 // item is before first visible e.g. in cache buffer
@@ -2442,7 +2442,7 @@ bool QQuickGridViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
                     else
                         item->moveTo(QPointF(colPos, rowPos), true);
                 }
-                insertResult->sizeChangesBeforeVisiblePos = insertResult->sizeChangesBeforeVisiblePos.toReal() + rowSize();
+                insertResult->sizeChangesBeforeVisiblePos += rowSize();
 
                 if (--colNum < 0 ) {
                     colNum = columns - 1;
@@ -2500,7 +2500,7 @@ bool QQuickGridViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
                 else
                     item->moveTo(QPointF(colPos, rowPos), true);
             }
-            insertResult->sizeChangesAfterVisiblePos = insertResult->sizeChangesAfterVisiblePos.toReal() + rowSize();
+            insertResult->sizeChangesAfterVisiblePos += rowSize();
 
             if (++colNum >= columns) {
                 colNum = 0;
@@ -2533,7 +2533,7 @@ void QQuickGridViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex
         return;
 
     const qreal viewEndPos = isContentFlowReversed() ? -position() : position() + size();
-    int countItemsRemoved = -(removalResult.sizeChangesAfterVisiblePos.toReal() / rowSize());
+    int countItemsRemoved = -(removalResult.sizeChangesAfterVisiblePos / rowSize());
 
     // account for whether first item has changed if < 1 row was removed before visible
     int changeBeforeVisible = insertionResult.countChangeBeforeVisible - removalResult.countChangeBeforeVisible;

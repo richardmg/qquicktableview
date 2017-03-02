@@ -763,7 +763,7 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
             || !currentChanges.pendingChanges.inserts().isEmpty();
 
     FxViewItem *prevFirstVisible = firstVisibleItem();
-    QQmlNullableValue<QVariant> prevViewPos;
+    QQmlNullableValue<qreal> prevViewPos;
     int prevFirstVisibleIndex = -1;
     if (prevFirstVisible) {
         prevViewPos = itemPosition(prevFirstVisible);
@@ -851,9 +851,9 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
             int fromIndex = findMoveKeyIndex(m.moveKey, removals);
             if (fromIndex >= 0) {
                 if (prevFirstVisibleIndex >= 0 && fromIndex < prevFirstVisibleIndex)
-                    repositionItemAt(m.item, fromIndex, -totalInsertionResult->sizeChangesAfterVisiblePos.toReal());
+                    repositionItemAt(m.item, fromIndex, -totalInsertionResult->sizeChangesAfterVisiblePos);
                 else
-                    repositionItemAt(m.item, fromIndex, totalInsertionResult->sizeChangesAfterVisiblePos.toReal());
+                    repositionItemAt(m.item, fromIndex, totalInsertionResult->sizeChangesAfterVisiblePos);
                 m.item->transitionNextReposition(transitioner, QQuickItemViewTransitioner::MoveTransition, true);
             }
         }
@@ -948,10 +948,10 @@ bool QQuickItemViewPrivate::applyRemovalChange(const QQmlChangeSet::Change &remo
 void QQuickItemViewPrivate::removeItem(FxViewItem *item, const QQmlChangeSet::Change &removal, ChangeResult *removeResult)
 {
     if (removeResult->visiblePos.isValid()) {
-        if (itemPosition(item) < removeResult->visiblePos.value.toReal())
+        if (itemPosition(item) < removeResult->visiblePos)
             updateSizeChangesBeforeVisiblePos(item, removeResult);
         else
-            removeResult->sizeChangesAfterVisiblePos = removeResult->sizeChangesAfterVisiblePos.toReal() + itemSize(item);
+            removeResult->sizeChangesAfterVisiblePos += itemSize(item);
     }
     if (removal.isMove()) {
         currentChanges.removedItems.insert(removal.moveKey(item->index), item);
@@ -966,7 +966,7 @@ void QQuickItemViewPrivate::removeItem(FxViewItem *item, const QQmlChangeSet::Ch
 
 void QQuickItemViewPrivate::updateSizeChangesBeforeVisiblePos(FxViewItem *item, ChangeResult *removeResult)
 {
-    removeResult->sizeChangesBeforeVisiblePos = removeResult->sizeChangesBeforeVisiblePos.toReal() + itemSize(item);
+    removeResult->sizeChangesBeforeVisiblePos += itemSize(item);
 }
 
 void QQuickItemViewPrivate::repositionFirstItem(FxViewItem *prevVisibleItemsFirst,
@@ -975,7 +975,7 @@ void QQuickItemViewPrivate::repositionFirstItem(FxViewItem *prevVisibleItemsFirs
                                                    ChangeResult *insertionResult,
                                                    ChangeResult *removalResult)
 {
-    const QQmlNullableValue<QVariant> prevViewPos = insertionResult->visiblePos;
+    const QQmlNullableValue<qreal> prevViewPos = insertionResult->visiblePos;
 
     // reposition visibleItems.first() correctly so that the content y doesn't jump
     if (visibleItems.count()) {
@@ -995,12 +995,12 @@ void QQuickItemViewPrivate::repositionFirstItem(FxViewItem *prevVisibleItemsFirs
 
             // shift visibleItems.first() relative to the number of added/removed items
             const auto pos = itemPosition(visibleItems.constFirst());
-            if (pos > prevViewPos.value.toReal()) {
-                moveForwardsBy = insertionResult->sizeChangesAfterVisiblePos.toReal();
-                moveBackwardsBy = removalResult->sizeChangesAfterVisiblePos.toReal();
-            } else if (pos < prevViewPos.value.toReal()) {
-                moveForwardsBy = removalResult->sizeChangesBeforeVisiblePos.toReal();
-                moveBackwardsBy = insertionResult->sizeChangesBeforeVisiblePos.toReal();
+            if (pos > prevViewPos) {
+                moveForwardsBy = insertionResult->sizeChangesAfterVisiblePos;
+                moveBackwardsBy = removalResult->sizeChangesAfterVisiblePos;
+            } else if (pos < prevViewPos) {
+                moveForwardsBy = removalResult->sizeChangesBeforeVisiblePos;
+                moveBackwardsBy = insertionResult->sizeChangesBeforeVisiblePos;
             }
             adjustFirstItem(moveForwardsBy, moveBackwardsBy, insertionResult->countChangeBeforeVisible - removalResult->countChangeBeforeVisible);
         }
