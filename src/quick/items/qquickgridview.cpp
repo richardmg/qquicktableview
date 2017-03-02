@@ -161,7 +161,7 @@ public:
     qreal colPosAt(int modelIndex) const;
     qreal rowPosAt(int modelIndex) const;
     qreal snapPosAt(qreal pos) const;
-    FxGridItemSG *snapItemAt(qreal pos) const;
+    FxViewItem *snapItemAt(qreal pos) const;
     int snapIndex() const;
     qreal contentXForPosition(qreal pos) const;
     qreal contentYForPosition(qreal pos) const;
@@ -390,14 +390,14 @@ qreal QQuickGridViewPrivate::snapPosAt(qreal pos) const
     return snapPos;
 }
 
-FxGridItemSG *QQuickGridViewPrivate::snapItemAt(qreal pos) const
+FxViewItem *QQuickGridViewPrivate::snapItemAt(qreal pos) const
 {
     for (FxViewItem *item : visibleItems) {
         if (item->index == -1)
             continue;
         qreal itemTop = itemPosition(item);
         if (itemTop+rowSize()/2 >= pos && itemTop - rowSize()/2 <= pos)
-            return static_cast<FxGridItemSG *>(item);
+            return item;
     }
     return 0;
 }
@@ -936,17 +936,17 @@ void QQuickGridViewPrivate::fixup(AxisData &data, qreal minExtent, qreal maxExte
                 bias = -bias;
             tempPosition -= bias;
         }
-        FxGridItemSG *topItem = snapItemAt(tempPosition+highlightRangeStart);
+        FxViewItem *topItem = snapItemAt(tempPosition+highlightRangeStart);
         if (strictHighlightRange && currentItem && (!topItem || topItem->index != currentIndex)) {
             // StrictlyEnforceRange always keeps an item in range
             updateHighlight();
-            topItem = static_cast<FxGridItemSG *>(currentItem);
+            topItem = currentItem;
         }
-        FxGridItemSG *bottomItem = snapItemAt(tempPosition+highlightRangeEnd);
+        FxViewItem *bottomItem = snapItemAt(tempPosition+highlightRangeEnd);
         if (strictHighlightRange && currentItem && (!bottomItem || bottomItem->index != currentIndex)) {
             // StrictlyEnforceRange always keeps an item in range
             updateHighlight();
-            bottomItem = static_cast<FxGridItemSG *>(currentItem);
+            bottomItem = currentItem;
         }
         qreal pos;
         bool isInBounds = -position() > maxExtent && -position() <= minExtent;
@@ -2077,18 +2077,17 @@ void QQuickGridView::viewportMoved(Qt::Orientations orient)
     if (d->moveReason != QQuickGridViewPrivate::SetIndex) {
         if (d->haveHighlightRange && d->highlightRange == StrictlyEnforceRange && d->highlight) {
             // reposition highlight
-            FxGridItemSG *highlight = static_cast<FxGridItemSG *>(d->highlight);
-            qreal pos = d->itemPosition(highlight);
+            qreal pos = d->itemPosition(d->highlight);
             qreal viewPos = d->isContentFlowReversed() ? -d->position()-d->size() : d->position();
-            if (pos > viewPos + d->highlightRangeEnd - d->itemSize(highlight))
-                pos = viewPos + d->highlightRangeEnd - d->itemSize(highlight);
+            if (pos > viewPos + d->highlightRangeEnd - d->itemSize(d->highlight))
+                pos = viewPos + d->highlightRangeEnd - d->itemSize(d->highlight);
             if (pos < viewPos + d->highlightRangeStart)
                 pos = viewPos + d->highlightRangeStart;
 
-            if (pos != d->itemPosition(highlight)) {
+            if (pos != d->itemPosition(d->highlight)) {
                 d->highlightXAnimator->stop();
                 d->highlightYAnimator->stop();
-                highlight->setPosition(highlight->colPos(), pos);
+                static_cast<FxGridItemSG*>(d->highlight)->setPosition(static_cast<FxGridItemSG*>(d->highlight)->colPos(), pos);
             } else {
                 d->updateHighlight();
             }
