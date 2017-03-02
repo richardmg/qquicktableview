@@ -455,7 +455,7 @@ void QQuickAbstractItemViewPrivate::layout()
         QRectF viewBounds(q->contentX(),  q->contentY(), q->width(), q->height());
         for (QList<FxViewItem*>::Iterator it = releasePendingTransition.begin();
              it != releasePendingTransition.end(); ) {
-            FxViewItem *item = static_cast<FxViewItem *>(*it); // ###
+            FxViewItem *item = *it;
             if (prepareNonVisibleItemTransition(item, viewBounds)) {
                 ++it;
             } else {

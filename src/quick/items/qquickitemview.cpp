@@ -397,9 +397,8 @@ void QQuickItemView::trackedPositionChanged()
     if (!d->trackedItem || !d->currentItem)
         return;
     if (d->moveReason == QQuickItemViewPrivate::SetIndex) {
-        FxViewItem *trackedItem = static_cast<FxViewItem *>(d->trackedItem); // ###
-        qreal trackedPos = d->itemPosition(trackedItem);
-        qreal trackedSize = d->itemSize(trackedItem);
+        qreal trackedPos = d->itemPosition(d->trackedItem);
+        qreal trackedSize = d->itemSize(d->trackedItem);
         qreal viewPos = d->isContentFlowReversed() ? -d->position()-d->size() : d->position();
         qreal pos = viewPos;
         if (d->haveHighlightRange) {
@@ -416,15 +415,14 @@ void QQuickItemView::trackedPositionChanged()
                     pos = minExtent;
             }
         } else {
-            FxViewItem *currentItem = static_cast<FxViewItem *>(d->currentItem);
-            if (trackedItem != currentItem) {
+            if (d->trackedItem != d->currentItem) {
                 // also make section header visible
-                trackedPos -= d->itemSectionSize(currentItem);
-                trackedSize += d->itemSectionSize(currentItem);
+                trackedPos -= d->itemSectionSize(d->currentItem);
+                trackedSize += d->itemSectionSize(d->currentItem);
             }
-            qreal trackedEndPos = d->itemEndPosition(trackedItem);
-            qreal toItemPos = d->itemPosition(currentItem);
-            qreal toItemEndPos = d->itemEndPosition(currentItem);
+            qreal trackedEndPos = d->itemEndPosition(d->trackedItem);
+            qreal toItemPos = d->itemPosition(d->currentItem);
+            qreal toItemEndPos = d->itemEndPosition(d->currentItem);
             if (d->showHeaderForIndex(d->currentIndex)) {
                 qreal startOffset = -d->contentStartOffset();
                 trackedPos -= startOffset;
@@ -458,8 +456,8 @@ void QQuickItemView::trackedPositionChanged()
                         pos = trackedPos;
                 } else {
                     pos = toItemEndPos - d->size();
-                    if (d->itemSize(currentItem) > d->size())
-                        pos = d->itemPosition(currentItem);
+                    if (d->itemSize(d->currentItem) > d->size())
+                        pos = d->itemPosition(d->currentItem);
                 }
             }
             if (trackedPos < pos && toItemPos < pos)

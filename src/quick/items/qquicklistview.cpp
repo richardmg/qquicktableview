@@ -3241,11 +3241,11 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
                     return false;
 
                 visibleAffected = true;
-                visibleItems.insert(insertionIdx, static_cast<FxViewItem *>(item)); // ###
+                visibleItems.insert(insertionIdx, item);
                 if (insertionIdx == 0)
                     insertResult->changedFirstItem = true;
                 if (!change.isMove()) {
-                    addedItems->append(static_cast<FxViewItem *>(item)); // ###
+                    addedItems->append(item);
                     if (transitioner)
                         item->transitionNextReposition(transitioner, QQuickItemViewTransitioner::AddTransition, true);
                     else
@@ -3285,16 +3285,16 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
             if (!item)
                 return false;
 
-            visibleItems.insert(index, static_cast<FxViewItem *>(item)); // ###
+            visibleItems.insert(index, item);
             if (index == 0)
                 insertResult->changedFirstItem = true;
             if (change.isMove()) {
                 // we know this is a move target, since move displaced items that are
                 // shuffled into view due to a move would be added in refill()
                 if (newItem && transitioner && transitioner->canTransition(QQuickItemViewTransitioner::MoveTransition, true))
-                    movingIntoView->append(MovedItem(static_cast<FxViewItem *>(item), change.moveKey(item->index))); // ###
+                    movingIntoView->append(MovedItem(item, change.moveKey(item->index)));
             } else {
-                addedItems->append(static_cast<FxViewItem *>(item)); // ###
+                addedItems->append(item);
                 if (transitioner)
                     item->transitionNextReposition(transitioner, QQuickItemViewTransitioner::AddTransition, true);
                 else
