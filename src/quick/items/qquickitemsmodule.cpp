@@ -391,8 +391,9 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
 #if QT_CONFIG(quick_shadereffect)
     qmlRegisterType<QQuickShaderEffectSource, 2>(uri, 2, 9, "ShaderEffectSource");
 #endif
+
 #if QT_CONFIG(quick_tableview)
-    qmlRegisterType<QQuickTableView>(uri, 2, 9, "TableView");
+    qmlRegisterType<QQuickTableView>(uri, 2, 10, "TableView");
 #endif
 }
 
