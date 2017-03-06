@@ -65,6 +65,10 @@ class QQuickTableViewPrivate : public QQuickAbstractItemViewPrivate
 public:
     QQuickTableViewPrivate();
 
+    int rowAt(int index) const;
+    int columnAt(int index) const;
+    int indexAt(int row, int column) const;
+
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     bool applyModelChanges() override { return false; }
     Qt::Orientation layoutOrientation() const override { return Qt::Vertical; }
@@ -88,6 +92,27 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     : rows(-1),
       columns(-1)
 {
+}
+
+int QQuickTableViewPrivate::rowAt(int index) const
+{
+    if (index < 0 || index >= itemCount || rows <= 0)
+        return -1;
+    return index % rows;
+}
+
+int QQuickTableViewPrivate::columnAt(int index) const
+{
+    if (index < 0 || index >= itemCount || rows <= 0)
+        return -1;
+    return index / rows;
+}
+
+int QQuickTableViewPrivate::indexAt(int row, int column) const
+{
+    if (row < 0 || row >= rows || column < 0 || column >= columns)
+        return -1;
+    return row + column * rows;
 }
 
 FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
