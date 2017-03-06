@@ -138,8 +138,6 @@ public:
 
     bool isValid() const;
     FxViewItem *visibleItem(int modelIndex) const;
-    virtual int findLastVisibleIndex(int defaultValue = -1) const = 0;
-    virtual FxViewItem *firstVisibleItem() const = 0;
     virtual int findLastIndexInView() const = 0;
 
     virtual void init();

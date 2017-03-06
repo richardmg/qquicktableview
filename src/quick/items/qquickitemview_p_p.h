@@ -115,8 +115,8 @@ public:
     qreal endPosition() const;
 
     qreal contentStartOffset() const;
-    int findLastVisibleIndex(int defaultValue = -1) const override;
-    FxViewItem *firstVisibleItem() const override;
+    int findLastVisibleIndex(int defaultValue = -1) const;
+    FxViewItem *firstVisibleItem() const;
     int findLastIndexInView() const override;
     int mapFromModel(int modelIndex) const;
 
