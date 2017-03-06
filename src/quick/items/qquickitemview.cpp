@@ -554,7 +554,7 @@ qreal QQuickItemView::originY() const
 QQuickItemViewPrivate::QQuickItemViewPrivate()
     : displayMarginBeginning(0), displayMarginEnd(0)
     , headerComponent(0), header(0), footerComponent(0), footer(0)
-    , minExtent(0), maxExtent(0)
+    , minExtent(0), maxExtent(0), lastIndexInView(-1)
 {
 }
 
@@ -618,15 +618,17 @@ FxViewItem *QQuickItemViewPrivate::firstVisibleItem() const {
     return visibleItems.count() ? visibleItems.first() : 0;
 }
 
-int QQuickItemViewPrivate::findLastIndexInView() const
+void QQuickItemViewPrivate::updateLastIndexInView()
 {
+    lastIndexInView = -1;
     const qreal viewEndPos = isContentFlowReversed() ? -position() : position() + size();
     for (auto it = visibleItems.rbegin(), end = visibleItems.rend(); it != end; ++it) {
         auto item = *it;
-        if (item->index != -1 && itemPosition(item) <= viewEndPos)
-            return item->index;
+        if (item->index != -1 && itemPosition(item) <= viewEndPos) {
+            lastIndexInView = item->index;
+            break;
+        }
     }
-    return -1;
 }
 
 // Map a model index to visibleItems list index.

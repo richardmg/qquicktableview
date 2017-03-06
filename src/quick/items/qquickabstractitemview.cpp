@@ -428,7 +428,6 @@ void QQuickAbstractItemViewPrivate::layout()
     updateSections();
     layoutVisibleItems();
 
-    int lastIndexInView = findLastIndexInView();
     refill();
     markExtentsDirty();
     updateHighlight();
@@ -447,7 +446,7 @@ void QQuickAbstractItemViewPrivate::layout()
         // causes items to slide up into view
         if (transitioner->canTransition(QQuickItemViewTransitioner::MoveTransition, false)
                 || transitioner->canTransition(QQuickItemViewTransitioner::RemoveTransition, false)) {
-            translateAndTransitionItemsAfter(lastIndexInView);
+            translateAndTransitionFilledItems();
         }
 
         prepareVisibleItemTransitions();

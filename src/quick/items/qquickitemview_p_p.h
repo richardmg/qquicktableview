@@ -117,7 +117,6 @@ public:
     qreal contentStartOffset() const;
     int findLastVisibleIndex(int defaultValue = -1) const;
     FxViewItem *firstVisibleItem() const;
-    int findLastIndexInView() const override;
     int mapFromModel(int modelIndex) const;
 
     void init() override;
@@ -128,6 +127,7 @@ public:
     void orientationChange();
     bool addRemoveVisibleItems() override;
 
+    void updateLastIndexInView();
     void positionViewAtIndex(int index, int mode) override;
 
     qreal minExtentForAxis(const AxisData &axisData, bool forXAxis) const;
@@ -165,6 +165,8 @@ public:
 
     mutable qreal minExtent;
     mutable qreal maxExtent;
+
+    int lastIndexInView;
 
 protected:
     virtual qreal positionAt(int index) const = 0;

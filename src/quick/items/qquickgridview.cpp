@@ -187,7 +187,7 @@ public:
     void setPosition(qreal pos) override;
     void layoutVisibleItems(int fromModelIndex = 0) override;
     bool applyInsertionChange(const QQmlChangeSet::Change &insert, ChangeResult *changeResult, QList<FxViewItem *> *addedItems, QList<MovedItem> *movingIntoView) override;
-    void translateAndTransitionItemsAfter(int afterModelIndex) override;
+    void translateAndTransitionFilledItems() override;
     bool needsRefillForAddedOrRemovedIndex(int index) const override;
 
     qreal headerSize() const override;
@@ -653,6 +653,7 @@ void QQuickGridViewPrivate::layoutVisibleItems(int fromModelIndex)
             }
         }
     }
+    updateLastIndexInView();
 }
 
 void QQuickGridViewPrivate::repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer)
@@ -2516,14 +2517,14 @@ bool QQuickGridViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
     return visibleItems.count() > prevVisibleCount;
 }
 
-void QQuickGridViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex)
+void QQuickGridViewPrivate::translateAndTransitionFilledItems()
 {
     if (!transitioner)
         return;
 
     int markerItemIndex = -1;
     for (int i=0; i<visibleItems.count(); i++) {
-        if (visibleItems.at(i)->index == afterModelIndex) {
+        if (visibleItems.at(i)->index == lastIndexInView) {
             markerItemIndex = i;
             break;
         }

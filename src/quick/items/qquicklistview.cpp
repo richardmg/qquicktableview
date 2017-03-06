@@ -111,7 +111,7 @@ public:
     void layoutVisibleItems(int fromModelIndex = 0) override;
 
     bool applyInsertionChange(const QQmlChangeSet::Change &insert, ChangeResult *changeResult, QList<FxViewItem *> *addedItems, QList<MovedItem> *movingIntoView) override;
-    void translateAndTransitionItemsAfter(int afterIndex) override;
+    void translateAndTransitionFilledItems() override;
 
     void updateSectionCriteria() override;
     void updateSections() override;
@@ -828,6 +828,7 @@ void QQuickListViewPrivate::layoutVisibleItems(int fromModelIndex)
         updateCurrentSection();
         updateStickySections();
     }
+    updateLastIndexInView();
 }
 
 void QQuickListViewPrivate::repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer)
@@ -3323,14 +3324,14 @@ bool QQuickListViewPrivate::applyInsertionChange(const QQmlChangeSet::Change &ch
     return visibleAffected;
 }
 
-void QQuickListViewPrivate::translateAndTransitionItemsAfter(int afterModelIndex)
+void QQuickListViewPrivate::translateAndTransitionFilledItems()
 {
     if (!transitioner)
         return;
 
     int markerItemIndex = -1;
     for (int i=0; i<visibleItems.count(); i++) {
-        if (visibleItems.at(i)->index == afterModelIndex) {
+        if (visibleItems.at(i)->index == lastIndexInView) {
             markerItemIndex = i;
             break;
         }

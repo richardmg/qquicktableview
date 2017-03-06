@@ -65,7 +65,6 @@ class QQuickTableViewPrivate : public QQuickAbstractItemViewPrivate
 public:
     QQuickTableViewPrivate();
 
-    int findLastIndexInView() const override { return -1; }
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     bool applyModelChanges() override { return false; }
     Qt::Orientation layoutOrientation() const override { return Qt::Vertical; }
@@ -79,7 +78,7 @@ public:
     void repositionPackageItemAt(QQuickItem *item, int index) override { Q_UNUSED(item); Q_UNUSED(index); }
     void layoutVisibleItems(int fromModelIndex = 0) override { Q_UNUSED(fromModelIndex); }
     void changedVisibleIndex(int newIndex) override { Q_UNUSED(newIndex); }
-    void translateAndTransitionItemsAfter(int afterIndex) override { Q_UNUSED(afterIndex); }
+    void translateAndTransitionFilledItems() override { }
 
     int rows;
     int columns;

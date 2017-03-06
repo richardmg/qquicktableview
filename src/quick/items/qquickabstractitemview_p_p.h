@@ -138,7 +138,6 @@ public:
 
     bool isValid() const;
     FxViewItem *visibleItem(int modelIndex) const;
-    virtual int findLastIndexInView() const = 0;
 
     virtual void init();
     virtual void clear();
@@ -274,7 +273,7 @@ protected:
     virtual void changedVisibleIndex(int newIndex) = 0;
 
     virtual bool needsRefillForAddedOrRemovedIndex(int) const { return false; }
-    virtual void translateAndTransitionItemsAfter(int afterIndex) = 0;
+    virtual void translateAndTransitionFilledItems() = 0;
 
     virtual void initializeViewItem(FxViewItem *) {}
     virtual void initializeCurrentItem() {}
