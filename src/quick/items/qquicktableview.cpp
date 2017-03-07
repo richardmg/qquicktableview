@@ -70,6 +70,9 @@ public:
     int indexAt(int row, int column) const;
     FxViewItem *visibleItemAt(int row, int column) const;
 
+    qreal rowHeight(int row) const;
+    qreal columnWidth(int column) const;
+
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     bool applyModelChanges() override { return false; }
     Qt::Orientation layoutOrientation() const override { return Qt::Vertical; }
@@ -131,6 +134,20 @@ FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
     int r = row - visibleRow;
     int c = column - visibleColumn;
     return visibleItems.value(r + c * visibleRows);
+}
+
+qreal QQuickTableViewPrivate::rowHeight(int row) const
+{
+    int column = columnAt(visibleIndex);
+    FxViewItem *item = visibleItemAt(row, column);
+    return item ? item->itemHeight() : 0;
+}
+
+qreal QQuickTableViewPrivate::columnWidth(int column) const
+{
+    int row = rowAt(visibleIndex);
+    FxViewItem *item = visibleItemAt(row, column);
+    return item ? item->itemWidth() : 0;
 }
 
 FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
