@@ -68,6 +68,7 @@ public:
     int rowAt(int index) const;
     int columnAt(int index) const;
     int indexAt(int row, int column) const;
+    FxViewItem *visibleItemAt(int row, int column) const;
 
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     bool applyModelChanges() override { return false; }
@@ -86,11 +87,15 @@ public:
 
     int rows;
     int columns;
+    int visibleRows;
+    int visibleColumns;
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
     : rows(-1),
-      columns(-1)
+      columns(-1),
+      visibleRows(0),
+      visibleColumns(0)
 {
 }
 
@@ -113,6 +118,19 @@ int QQuickTableViewPrivate::indexAt(int row, int column) const
     if (row < 0 || row >= rows || column < 0 || column >= columns)
         return -1;
     return row + column * rows;
+}
+
+FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
+{
+    int visibleRow = rowAt(visibleIndex);
+    int visibleColumn = columnAt(visibleIndex);
+    if (row < visibleRow || row >= visibleRow + visibleRows
+            || column < visibleColumn || column >= visibleRow + visibleRows)
+        return nullptr;
+
+    int r = row - visibleRow;
+    int c = column - visibleColumn;
+    return visibleItems.value(r + c * visibleRows);
 }
 
 FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
