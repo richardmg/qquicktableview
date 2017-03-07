@@ -70,7 +70,9 @@ public:
     int indexAt(int row, int column) const;
     FxViewItem *visibleItemAt(int row, int column) const;
 
+    qreal rowPos(int row) const;
     qreal rowHeight(int row) const;
+    qreal columnPos(int column) const;
     qreal columnWidth(int column) const;
     void updateAverageSize();
 
@@ -139,18 +141,62 @@ FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
     return visibleItems.value(r + c * visibleRows);
 }
 
+qreal QQuickTableViewPrivate::rowPos(int row) const
+{
+    // ### TODO: bottom-to-top
+    int visibleColumn = columnAt(visibleIndex);
+    FxViewItem *item = visibleItemAt(row, visibleColumn);
+    if (item)
+        return item->itemY();
+
+    // estimate
+    int visibleRow = rowAt(visibleIndex);
+    if (row < visibleRow) {
+        int count = visibleRow - row;
+        FxViewItem *topLeft = visibleItemAt(visibleRow, visibleColumn);
+        return topLeft->itemY() - count * averageSize.height(); // ### spacing
+    } else if (row > visibleRow + visibleRows) {
+        int count = row - visibleRow - visibleRows;
+        FxViewItem *bottomLeft = visibleItemAt(visibleRow + visibleRows, visibleColumn);
+        return bottomLeft->itemY() + bottomLeft->itemHeight() + count * averageSize.height(); // ### spacing
+    }
+    return 0;
+}
+
 qreal QQuickTableViewPrivate::rowHeight(int row) const
 {
     int column = columnAt(visibleIndex);
     FxViewItem *item = visibleItemAt(row, column);
-    return item ? item->itemHeight() : 0;
+    return item ? item->itemHeight() : averageSize.height();
+}
+
+qreal QQuickTableViewPrivate::columnPos(int column) const
+{
+    // ### TODO: right-to-left
+    int visibleRow = rowAt(visibleIndex);
+    FxViewItem *item = visibleItemAt(visibleRow, column);
+    if (item)
+        return item->itemX();
+
+    // estimate
+    int visibleColumn = columnAt(visibleIndex);
+    if (column < visibleColumn) {
+        int count = visibleColumn - column;
+        FxViewItem *topLeft = visibleItemAt(visibleRow, visibleColumn);
+        return topLeft->itemX() - count * averageSize.width(); // ### TODO: spacing
+    } else if (column > visibleColumn + visibleColumns) {
+        int count = column - visibleColumn - visibleColumns;
+        FxViewItem *topRight = visibleItemAt(visibleRow, visibleColumn + visibleColumns);
+        return topRight->itemX() + topRight->itemWidth() + count * averageSize.width(); // ### TODO: spacing
+    }
+    return 0;
 }
 
 qreal QQuickTableViewPrivate::columnWidth(int column) const
 {
     int row = rowAt(visibleIndex);
     FxViewItem *item = visibleItemAt(row, column);
-    return item ? item->itemWidth() : 0;
+    return item ? item->itemWidth() : averageSize.width();
 }
 
 void QQuickTableViewPrivate::updateAverageSize()
