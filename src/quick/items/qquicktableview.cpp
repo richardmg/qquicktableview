@@ -72,6 +72,7 @@ public:
 
     qreal rowHeight(int row) const;
     qreal columnWidth(int column) const;
+    void updateAverageSize();
 
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     bool applyModelChanges() override { return false; }
@@ -81,6 +82,7 @@ public:
     void updateHighlight() override { }
     void resetHighlightPosition() override { }
     void fixupPosition() override { }
+    void visibleItemsChanged() override;
     FxViewItem *newViewItem(int index, QQuickItem *item) override;
     void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) override { Q_UNUSED(item); Q_UNUSED(index); Q_UNUSED(sizeBuffer); }
     void repositionPackageItemAt(QQuickItem *item, int index) override { Q_UNUSED(item); Q_UNUSED(index); }
@@ -92,6 +94,7 @@ public:
     int columns;
     int visibleRows;
     int visibleColumns;
+    QSizeF averageSize;
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -148,6 +151,24 @@ qreal QQuickTableViewPrivate::columnWidth(int column) const
     int row = rowAt(visibleIndex);
     FxViewItem *item = visibleItemAt(row, column);
     return item ? item->itemWidth() : 0;
+}
+
+void QQuickTableViewPrivate::updateAverageSize()
+{
+    if (visibleItems.isEmpty())
+        return;
+
+    QSizeF sum;
+    for (FxViewItem *item : qAsConst(visibleItems))
+        sum += QSizeF(item->itemWidth(), item->itemHeight());
+
+    averageSize.setWidth(qRound(sum.width() / visibleItems.count()));
+    averageSize.setHeight(qRound(sum.height() / visibleItems.count()));
+}
+
+void QQuickTableViewPrivate::visibleItemsChanged()
+{
+    updateAverageSize();
 }
 
 FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
