@@ -477,6 +477,7 @@ void QQmlDelegateModel::setRootIndex(const QVariant &root)
 }
 
 /*!
+    \since QtQml.Models 2.10
     \qmlproperty int QtQml.Models::DelegateModel::rows
 
     TODO
@@ -528,6 +529,7 @@ void QQmlDelegateModel::resetRows()
 }
 
 /*!
+    \since QtQml.Models 2.10
     \qmlproperty int QtQml.Models::DelegateModel::columns
 
     TODO

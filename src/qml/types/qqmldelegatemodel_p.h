@@ -85,8 +85,8 @@ class Q_QML_PRIVATE_EXPORT QQmlDelegateModel : public QQmlInstanceModel, public 
     Q_PROPERTY(QQmlListProperty<QQmlDelegateModelGroup> groups READ groups CONSTANT)
     Q_PROPERTY(QObject *parts READ parts CONSTANT)
     Q_PROPERTY(QVariant rootIndex READ rootIndex WRITE setRootIndex NOTIFY rootIndexChanged)
-    Q_PROPERTY(int rows READ rows WRITE setRows RESET resetRows NOTIFY rowsChanged REVISION 9)
-    Q_PROPERTY(int columns READ columns WRITE setColumns RESET resetColumns NOTIFY columnsChanged REVISION 9)
+    Q_PROPERTY(int rows READ rows WRITE setRows RESET resetRows NOTIFY rowsChanged REVISION 10)
+    Q_PROPERTY(int columns READ columns WRITE setColumns RESET resetColumns NOTIFY columnsChanged REVISION 10)
     Q_CLASSINFO("DefaultProperty", "delegate")
     Q_INTERFACES(QQmlParserStatus)
 public:
@@ -144,8 +144,8 @@ Q_SIGNALS:
     void filterGroupChanged();
     void defaultGroupsChanged();
     void rootIndexChanged();
-    Q_REVISION(9) void rowsChanged();
-    Q_REVISION(9) void columnsChanged();
+    Q_REVISION(10) void rowsChanged();
+    Q_REVISION(10) void columnsChanged();
 
 private Q_SLOTS:
     void _q_itemsChanged(int index, int count, const QVector<int> &roles);
