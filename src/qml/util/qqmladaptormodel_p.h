@@ -74,7 +74,8 @@ public:
     public:
         inline Accessors() {}
         virtual ~Accessors();
-        virtual int count(const QQmlAdaptorModel &) const { return 0; }
+        virtual int rowCount(const QQmlAdaptorModel &) const { return 0; }
+        virtual int columnCount(const QQmlAdaptorModel &) const { return 0; }
         virtual void cleanup(QQmlAdaptorModel &, QQmlDelegateModel * = 0) const {}
 
         virtual QVariant value(const QQmlAdaptorModel &, int, const QString &) const {
@@ -118,13 +119,13 @@ public:
     void invalidateModel(QQmlDelegateModel *vdm);
 
     bool isValid() const;
+    int count() const;
     int rowCount() const;
     int columnCount() const;
 
     inline QAbstractItemModel *aim() { return static_cast<QAbstractItemModel *>(object()); }
     inline const QAbstractItemModel *aim() const { return static_cast<const QAbstractItemModel *>(object()); }
 
-    inline int count() const { return qMax(0, accessors->count(*this)); }
     inline QVariant value(int index, const QString &role) const {
         return accessors->value(*this, index, role); }
     inline QQmlDelegateModelItem *createItem(QQmlDelegateModelItemMetaType *metaType, QQmlEngine *engine, int index) {

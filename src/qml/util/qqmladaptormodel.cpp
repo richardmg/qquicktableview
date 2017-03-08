@@ -466,9 +466,14 @@ public:
     {
     }
 
-    int count(const QQmlAdaptorModel &model) const override
+    int rowCount(const QQmlAdaptorModel &model) const override
     {
-        return model.rowCount() * model.columnCount();
+        return model.aim()->rowCount(model.rootIndex);
+    }
+
+    int columnCount(const QQmlAdaptorModel &model) const override
+    {
+        return model.aim()->columnCount(model.rootIndex);
     }
 
     void cleanup(QQmlAdaptorModel &model, QQmlDelegateModel *vdm) const override
@@ -704,9 +709,14 @@ class VDMListDelegateDataType : public QQmlAdaptorModel::Accessors
 public:
     inline VDMListDelegateDataType() {}
 
-    int count(const QQmlAdaptorModel &model) const override
+    int rowCount(const QQmlAdaptorModel &model) const override
     {
         return model.list.count();
+    }
+
+    int columnCount(const QQmlAdaptorModel &) const override
+    {
+        return 1;
     }
 
     QVariant value(const QQmlAdaptorModel &model, int index, const QString &role) const override
@@ -789,9 +799,14 @@ public:
         free(metaObject);
     }
 
-    int count(const QQmlAdaptorModel &model) const override
+    int rowCount(const QQmlAdaptorModel &model) const override
     {
         return model.list.count();
+    }
+
+    int columnCount(const QQmlAdaptorModel &) const override
+    {
+        return 1;
     }
 
     QVariant value(const QQmlAdaptorModel &model, int index, const QString &role) const override
@@ -1008,21 +1023,26 @@ void QQmlAdaptorModel::invalidateModel(QQmlDelegateModel *vdm)
 
 bool QQmlAdaptorModel::isValid() const
 {
-    return accessors != &qt_vdm_null_accessors;
+    return accessors != &qt_vdm_null_accessors || rows.isValid();
+}
+
+int QQmlAdaptorModel::count() const
+{
+    return rowCount() * columnCount();
 }
 
 int QQmlAdaptorModel::rowCount() const
 {
     if (rows.isValid())
-        return rows;
-    if (const QAbstractItemModel *model = aim())
-        return model->rowCount(rootIndex);
-    return 0;
+        return rows.value;
+    return qMax(0, accessors->rowCount(*this));
 }
 
 int QQmlAdaptorModel::columnCount() const
 {
-    return columns.isValid() ? columns.value : 1;
+    if (columns.isValid())
+        return columns.value;
+    return qMax(isValid() ? 1 : 0, accessors->columnCount(*this));
 }
 
 void QQmlAdaptorModel::objectDestroyed(QObject *)

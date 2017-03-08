@@ -431,6 +431,8 @@ private slots:
     void asynchronousMove_data();
     void asynchronousCancel();
     void invalidContext();
+    void dimensions_data();
+    void dimensions();
 
 private:
     template <int N> void groups_verify(
@@ -4235,6 +4237,88 @@ void tst_qquickvisualdatamodel::invalidContext()
 
     item = qobject_cast<QQuickItem*>(visualModel->object(4, false));
     QVERIFY(!item);
+}
+
+void tst_qquickvisualdatamodel::dimensions_data()
+{
+    QTest::addColumn<QString>("expression");
+
+    QTest::newRow("4") << QString("model = 4");
+    QTest::newRow("[1,2,3,4]") << QString("model = [1,2,3,4]");
+    QTest::newRow("QObjectList") << QString("model = objectList");
+    QTest::newRow("SingleRoleModel") << QString("model = singleRoleModel");
+}
+
+void tst_qquickvisualdatamodel::dimensions()
+{
+    QFETCH(QString, expression);
+
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData("import QtQml.Models 2.10; import QtQuick 2.0; DelegateModel { delegate: Item { } }", testFileUrl(""));
+    QScopedPointer<QQmlDelegateModel> delegateModel(qobject_cast<QQmlDelegateModel *>(component.create()));
+    QVERIFY(delegateModel.data());
+
+    QObjectList objectList;
+    objectList.append(new DataObject("Item 1", "red"));
+    objectList.append(new DataObject("Item 2", "green"));
+    objectList.append(new DataObject("Item 3", "blue"));
+    objectList.append(new DataObject("Item 4", "yellow"));
+    engine.rootContext()->setContextProperty("objectList", QVariant::fromValue(objectList));
+
+    SingleRoleModel singleRoleModel(QStringList() << "one" << "two" << "three" << "four");
+    engine.rootContext()->setContextProperty("singleRoleModel", QVariant::fromValue(&singleRoleModel));
+
+    // no model
+    QCOMPARE(delegateModel->count(), 0);
+    QCOMPARE(delegateModel->rows(), 0);
+    QCOMPARE(delegateModel->columns(), 0);
+
+    delegateModel->setRows(5);
+    QCOMPARE(delegateModel->count(), 5);
+    QCOMPARE(delegateModel->rows(), 5);
+    QCOMPARE(delegateModel->columns(), 1);
+
+    delegateModel->setColumns(2);
+    QCOMPARE(delegateModel->count(), 10);
+    QCOMPARE(delegateModel->rows(), 5);
+    QCOMPARE(delegateModel->columns(), 2);
+
+    delegateModel->resetColumns();
+    QCOMPARE(delegateModel->count(), 5);
+    QCOMPARE(delegateModel->rows(), 5);
+    QCOMPARE(delegateModel->columns(), 1);
+
+    delegateModel->resetRows();
+    QCOMPARE(delegateModel->count(), 0);
+    QCOMPARE(delegateModel->rows(), 0);
+    QCOMPARE(delegateModel->columns(), 0);
+
+    // set model
+    evaluate<void>(delegateModel.data(), expression);
+    QCOMPARE(delegateModel->count(), 4);
+    QCOMPARE(delegateModel->rows(), 4);
+    QCOMPARE(delegateModel->columns(), 1);
+
+    delegateModel->setRows(5);
+    QCOMPARE(delegateModel->count(), 5);
+    QCOMPARE(delegateModel->rows(), 5);
+    QCOMPARE(delegateModel->columns(), 1);
+
+    delegateModel->setColumns(2);
+    QCOMPARE(delegateModel->count(), 10);
+    QCOMPARE(delegateModel->rows(), 5);
+    QCOMPARE(delegateModel->columns(), 2);
+
+    delegateModel->resetColumns();
+    QCOMPARE(delegateModel->count(), 5);
+    QCOMPARE(delegateModel->rows(), 5);
+    QCOMPARE(delegateModel->columns(), 1);
+
+    delegateModel->resetRows();
+    QCOMPARE(delegateModel->count(), 4);
+    QCOMPARE(delegateModel->rows(), 4);
+    QCOMPARE(delegateModel->columns(), 1);
 }
 
 QTEST_MAIN(tst_qquickvisualdatamodel)
