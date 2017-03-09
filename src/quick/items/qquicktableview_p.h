@@ -88,6 +88,9 @@ Q_SIGNALS:
     void rowsChanged();
     void columnsChanged();
 
+protected Q_SLOTS:
+    void initItem(int index, QObject *item) override;
+
 protected:
     void componentComplete() override;
 

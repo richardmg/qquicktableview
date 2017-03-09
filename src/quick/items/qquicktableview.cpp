@@ -298,6 +298,21 @@ QQuickTableViewAttached *QQuickTableView::qmlAttachedProperties(QObject *obj)
     return new QQuickTableViewAttached(obj);
 }
 
+void QQuickTableView::initItem(int index, QObject *object)
+{
+    QQuickAbstractItemView::initItem(index, object);
+
+    // setting the view from the FxViewItem wrapper is too late if the delegate
+    // needs access to the view in Component.onCompleted
+    QQuickItem *item = qmlobject_cast<QQuickItem *>(object);
+    if (item) {
+        QQuickTableViewAttached *attached = static_cast<QQuickTableViewAttached *>(
+                qmlAttachedPropertiesObject<QQuickTableView>(item));
+        if (attached)
+            attached->setView(this);
+    }
+}
+
 void QQuickTableView::componentComplete()
 {
     Q_D(QQuickTableView);
