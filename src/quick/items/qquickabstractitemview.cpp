@@ -40,6 +40,7 @@
 #include "qquickabstractitemview_p.h"
 #include "qquickabstractitemview_p_p.h"
 
+#include <QtCore/private/qdebug_p.h>
 #include <QtQml/private/qqmlglobal_p.h>
 #include <QtQml/qqmlcontext.h>
 #include <QtQml/private/qqmldelegatemodel_p.h>
@@ -162,6 +163,22 @@ void FxViewItem::startTransition(QQuickItemViewTransitioner *transitioner)
     if (transitionableItem)
         transitionableItem->startTransition(transitioner, index);
 }
+
+#ifndef QT_NO_DEBUG_STREAM
+QDebug operator<<(QDebug dbg, FxViewItem *item)
+{
+    QDebugStateSaver saver(dbg);
+    if (!item)
+        return dbg << "FxViewItem(0x0)";
+    dbg.nospace() << "FxViewItem(" << (const void *)item
+                  << ", item=" << (QObject *)item->item
+                  << ", index=" << item->index
+                  << ", geometry=";
+    QtDebugUtils::formatQRect(dbg, QRectF(item->itemX(), item->itemY(), item->itemWidth(), item->itemHeight()));
+    dbg << ')';
+    return dbg;
+}
+#endif
 
 QQuickItemViewChangeSet::QQuickItemViewChangeSet()
     : active(false)

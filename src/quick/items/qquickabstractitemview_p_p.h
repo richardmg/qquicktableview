@@ -100,6 +100,10 @@ public:
     bool trackGeom;
 };
 
+#ifndef QT_NO_DEBUG_STREAM
+QDebug operator<<(QDebug dbg, FxViewItem *item);
+#endif
+
 class QQuickItemViewChangeSet
 {
 public:
