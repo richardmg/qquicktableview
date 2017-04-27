@@ -18,4 +18,7 @@ SUBDIRS=\
 # console applications not supported
 uikit: SUBDIRS -= qmltest
 
+# Restricted sub-set for now
+boot2qt: SUBDIRS = qml
+
 installed_cmake.depends = cmake

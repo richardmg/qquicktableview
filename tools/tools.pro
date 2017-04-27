@@ -2,22 +2,27 @@ TEMPLATE = subdirs
 QT_FOR_CONFIG += qml-private
 SUBDIRS += \
     qmlmin \
-    qmlimportscanner \
-    qmlcachegen
+    qmlimportscanner
+
+qtConfig(commandlineparser): SUBDIRS += qmlcachegen
 
 !android|android_app {
     SUBDIRS += \
         qml \
         qmllint
 
-    qtConfig(qml-network):!contains(QT_CONFIG, no-qml-debug): SUBDIRS += qmlprofiler
+    qtConfig(qml-profiler): SUBDIRS += qmlprofiler
 
     qtHaveModule(quick) {
         !static: {
             SUBDIRS += \
                 qmlscene \
-                qmlplugindump \
                 qmltime
+
+            qtConfig(regularexpression):qtConfig(process) {
+                SUBDIRS += \
+                    qmlplugindump
+            }
         }
         qtHaveModule(widgets): SUBDIRS += qmleasing
     }
