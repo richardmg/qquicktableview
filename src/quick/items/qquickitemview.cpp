@@ -597,16 +597,6 @@ qreal QQuickItemViewPrivate::contentStartOffset() const
     return pos;
 }
 
-int QQuickItemViewPrivate::findLastVisibleIndex(int defaultValue) const
-{
-    for (auto it = visibleItems.rbegin(), end = visibleItems.rend(); it != end; ++it) {
-        auto item = *it;
-        if (item->index != -1)
-            return item->index;
-    }
-    return defaultValue;
-}
-
 // should rename to firstItemInView() to avoid confusion with other "*visible*" methods
 // that don't look at the view position and size
 FxViewItem *QQuickItemViewPrivate::firstVisibleItem() const {

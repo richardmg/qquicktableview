@@ -322,6 +322,16 @@ bool QQuickAbstractItemViewPrivate::isValid() const
     return model && model->count() && model->isValid();
 }
 
+int QQuickAbstractItemViewPrivate::findLastVisibleIndex(int defaultValue) const
+{
+    for (auto it = visibleItems.rbegin(), end = visibleItems.rend(); it != end; ++it) {
+        auto item = *it;
+        if (item->index != -1)
+            return item->index;
+    }
+    return defaultValue;
+}
+
 FxViewItem *QQuickAbstractItemViewPrivate::visibleItem(int modelIndex) const
 {
     if (modelIndex >= visibleIndex && modelIndex < visibleIndex + visibleItems.count()) {
