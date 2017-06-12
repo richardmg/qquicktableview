@@ -65,6 +65,9 @@ class QQuickTableViewPrivate : public QQuickAbstractItemViewPrivate
 public:
     QQuickTableViewPrivate();
 
+    bool isRightToLeft() const;
+    bool isBottomToTop() const;
+
     int rowAt(int index) const;
     int columnAt(int index) const;
     int indexAt(int row, int column) const;
@@ -121,6 +124,17 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       rowSpacing(0),
       columnSpacing(0)
 {
+}
+
+bool QQuickTableViewPrivate::isRightToLeft() const
+{
+    Q_Q(const QQuickTableView);
+    return /*orient == QQuickTableView::Horizontal &&*/ q->effectiveLayoutDirection() == Qt::RightToLeft;
+}
+
+bool QQuickTableViewPrivate::isBottomToTop() const
+{
+    return /*orient == QQuickTableView::Vertical &&*/ verticalLayoutDirection == QQuickAbstractItemView::BottomToTop;
 }
 
 int QQuickTableViewPrivate::rowAt(int index) const
@@ -342,14 +356,25 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
             // Just schedule a buffer refill.
             bufferPause.start();
         } else {
-            // ### isRightToLeft(), isBottomToTop()
             if (bufferMode & BufferAfter) {
-                fill.setRight(qMax(fill.right(), buff.right()));
-                fill.setBottom(qMax(fill.bottom(), buff.bottom()));
+                if (isRightToLeft())
+                    fill.setLeft(qMin(fill.left(), buff.left()));
+                else
+                    fill.setRight(qMax(fill.right(), buff.right()));
+                if (isBottomToTop())
+                    fill.setTop(qMin(fill.top(), buff.top()));
+                else
+                    fill.setBottom(qMax(fill.bottom(), buff.bottom()));
             }
             if (bufferMode & BufferBefore) {
-                fill.setTop(qMin(fill.top(), buff.top()));
-                fill.setLeft(qMin(fill.left(), buff.left()));
+                if (isBottomToTop())
+                    fill.setTop(qMax(fill.bottom(), buff.bottom()));
+                else
+                    fill.setTop(qMin(fill.top(), buff.top()));
+                if (isRightToLeft())
+                    fill.setRight(qMax(fill.right(), buff.right()));
+                else
+                    fill.setLeft(qMin(fill.left(), buff.left()));
             }
             added |= addVisibleItems(fill, buff, true);
         }
