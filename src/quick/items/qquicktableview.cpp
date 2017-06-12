@@ -103,6 +103,8 @@ public:
     int columns;
     int visibleRows;
     int visibleColumns;
+    qreal rowSpacing;
+    qreal columnSpacing;
     QSizeF averageSize;
 };
 
@@ -110,7 +112,9 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     : rows(-1),
       columns(-1),
       visibleRows(0),
-      visibleColumns(0)
+      visibleColumns(0),
+      rowSpacing(0),
+      columnSpacing(0)
 {
 }
 
@@ -250,8 +254,8 @@ QPointF QQuickTableViewPrivate::originPosition() const
         FxViewItem *item = visibleItems.first();
         pos = QPointF(item->itemX(), item->itemY());
         if (visibleIndex > 0) {
-            pos.rx() -= columnAt(visibleIndex) * (averageSize.width() /*+ rowSpacing*/);
-            pos.ry() -= rowAt(visibleIndex) * (averageSize.height() /*+ columnSpacing*/);
+            pos.rx() -= columnAt(visibleIndex) * (averageSize.width() + rowSpacing);
+            pos.ry() -= rowAt(visibleIndex) * (averageSize.height() + columnSpacing);
         }
     }
     return pos;
@@ -264,6 +268,7 @@ QPointF QQuickTableViewPrivate::endPosition() const
 
 QPointF QQuickTableViewPrivate::lastPosition() const
 {
+    Q_Q(const QQuickTableView);
     QPointF pos;
     if (!visibleItems.isEmpty()) {
         int invisibleCount = INT_MIN;
@@ -284,16 +289,19 @@ QPointF QQuickTableViewPrivate::lastPosition() const
         }
         FxViewItem *item = *(--visibleItems.constEnd());
         pos = QPointF(item->itemX() + item->itemWidth(), item->itemY() + item->itemHeight());
-        if (invisibleCount > 0) {
-            pos.rx() += invisibleCount * (averageSize.width() /*+ columnSpacing*/);
-            pos.ry() += invisibleCount * (averageSize.height() /*+ rowSpacing*/);
-        }
+        int columns = columnAt(invisibleCount);
+        if (columns > 0)
+            pos.rx() += columnAt(invisibleCount) * (averageSize.width() + columnSpacing);
+        int rows = rowAt(invisibleCount);
+        if (rows > 0)
+            pos.ry() += invisibleCount * (averageSize.height() + rowSpacing);
     } else if (model) {
-        int count = model->count();
-        if (count) {
-            pos.setX(count * averageSize.width() /*+ (count - 1) * columnSpacing*/);
-            pos.setY(count * averageSize.height() /*+ (count - 1) * rowSpacing*/);
-        }
+        int columns = q->columns();
+        if (columns > 0)
+            pos.setX(columns * averageSize.width() + (columns - 1) * columnSpacing);
+        int rows = q->rows();
+        if (rows > 0)
+            pos.setY(rows * averageSize.height() + (rows - 1) * rowSpacing);
     }
     return pos;
 }
@@ -377,6 +385,40 @@ void QQuickTableView::resetColumns()
     if (d->componentComplete && d->model && d->ownModel)
         static_cast<QQmlDelegateModel *>(d->model.data())->resetColumns();
     emit columnsChanged();
+}
+
+qreal QQuickTableView::rowSpacing() const
+{
+    Q_D(const QQuickTableView);
+    return d->rowSpacing;
+}
+
+void QQuickTableView::setRowSpacing(qreal spacing)
+{
+    Q_D(QQuickTableView);
+    if (d->rowSpacing == spacing)
+        return;
+
+    d->rowSpacing = spacing;
+    d->forceLayoutPolish();
+    emit rowSpacingChanged();
+}
+
+qreal QQuickTableView::columnSpacing() const
+{
+    Q_D(const QQuickTableView);
+    return d->columnSpacing;
+}
+
+void QQuickTableView::setColumnSpacing(qreal spacing)
+{
+    Q_D(QQuickTableView);
+    if (d->columnSpacing == spacing)
+        return;
+
+    d->columnSpacing = spacing;
+    d->forceLayoutPolish();
+    emit columnSpacingChanged();
 }
 
 QQuickTableViewAttached *QQuickTableView::qmlAttachedProperties(QObject *obj)

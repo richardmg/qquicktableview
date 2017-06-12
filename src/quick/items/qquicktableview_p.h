@@ -68,6 +68,8 @@ class Q_AUTOTEST_EXPORT QQuickTableView : public QQuickAbstractItemView
 
     Q_PROPERTY(int rows READ rows WRITE setRows RESET resetRows NOTIFY rowsChanged)
     Q_PROPERTY(int columns READ columns WRITE setColumns RESET resetColumns NOTIFY columnsChanged)
+    Q_PROPERTY(qreal rowSpacing READ rowSpacing WRITE setRowSpacing NOTIFY rowSpacingChanged)
+    Q_PROPERTY(qreal columnSpacing READ columnSpacing WRITE setColumnSpacing NOTIFY columnSpacingChanged)
 
     Q_CLASSINFO("DefaultProperty", "data")
 
@@ -82,11 +84,19 @@ public:
     void setColumns(int columns);
     void resetColumns();
 
+    qreal rowSpacing() const;
+    void setRowSpacing(qreal spacing);
+
+    qreal columnSpacing() const;
+    void setColumnSpacing(qreal spacing);
+
     static QQuickTableViewAttached *qmlAttachedProperties(QObject *);
 
 Q_SIGNALS:
     void rowsChanged();
     void columnsChanged();
+    void rowSpacingChanged();
+    void columnSpacingChanged();
 
 protected Q_SLOTS:
     void initItem(int index, QObject *item) override;
