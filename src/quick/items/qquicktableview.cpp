@@ -76,6 +76,13 @@ public:
     qreal columnWidth(int column) const;
     void updateAverageSize();
 
+    QSizeF size() const;
+    QPointF position() const;
+    QPointF startPosition() const;
+    QPointF originPosition() const;
+    QPointF endPosition() const;
+    QPointF lastPosition() const;
+
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     bool applyModelChanges() override { return false; }
     Qt::Orientation layoutOrientation() const override { return Qt::Vertical; }
@@ -217,6 +224,78 @@ void QQuickTableViewPrivate::updateAverageSize()
 
     averageSize.setWidth(qRound(sum.width() / visibleItems.count()));
     averageSize.setHeight(qRound(sum.height() / visibleItems.count()));
+}
+
+QSizeF QQuickTableViewPrivate::size() const
+{
+    Q_Q(const QQuickTableView);
+    return layoutOrientation() == Qt::Vertical ? QSizeF(q->width(), q->height()) : QSizeF(q->height(), q->width());
+}
+
+QPointF QQuickTableViewPrivate::position() const
+{
+    Q_Q(const QQuickTableView);
+    return layoutOrientation() == Qt::Vertical ? QPointF(q->contentX(), q->contentY()) : QPointF(q->contentY(), q->contentX());
+}
+
+QPointF QQuickTableViewPrivate::startPosition() const
+{
+    return isContentFlowReversed() ? -lastPosition() : originPosition();
+}
+
+QPointF QQuickTableViewPrivate::originPosition() const
+{
+    QPointF pos;
+    if (!visibleItems.isEmpty()) {
+        FxViewItem *item = visibleItems.first();
+        pos = QPointF(item->itemX(), item->itemY());
+        if (visibleIndex > 0) {
+            pos.rx() -= columnAt(visibleIndex) * (averageSize.width() /*+ rowSpacing*/);
+            pos.ry() -= rowAt(visibleIndex) * (averageSize.height() /*+ columnSpacing*/);
+        }
+    }
+    return pos;
+}
+
+QPointF QQuickTableViewPrivate::endPosition() const
+{
+    return isContentFlowReversed() ? -originPosition() : lastPosition();
+}
+
+QPointF QQuickTableViewPrivate::lastPosition() const
+{
+    QPointF pos;
+    if (!visibleItems.isEmpty()) {
+        int invisibleCount = INT_MIN;
+        int delayRemovedCount = 0;
+        for (int i = visibleItems.count()-1; i >= 0; --i) {
+            FxViewItem *item = visibleItems.at(i);
+            if (item->index != -1) {
+                // Find the invisible count after the last visible item with known index
+                invisibleCount = model->count() - (item->index + 1 + delayRemovedCount);
+                break;
+            } else if (item->attached->delayRemove()) {
+                ++delayRemovedCount;
+            }
+        }
+        if (invisibleCount == INT_MIN) {
+            // All visible items are in delayRemove state
+            invisibleCount = model->count();
+        }
+        FxViewItem *item = *(--visibleItems.constEnd());
+        pos = QPointF(item->itemX() + item->itemWidth(), item->itemY() + item->itemHeight());
+        if (invisibleCount > 0) {
+            pos.rx() += invisibleCount * (averageSize.width() /*+ columnSpacing*/);
+            pos.ry() += invisibleCount * (averageSize.height() /*+ rowSpacing*/);
+        }
+    } else if (model) {
+        int count = model->count();
+        if (count) {
+            pos.setX(count * averageSize.width() /*+ (count - 1) * columnSpacing*/);
+            pos.setY(count * averageSize.height() /*+ (count - 1) * rowSpacing*/);
+        }
+    }
+    return pos;
 }
 
 void QQuickTableViewPrivate::visibleItemsChanged()
