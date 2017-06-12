@@ -56,6 +56,11 @@ public:
         return x >= itemX() && x < itemX() + itemWidth() &&
                y >= itemY() && y < itemY() + itemHeight();
     }
+
+    void setPosition(const QPointF &pos, bool immediate = false)
+    {
+        moveTo(pos, immediate); // ###
+    }
 };
 
 class QQuickTableViewPrivate : public QQuickAbstractItemViewPrivate
@@ -86,6 +91,10 @@ public:
     QPointF endPosition() const;
     QPointF lastPosition() const;
 
+    QPointF itemPosition(FxViewItem *item) const;
+    QPointF itemEndPosition(FxViewItem *item) const;
+    QSizeF itemSize(FxViewItem *item) const;
+
     void updateViewport() override;
     bool addRemoveVisibleItems() override;
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
@@ -111,11 +120,13 @@ public:
     QQuickTableView::Orientation orientation;
     qreal rowSpacing;
     qreal columnSpacing;
+    QPointF visiblePos;
     QSizeF averageSize;
 
 protected:
-    bool addVisibleItems(const QRectF &fill, const QRectF &buffer, bool doBuffer);
-    bool removeNonVisibleItems(const QRectF &buffer);
+    bool addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
+                         const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer);
+    bool removeNonVisibleItems(const QPointF &bufferFrom, const QPointF &bufferTo);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -328,6 +339,27 @@ QPointF QQuickTableViewPrivate::lastPosition() const
     return pos;
 }
 
+QPointF QQuickTableViewPrivate::itemPosition(FxViewItem *item) const
+{
+    if (isContentFlowReversed())
+        return QPointF(-item->itemX() - item->itemWidth(), -item->itemY() - item->itemHeight());
+    else
+        return QPointF(item->itemX(), item->itemY());
+}
+
+QPointF QQuickTableViewPrivate::itemEndPosition(FxViewItem *item) const
+{
+    if (isContentFlowReversed())
+        return QPointF(-item->itemX(), -item->itemY());
+    else
+        return QPointF(item->itemX() + item->itemWidth(), item->itemY() + item->itemHeight());
+}
+
+QSizeF QQuickTableViewPrivate::itemSize(FxViewItem *item) const
+{
+    return QSizeF(item->itemWidth(), item->itemHeight());
+}
+
 void QQuickTableViewPrivate::updateViewport()
 {
     Q_Q(QQuickTableView);
@@ -342,6 +374,16 @@ void QQuickTableViewPrivate::updateViewport()
     q->setContentHeight(size.height());
 }
 
+static QPointF operator+(const QPointF &pos, const QSizeF &size)
+{
+    return QPointF(pos.x() + size.width(), pos.y() + size.height());
+}
+
+static QPointF operator-(const QPointF &pos, const QSizeF &size)
+{
+    return QPointF(pos.x() + size.width(), pos.y() + size.height());
+}
+
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     bufferPause.stop(); // ###
@@ -353,19 +395,21 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     s.setHeight(qMax<qreal>(s.height(), 0.0));
     QPointF pos = position();
     if (isContentFlowReversed()) {
-        from = -pos /*- displayMarginBeginning*/ - QPointF(s.width(), s.height());
+        from = -pos /*- displayMarginBeginning*/ - s;
         to = -pos /*+ displayMarginEnd*/;
     } else {
         from = pos /*- displayMarginBeginning*/;
-        to = pos /*+ displayMarginEnd*/ + QPointF(s.width(), s.height());
+        to = pos /*+ displayMarginEnd*/ + s;
     }
 
     itemCount = model->count();
-    QRectF buff(from - QPointF(buffer, buffer), to + QPointF(buffer, buffer));
-    QRectF fill(from, to);
+    QPointF bufferFrom = from - QPointF(buffer, buffer);
+    QPointF bufferTo = to + QPointF(buffer, buffer);
+    QPointF fillFrom = from;
+    QPointF fillTo = to;
 
-    bool added = addVisibleItems(fill, buff, false);
-    bool removed = removeNonVisibleItems(buff);
+    bool added = addVisibleItems(fillFrom, fillTo, bufferFrom, bufferTo, false);
+    bool removed = removeNonVisibleItems(bufferFrom, bufferTo);
 
     if (requestedIndex == -1 && buffer && bufferMode != NoBuffer) {
         if (added) {
@@ -373,27 +417,11 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
             // Just schedule a buffer refill.
             bufferPause.start();
         } else {
-            if (bufferMode & BufferAfter) {
-                if (isRightToLeft())
-                    fill.setLeft(qMin(fill.left(), buff.left()));
-                else
-                    fill.setRight(qMax(fill.right(), buff.right()));
-                if (isBottomToTop())
-                    fill.setTop(qMin(fill.top(), buff.top()));
-                else
-                    fill.setBottom(qMax(fill.bottom(), buff.bottom()));
-            }
-            if (bufferMode & BufferBefore) {
-                if (isBottomToTop())
-                    fill.setTop(qMax(fill.bottom(), buff.bottom()));
-                else
-                    fill.setTop(qMin(fill.top(), buff.top()));
-                if (isRightToLeft())
-                    fill.setRight(qMax(fill.right(), buff.right()));
-                else
-                    fill.setLeft(qMin(fill.left(), buff.left()));
-            }
-            added |= addVisibleItems(fill, buff, true);
+            if (bufferMode & BufferAfter)
+                fillTo = bufferTo;
+            if (bufferMode & BufferBefore)
+                fillFrom = bufferFrom;
+            added |= addVisibleItems(fillFrom, fillTo, bufferFrom, bufferTo, true);
         }
     }
     return added || removed;
@@ -411,6 +439,8 @@ bool QQuickTableViewPrivate::isContentFlowReversed() const
 
 void QQuickTableViewPrivate::visibleItemsChanged()
 {
+    if (!visibleItems.isEmpty())
+        visiblePos = itemPosition(*visibleItems.constBegin());
     updateAverageSize();
 }
 
@@ -421,17 +451,86 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
     return new FxTableItemSG(item, q, false);
 }
 
-bool QQuickTableViewPrivate::addVisibleItems(const QRectF &fill, const QRectF &buffer, bool doBuffer)
+bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
+                                             const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer)
 {
-    Q_UNUSED(fill);
-    Q_UNUSED(buffer);
-    Q_UNUSED(doBuffer);
-    return false;
+    Q_Q(QQuickTableView);
+    QPointF itemEnd = visiblePos;
+    if (visibleItems.count()) {
+        visiblePos = itemPosition(*visibleItems.constBegin());
+        itemEnd = itemEndPosition(*(--visibleItems.constEnd())) + QPointF(columnSpacing, rowSpacing);
+    }
+
+    int modelIndex = findLastVisibleIndex();
+    bool haveValidItems = modelIndex >= 0;
+    modelIndex = modelIndex < 0 ? visibleIndex : modelIndex + 1;
+
+    if (haveValidItems && (bufferFrom.x() > itemEnd.x() + averageSize.width() + columnSpacing
+                           || bufferFrom.y() > itemEnd.y() + averageSize.height() + rowSpacing
+                           || bufferTo.x() < visiblePos.x() - averageSize.width() - columnSpacing
+                           || bufferTo.y() < visiblePos.y() - averageSize.height() - rowSpacing)) {
+        // We've jumped more than a page.  Estimate which items are now
+        // visible and fill from there.
+        int rows = (fillFrom.y() - itemEnd.y()) / (averageSize.height() + rowSpacing);
+        int columns = (fillFrom.x() - itemEnd.x()) / (averageSize.width() + columnSpacing);
+        int count = rows * q->columns() + columns;
+        int newModelIdx = qBound(0, modelIndex + count, model->count());
+        count = newModelIdx - modelIndex;
+        if (count) {
+            for (FxViewItem *item : qAsConst(visibleItems))
+                releaseItem(item);
+            visibleItems.clear();
+            modelIndex = newModelIdx;
+            visibleIndex = modelIndex;
+            visiblePos = itemEnd + QPointF((averageSize.width() + columnSpacing) * columns,
+                                           (averageSize.height() + rowSpacing) * rows);
+            itemEnd = visiblePos;
+        }
+    }
+
+    bool changed = false;
+    FxTableItemSG *item = nullptr;
+    QPointF pos = itemEnd;
+    while (modelIndex < model->count() && (pos.x() <= fillTo.x() || pos.y() <= fillTo.y())) {
+        if (!(item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer))))
+            break;
+        qCDebug(lcItemViewDelegateLifecycle) << "refill: append item" << modelIndex << "pos" << pos << "buffer" << doBuffer << "item" << (QObject *)(item->item);
+        if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) // pos will be set by layoutVisibleItems()
+            item->setPosition(pos, true);
+        if (item->item)
+            QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
+        QSizeF size = itemSize(item);
+        pos += QPointF(size.width() + columnSpacing, size.height() + rowSpacing);
+        visibleItems.append(item);
+        ++modelIndex;
+        changed = true;
+    }
+
+    if (doBuffer && requestedIndex != -1) // already waiting for an item
+        return changed;
+
+    while (visibleIndex > 0 && visibleIndex <= model->count() && (visiblePos.x() > fillFrom.x() || visiblePos.y() > fillFrom.y())) {
+        if (!(item = static_cast<FxTableItemSG *>(createItem(visibleIndex-1, doBuffer))))
+            break;
+        qCDebug(lcItemViewDelegateLifecycle) << "refill: prepend item" << visibleIndex-1 << "current top pos" << visiblePos << "buffer" << doBuffer << "item" << (QObject *)(item->item);
+        --visibleIndex;
+        QSizeF size = itemSize(item);
+        visiblePos -= QPointF(size.width() + columnSpacing, size.height() + rowSpacing);
+        if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) // pos will be set by layoutVisibleItems()
+            item->setPosition(visiblePos, true);
+        if (item->item)
+            QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
+        visibleItems.prepend(item);
+        changed = true;
+    }
+
+    return changed;
 }
 
-bool QQuickTableViewPrivate::removeNonVisibleItems(const QRectF &buffer)
+bool QQuickTableViewPrivate::removeNonVisibleItems(const QPointF &bufferFrom, const QPointF &bufferTo)
 {
-    Q_UNUSED(buffer);
+    Q_UNUSED(bufferFrom);
+    Q_UNUSED(bufferTo);
     return false;
 }
 
