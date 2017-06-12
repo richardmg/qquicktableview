@@ -70,6 +70,7 @@ class Q_AUTOTEST_EXPORT QQuickTableView : public QQuickAbstractItemView
     Q_PROPERTY(int columns READ columns WRITE setColumns RESET resetColumns NOTIFY columnsChanged)
     Q_PROPERTY(qreal rowSpacing READ rowSpacing WRITE setRowSpacing NOTIFY rowSpacingChanged)
     Q_PROPERTY(qreal columnSpacing READ columnSpacing WRITE setColumnSpacing NOTIFY columnSpacingChanged)
+    Q_PROPERTY(Orientation orientation READ orientation WRITE setOrientation NOTIFY orientationChanged)
 
     Q_CLASSINFO("DefaultProperty", "data")
 
@@ -90,6 +91,12 @@ public:
     qreal columnSpacing() const;
     void setColumnSpacing(qreal spacing);
 
+    enum Orientation { Horizontal = Qt::Horizontal, Vertical = Qt::Vertical };
+    Q_ENUM(Orientation)
+
+    Orientation orientation() const;
+    void setOrientation(Orientation orientation);
+
     static QQuickTableViewAttached *qmlAttachedProperties(QObject *);
 
 Q_SIGNALS:
@@ -97,6 +104,7 @@ Q_SIGNALS:
     void columnsChanged();
     void rowSpacingChanged();
     void columnSpacingChanged();
+    void orientationChanged();
 
 protected Q_SLOTS:
     void initItem(int index, QObject *item) override;

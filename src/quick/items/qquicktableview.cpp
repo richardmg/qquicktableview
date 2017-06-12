@@ -89,8 +89,8 @@ public:
     bool addRemoveVisibleItems() override;
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     bool applyModelChanges() override { return false; }
-    Qt::Orientation layoutOrientation() const override { return Qt::Vertical; }
-    bool isContentFlowReversed() const override { return false; }
+    Qt::Orientation layoutOrientation() const override;
+    bool isContentFlowReversed() const override;
     void createHighlight() override { }
     void updateHighlight() override { }
     void resetHighlightPosition() override { }
@@ -107,6 +107,7 @@ public:
     int columns;
     int visibleRows;
     int visibleColumns;
+    QQuickTableView::Orientation orientation;
     qreal rowSpacing;
     qreal columnSpacing;
     QSizeF averageSize;
@@ -121,6 +122,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       columns(-1),
       visibleRows(0),
       visibleColumns(0),
+      orientation(QQuickTableView::Vertical),
       rowSpacing(0),
       columnSpacing(0)
 {
@@ -129,12 +131,12 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
 bool QQuickTableViewPrivate::isRightToLeft() const
 {
     Q_Q(const QQuickTableView);
-    return /*orient == QQuickTableView::Horizontal &&*/ q->effectiveLayoutDirection() == Qt::RightToLeft;
+    return orientation == QQuickTableView::Horizontal && q->effectiveLayoutDirection() == Qt::RightToLeft;
 }
 
 bool QQuickTableViewPrivate::isBottomToTop() const
 {
-    return /*orient == QQuickTableView::Vertical &&*/ verticalLayoutDirection == QQuickAbstractItemView::BottomToTop;
+    return orientation == QQuickTableView::Vertical && verticalLayoutDirection == QQuickAbstractItemView::BottomToTop;
 }
 
 int QQuickTableViewPrivate::rowAt(int index) const
@@ -252,13 +254,13 @@ void QQuickTableViewPrivate::updateAverageSize()
 QSizeF QQuickTableViewPrivate::size() const
 {
     Q_Q(const QQuickTableView);
-    return layoutOrientation() == Qt::Vertical ? QSizeF(q->width(), q->height()) : QSizeF(q->height(), q->width());
+    return orientation == QQuickTableView::Vertical ? QSizeF(q->width(), q->height()) : QSizeF(q->height(), q->width());
 }
 
 QPointF QQuickTableViewPrivate::position() const
 {
     Q_Q(const QQuickTableView);
-    return layoutOrientation() == Qt::Vertical ? QPointF(q->contentX(), q->contentY()) : QPointF(q->contentY(), q->contentX());
+    return  orientation == QQuickTableView::Vertical ? QPointF(q->contentX(), q->contentY()) : QPointF(q->contentY(), q->contentX());
 }
 
 QPointF QQuickTableViewPrivate::startPosition() const
@@ -380,6 +382,16 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
         }
     }
     return added || removed;
+}
+
+Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
+{
+    return static_cast<Qt::Orientation>(orientation);
+}
+
+bool QQuickTableViewPrivate::isContentFlowReversed() const
+{
+    return isRightToLeft() || isBottomToTop();
 }
 
 void QQuickTableViewPrivate::visibleItemsChanged()
@@ -509,6 +521,24 @@ void QQuickTableView::setColumnSpacing(qreal spacing)
     d->columnSpacing = spacing;
     d->forceLayoutPolish();
     emit columnSpacingChanged();
+}
+
+QQuickTableView::Orientation QQuickTableView::orientation() const
+{
+    Q_D(const QQuickTableView);
+    return d->orientation;
+}
+
+void QQuickTableView::setOrientation(Orientation orientation)
+{
+    Q_D(QQuickTableView);
+    if (d->orientation == orientation)
+        return;
+
+    d->orientation = orientation;
+    if (isComponentComplete())
+        d->regenerate();
+    emit orientationChanged();
 }
 
 QQuickTableViewAttached *QQuickTableView::qmlAttachedProperties(QObject *obj)
