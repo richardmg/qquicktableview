@@ -86,6 +86,7 @@ public:
     QPointF endPosition() const;
     QPointF lastPosition() const;
 
+    void updateViewport() override;
     bool addRemoveVisibleItems() override;
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     bool applyModelChanges() override { return false; }
@@ -325,6 +326,20 @@ QPointF QQuickTableViewPrivate::lastPosition() const
             pos.setY(rows * averageSize.height() + (rows - 1) * rowSpacing);
     }
     return pos;
+}
+
+void QQuickTableViewPrivate::updateViewport()
+{
+    Q_Q(QQuickTableView);
+    QSizeF size;
+    if (isValid() || !visibleItems.isEmpty()) {
+        QPointF start = startPosition();
+        QPointF end = endPosition();
+        size.setWidth(end.x() - start.x());
+        size.setHeight(end.y() - start.y());
+    }
+    q->setContentWidth(size.width());
+    q->setContentHeight(size.height());
 }
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
