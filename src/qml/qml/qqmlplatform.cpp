@@ -38,6 +38,7 @@
 ****************************************************************************/
 
 #include "qqmlplatform_p.h"
+#include "qqmlglobal_p.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -78,4 +79,11 @@ QString QQmlPlatform::os()
 #endif
 }
 
+QString QQmlPlatform::pluginName() const
+{
+    return QQml_guiProvider()->pluginName();
+}
+
 QT_END_NAMESPACE
+
+#include "moc_qqmlplatform_p.cpp"

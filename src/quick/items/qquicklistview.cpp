@@ -3460,3 +3460,5 @@ QQuickListViewAttached *QQuickListView::qmlAttachedProperties(QObject *obj)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquicklistview_p.cpp"

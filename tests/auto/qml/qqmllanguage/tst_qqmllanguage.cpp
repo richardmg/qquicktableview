@@ -208,6 +208,7 @@ private slots:
     void lowercaseEnumRuntime();
     void lowercaseEnumCompileTime_data();
     void lowercaseEnumCompileTime();
+    void scopedEnum();
     void literals_data();
     void literals();
 
@@ -265,6 +266,8 @@ private slots:
 
     void instanceof_data();
     void instanceof();
+
+    void concurrentLoadQmlDir();
 
 private:
     QQmlEngine engine;
@@ -540,6 +543,8 @@ void tst_qqmllanguage::errors_data()
     QTest::newRow("notAvailable") << "notAvailable.qml" << "notAvailable.errors.txt" << false;
     QTest::newRow("singularProperty") << "singularProperty.qml" << "singularProperty.errors.txt" << false;
     QTest::newRow("singularProperty.2") << "singularProperty.2.qml" << "singularProperty.2.errors.txt" << false;
+
+    QTest::newRow("scopedEnumList") << "scopedEnumList.qml" << "scopedEnumList.errors.txt" << false;
 
     const QString expectedError = isCaseSensitiveFileSystem(dataDirectory()) ?
         QStringLiteral("incorrectCase.errors.sensitive.txt") :
@@ -1601,6 +1606,9 @@ void tst_qqmllanguage::cppnamespace()
         VERIFY_ERRORS(0);
         QObject *object = component.create();
         QVERIFY(object != 0);
+
+        QCOMPARE(object->property("intProperty").toInt(), (int)MyNamespace::MyOtherNSEnum::OtherKey2);
+
         delete object;
     }
 
@@ -3064,7 +3072,7 @@ void tst_qqmllanguage::qmlAttachedPropertiesObjectMethod()
     QObject object;
 
     QCOMPARE(qmlAttachedPropertiesObject<MyQmlObject>(&object, false), (QObject *)0);
-    QCOMPARE(qmlAttachedPropertiesObject<MyQmlObject>(&object, true), (QObject *)0);
+    QVERIFY(qmlAttachedPropertiesObject<MyQmlObject>(&object, true));
 
     {
         QQmlComponent component(&engine, testFileUrl("qmlAttachedPropertiesObjectMethod.1.qml"));
@@ -3501,6 +3509,7 @@ void tst_qqmllanguage::registeredCompositeTypeWithEnum()
 
     QCOMPARE(o->property("enumValue0").toInt(), static_cast<int>(MyCompositeBaseType::EnumValue0));
     QCOMPARE(o->property("enumValue42").toInt(), static_cast<int>(MyCompositeBaseType::EnumValue42));
+    QCOMPARE(o->property("enumValue15").toInt(), static_cast<int>(MyCompositeBaseType::ScopedCompositeEnum::EnumValue15));
 
     delete o;
 }
@@ -3679,6 +3688,23 @@ void tst_qqmllanguage::lowercaseEnumCompileTime()
 
     QQmlComponent component(&engine, testFileUrl(file));
     VERIFY_ERRORS(qPrintable(errorFile));
+}
+
+void tst_qqmllanguage::scopedEnum()
+{
+    QQmlComponent component(&engine, testFileUrl("scopedEnum.qml"));
+
+    MyTypeObject *o = qobject_cast<MyTypeObject *>(component.create());
+    QVERIFY(o != 0);
+
+    QCOMPARE(o->scopedEnum(), MyTypeObject::MyScopedEnum::ScopedVal1);
+    QCOMPARE(o->intProperty(), (int)MyTypeObject::MyScopedEnum::ScopedVal2);
+    QCOMPARE(o->property("listValue").toInt(), (int)MyTypeObject::MyScopedEnum::ScopedVal3);
+    QCOMPARE(o->property("noScope").toInt(), (int)MyTypeObject::MyScopedEnum::ScopedVal1);
+
+    QMetaObject::invokeMethod(o, "assignNewValue");
+    QCOMPARE(o->scopedEnum(), MyTypeObject::MyScopedEnum::ScopedVal2);
+    QCOMPARE(o->property("noScope").toInt(), (int)MyTypeObject::MyScopedEnum::ScopedVal2);
 }
 
 void tst_qqmllanguage::literals_data()
@@ -4533,6 +4559,20 @@ void tst_qqmllanguage::instanceof()
         QVERIFY(expr.hasError());
         QCOMPARE(expr.error().description(), expectedValue.toString());
     }
+}
+
+void tst_qqmllanguage::concurrentLoadQmlDir()
+{
+    ThreadedTestHTTPServer server(dataDirectory());
+    QString serverdir = server.urlString("/lib/");
+    engine.setImportPathList(QStringList(defaultImportPathList) << serverdir);
+
+    QQmlComponent component(&engine, testFileUrl("concurrentLoad_main.qml"));
+    QTRY_VERIFY(component.isReady());
+    VERIFY_ERRORS(0);
+    QScopedPointer<QObject> o(component.create());
+    QVERIFY(!o.isNull());
+    engine.setImportPathList(defaultImportPathList);
 }
 
 QTEST_MAIN(tst_qqmllanguage)

@@ -340,6 +340,8 @@ private slots:
     void constkw();
     void redefineGlobalProp();
     void freeze_empty_object();
+    void singleBlockLoops();
+    void qtbug_60547();
 
 private:
 //    static void propertyVarWeakRefCallback(v8::Persistent<v8::Value> object, void* parameter);
@@ -4033,7 +4035,7 @@ void tst_qqmlecmascript::verifyContextLifetime(QQmlContextData *ctxt) {
         QV4::ExecutionEngine *v4 = QV8Engine::getV4(engine);
         QV4::Scope scope(v4);
         QV4::ScopedArrayObject scripts(scope, ctxt->importedScripts.value());
-        QV4::Scoped<QV4::QmlContextWrapper> qml(scope);
+        QV4::Scoped<QV4::QQmlContextWrapper> qml(scope);
         for (quint32 i = 0; i < scripts->getLength(); ++i) {
             QQmlContextData *scriptContext, *newContext;
             qml = scripts->getIndexed(i);
@@ -8348,6 +8350,24 @@ void tst_qqmlecmascript::freeze_empty_object()
     QCOMPARE(v.toBool(), true);
 }
 
+void tst_qqmlecmascript::singleBlockLoops()
+{
+    QQmlComponent component(&engine, testFileUrl("qtbug_59012.qml"));
+
+    QScopedPointer<QObject> obj(component.create());
+    QVERIFY(obj != 0);
+    QVERIFY(!component.isError());
+}
+
+// 'counter' was incorrectly resolved as a type rather than a variable.
+// This fix ensures it looks up the right thing.
+void tst_qqmlecmascript::qtbug_60547()
+{
+    QQmlComponent component(&engine, testFileUrl("qtbug60547/main.qml"));
+    QScopedPointer<QObject> object(component.create());
+    QVERIFY2(!object.isNull(), qPrintable(component.errorString()));
+    QCOMPARE(object->property("counter"), QVariant(int(1)));
+}
 
 QTEST_MAIN(tst_qqmlecmascript)
 

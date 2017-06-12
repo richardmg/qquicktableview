@@ -2668,3 +2668,5 @@ QQuickGridViewAttached *QQuickGridView::qmlAttachedProperties(QObject *obj)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickgridview_p.cpp"

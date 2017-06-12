@@ -75,9 +75,12 @@
 #include <QtCore/qatomic.h>
 #include <QtCore/qmetaobject.h>
 #include <QtCore/qabstractitemmodel.h>
+#include <QtCore/qloggingcategory.h>
 
 #include <vector>
 QT_BEGIN_NAMESPACE
+
+Q_LOGGING_CATEGORY(lcBindingRemoval, "qt.qml.binding.removal", QtWarningMsg)
 
 // The code in this file does not violate strict aliasing, but GCC thinks it does
 // so turn off the warnings for us to have a clean build
@@ -294,11 +297,11 @@ ReturnedValue QObjectWrapper::getQmlProperty(QQmlContextData *qmlContext, String
                     if (r.scriptIndex != -1) {
                         return QV4::Encode::undefined();
                     } else if (r.type) {
-                        return QmlTypeWrapper::create(v4, d()->object(),
-                                                      r.type, Heap::QmlTypeWrapper::ExcludeEnums);
+                        return QQmlTypeWrapper::create(v4, d()->object(),
+                                                      r.type, Heap::QQmlTypeWrapper::ExcludeEnums);
                     } else if (r.importNamespace) {
-                        return QmlTypeWrapper::create(v4, d()->object(),
-                                                      qmlContext->imports, r.importNamespace, Heap::QmlTypeWrapper::ExcludeEnums);
+                        return QQmlTypeWrapper::create(v4, d()->object(),
+                                                      qmlContext->imports, r.importNamespace, Heap::QQmlTypeWrapper::ExcludeEnums);
                     }
                     Q_ASSERT(!"Unreachable");
                 }
@@ -458,10 +461,23 @@ void QObjectWrapper::setProperty(ExecutionEngine *engine, QObject *object, QQmlP
         }
     }
 
-    if (newBinding)
+    if (newBinding) {
         QQmlPropertyPrivate::setBinding(newBinding);
-    else
+    } else {
+        if (Q_UNLIKELY(lcBindingRemoval().isInfoEnabled())) {
+            if (auto binding = QQmlPropertyPrivate::binding(object, QQmlPropertyIndex(property->coreIndex()))) {
+                Q_ASSERT(!binding->isValueTypeProxy());
+                const auto qmlBinding = static_cast<const QQmlBinding*>(binding);
+                const auto stackFrame = engine->currentStackFrame();
+                qCInfo(lcBindingRemoval,
+                       "Overwriting binding on %s::%s at %s:%d that was initially bound at %s",
+                       object->metaObject()->className(), qPrintable(property->name(object)),
+                       qPrintable(stackFrame.source), stackFrame.line,
+                       qPrintable(qmlBinding->expressionIdentifier()));
+            }
+        }
         QQmlPropertyPrivate::removeBinding(object, QQmlPropertyIndex(property->coreIndex()));
+    }
 
     if (!newBinding && property->isVarProperty()) {
         // allow assignment of "special" values (null, undefined, function) to var properties
@@ -642,7 +658,7 @@ bool QObjectWrapper::isEqualTo(Managed *a, Managed *b)
     QV4::QObjectWrapper *qobjectWrapper = static_cast<QV4::QObjectWrapper *>(a);
     QV4::Object *o = b->as<Object>();
     if (o) {
-        if (QV4::QmlTypeWrapper *qmlTypeWrapper = o->as<QV4::QmlTypeWrapper>())
+        if (QV4::QQmlTypeWrapper *qmlTypeWrapper = o->as<QV4::QQmlTypeWrapper>())
             return qmlTypeWrapper->toVariant().value<QObject*>() == qobjectWrapper->object();
     }
 
@@ -1044,7 +1060,6 @@ void QObjectWrapper::destroyObject(bool lastCall)
         }
     }
 
-    h->internalClass = 0;
     h->~Data();
 }
 
@@ -1634,7 +1649,7 @@ void CallArgument::fromValue(int callType, QV4::ExecutionEngine *engine, const Q
         qobjectPtr = 0;
         if (const QV4::QObjectWrapper *qobjectWrapper = value.as<QV4::QObjectWrapper>())
             qobjectPtr = qobjectWrapper->object();
-        else if (const QV4::QmlTypeWrapper *qmlTypeWrapper = value.as<QV4::QmlTypeWrapper>())
+        else if (const QV4::QQmlTypeWrapper *qmlTypeWrapper = value.as<QV4::QQmlTypeWrapper>())
             queryEngine = qmlTypeWrapper->isSingleton();
         type = callType;
     } else if (callType == qMetaTypeId<QVariant>()) {
@@ -1797,7 +1812,7 @@ QV4::ReturnedValue CallArgument::toValue(QV4::ExecutionEngine *engine)
 ReturnedValue QObjectMethod::create(ExecutionContext *scope, QObject *object, int index)
 {
     Scope valueScope(scope);
-    Scoped<QObjectMethod> method(valueScope, scope->d()->engine->memoryManager->allocObject<QObjectMethod>(scope));
+    Scoped<QObjectMethod> method(valueScope, valueScope.engine->memoryManager->allocObject<QObjectMethod>(scope));
     method->d()->setObject(object);
 
     if (QQmlData *ddata = QQmlData::get(object))
@@ -1848,7 +1863,7 @@ QV4::ReturnedValue QObjectMethod::method_toString(QV4::ExecutionContext *ctx) co
         result = QLatin1String("null");
     }
 
-    return ctx->d()->engine->newString(result)->asReturnedValue();
+    return ctx->engine()->newString(result)->asReturnedValue();
 }
 
 QV4::ReturnedValue QObjectMethod::method_destroy(QV4::ExecutionContext *ctx, const Value *args, int argc) const
@@ -2190,3 +2205,4 @@ void MultiplyWrappedQObjectMap::removeDestroyedObject(QObject *object)
 
 QT_END_NAMESPACE
 
+#include "moc_qv4qobjectwrapper_p.cpp"

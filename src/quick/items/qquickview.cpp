@@ -496,6 +496,7 @@ void QQuickViewPrivate::setRootObject(QObject *obj)
     if (QQuickItem *sgItem = qobject_cast<QQuickItem *>(obj)) {
         root = sgItem;
         sgItem->setParentItem(q->QQuickWindow::contentItem());
+        QQml_setParent_noEvent(sgItem, q->QQuickWindow::contentItem());
     } else if (qobject_cast<QWindow *>(obj)) {
         qWarning() << "QQuickView does not support using windows as a root item." << endl
                    << endl
@@ -615,3 +616,5 @@ void QQuickView::mouseReleaseEvent(QMouseEvent *e)
 
 
 QT_END_NAMESPACE
+
+#include "moc_qquickview.cpp"

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2017 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the QtQml module of the Qt Toolkit.
@@ -36,9 +36,8 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
-
-#ifndef QTQMLGLOBAL_P_H
-#define QTQMLGLOBAL_P_H
+#ifndef QV4ENGINEBASE_P_H
+#define QV4ENGINEBASE_P_H
 
 //
 //  W A R N I N G
@@ -51,23 +50,79 @@
 // We mean it.
 //
 
-#include <QtCore/qglobal.h>
-
-// All host systems are assumed to have alloca().
-#define Q_ALLOCA_VAR(type, name, size) \
-    type *name = static_cast<type*>(alloca(size))
+#include <private/qv4global_p.h>
+#include <private/qv4runtimeapi_p.h>
 
 QT_BEGIN_NAMESPACE
 
-#define Q_QML_EXPORT
-#define Q_QML_PRIVATE_EXPORT
+namespace QV4 {
 
-/* Some classes built into QtQmlDevTools are marked Q_AUTOTEST_EXPORT but we
-   have nothing to export in this static library */
-#if defined(Q_AUTOTEST_EXPORT)
-#undef Q_AUTOTEST_EXPORT
+// Base class for the execution engine
+
+#if defined(Q_CC_MSVC) || defined(Q_CC_GNU)
+#pragma pack(push, 1)
 #endif
-#define Q_AUTOTEST_EXPORT
+struct EngineBase {
+    Heap::ExecutionContext *current = 0;
+
+    Value *jsStackTop = 0;
+    quint8 hasException = false;
+    quint8 writeBarrierActive = false;
+    quint16 unused = 0;
+#if QT_POINTER_SIZE == 8
+    quint8 padding[4];
+#endif
+    MemoryManager *memoryManager = 0;
+    Runtime runtime;
+
+    qint32 callDepth = 0;
+    Value *jsStackLimit = 0;
+    Value *jsStackBase = 0;
+
+    ExecutionContext *currentContext = 0;
+    IdentifierTable *identifierTable = 0;
+    Object *globalObject = 0;
+
+    enum {
+        Class_Empty,
+        Class_String,
+        Class_MemberData,
+        Class_SimpleArrayData,
+        Class_SparseArrayData,
+        Class_ExecutionContext,
+        Class_SimpleCallContext,
+        Class_Object,
+        Class_ArrayObject,
+        Class_FunctionObject,
+        Class_StringObject,
+        Class_ScriptFunction,
+        Class_BuiltinFunction,
+        Class_ObjectProto,
+        Class_RegExp,
+        Class_RegExpObject,
+        Class_RegExpExecArray,
+        Class_ArgumentsObject,
+        Class_StrictArgumentsObject,
+        Class_ErrorObject,
+        Class_ErrorObjectWithMessage,
+        Class_ErrorProto,
+        NClasses
+    };
+    InternalClass *internalClasses[NClasses];
+};
+#if defined(Q_CC_MSVC) || defined(Q_CC_GNU)
+#pragma pack(pop)
+#endif
+
+Q_STATIC_ASSERT(std::is_standard_layout<EngineBase>::value);
+Q_STATIC_ASSERT(offsetof(EngineBase, current) == 0);
+Q_STATIC_ASSERT(offsetof(EngineBase, jsStackTop) == offsetof(EngineBase, current) + QT_POINTER_SIZE);
+Q_STATIC_ASSERT(offsetof(EngineBase, hasException) == offsetof(EngineBase, jsStackTop) + QT_POINTER_SIZE);
+Q_STATIC_ASSERT(offsetof(EngineBase, memoryManager) == offsetof(EngineBase, hasException) + QT_POINTER_SIZE);
+Q_STATIC_ASSERT(offsetof(EngineBase, runtime) == offsetof(EngineBase, memoryManager) + QT_POINTER_SIZE);
+
+}
 
 QT_END_NAMESPACE
-#endif // QTQMLGLOBAL_P_H
+
+#endif

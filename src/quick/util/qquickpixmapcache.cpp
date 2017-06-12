@@ -497,7 +497,7 @@ void QQuickPixmapReader::networkRequestDone(QNetworkReply *reply)
             QByteArray all = reply->readAll();
             QBuffer buff(&all);
             buff.open(QIODevice::ReadOnly);
-            if (!readImage(reply->url(), &buff, &image, &errorString, &readSize, job->requestSize, job->data->providerOptions))
+            if (!readImage(reply->url(), &buff, &image, &errorString, &readSize, job->requestSize, job->providerOptions))
                 error = QQuickPixmapReply::Decoding;
        }
         // send completion event to the QQuickPixmapReply
@@ -1573,3 +1573,5 @@ bool QQuickPixmap::connectDownloadProgress(QObject *object, int method)
 QT_END_NAMESPACE
 
 #include <qquickpixmapcache.moc>
+
+#include "moc_qquickpixmapcache_p.cpp"

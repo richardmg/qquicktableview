@@ -449,6 +449,12 @@ The following functions are also on the Qt object.
         \li \c "windows" - Windows
         \li \c "winrt" - WinRT / UWP
     \endlist
+
+    \row
+    \li \c platform.pluginName
+    \li This is the name of the platform set on the QGuiApplication instance
+        as returned by \l QGuiApplication::platformName()
+
     \endtable
 */
 
@@ -1492,9 +1498,9 @@ QQmlEngine *qmlEngine(const QObject *obj)
 
 QObject *qmlAttachedPropertiesObjectById(int id, const QObject *object, bool create)
 {
-    QQmlData *data = QQmlData::get(object);
+    QQmlData *data = QQmlData::get(object, create);
     if (!data)
-        return 0; // Attached properties are only on objects created by QML
+        return 0; // Attached properties are only on objects created by QML, unless explicitly requested (create==true)
 
     QObject *rv = data->hasExtendedData()?data->attachedProperties()->value(id):0;
     if (rv || !create)
@@ -2177,7 +2183,7 @@ QString QQmlEngine::offlineStoragePath() const
   Returns the file path where a \l{QtQuick.LocalStorage}{Local Storage}
   database with the identifier \a databaseName is (or would be) located.
 
-  \sa LocalStorage.openDatabaseSync()
+  \sa {openDatabaseSync}{LocalStorage.openDatabaseSync()}
   \since 5.9
 */
 QString QQmlEngine::offlineStorageDatabaseFilePath(const QString &databaseName) const
@@ -2553,3 +2559,5 @@ bool QQml_isFileCaseCorrect(const QString &fileName, int lengthIn /* = -1 */)
 */
 
 QT_END_NAMESPACE
+
+#include "moc_qqmlengine.cpp"

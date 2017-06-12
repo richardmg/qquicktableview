@@ -260,7 +260,7 @@ QV4::Function *QV4Debugger::getFunction() const
     if (QV4::Function *function = context->getFunction())
         return function;
     else
-        return context->d()->engine->globalCode;
+        return m_engine->globalCode;
 }
 
 void QV4Debugger::runJobUnpaused()
@@ -332,3 +332,5 @@ void QV4Debugger::runInEngine_havingLock(QV4DebugJob *job)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qv4debugger.cpp"
