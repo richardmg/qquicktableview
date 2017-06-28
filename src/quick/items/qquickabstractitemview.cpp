@@ -357,9 +357,7 @@ void QQuickAbstractItemViewPrivate::clear()
     currentChanges.reset();
     timeline.clear();
 
-    for (FxViewItem *item : qAsConst(visibleItems))
-        releaseItem(item);
-    visibleItems.clear();
+    releaseVisibleItems();
     visibleIndex = 0;
 
     for (FxViewItem *item : qAsConst(releasePendingTransition)) {
@@ -530,9 +528,7 @@ bool QQuickAbstractItemViewPrivate::addRemoveVisibleItems()
 
 void QQuickAbstractItemViewPrivate::recreateVisibleItems()
 {
-    for (FxViewItem *item : qAsConst(visibleItems))
-        releaseItem(item);
-    visibleItems.clear();
+    releaseVisibleItems();
     releaseItem(currentItem);
     currentItem = 0;
     updateSectionCriteria();
