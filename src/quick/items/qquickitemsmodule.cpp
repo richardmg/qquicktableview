@@ -399,6 +399,9 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
 #endif
 
     qmlRegisterType<QQuickFlickable, 10>(uri, 2, 10, "Flickable");
+#if QT_CONFIG(quick_itemview)
+    qmlRegisterUncreatableType<QQuickItemView, 10>(uri, 2, 10, "ItemView", QQuickItemView::tr("ItemView is an abstract base class"));
+#endif
 #if QT_CONFIG(quick_tableview)
     qmlRegisterType<QQuickTableView>(uri, 2, 10, "TableView");
 #endif

@@ -1003,6 +1003,67 @@ void QQuickAbstractItemView::setDelegate(QQmlComponent *delegate)
     d->delegateValidated = false;
 }
 
+void QQuickAbstractItemViewPrivate::delegates_append(QQmlListProperty<QQmlDelegate> *prop, QQmlDelegate *delegate)
+{
+    QQuickAbstractItemView *q = static_cast<QQuickAbstractItemView *>(prop->object);
+    QQuickAbstractItemViewPrivate *d = static_cast<QQuickAbstractItemViewPrivate *>(prop->data);
+    d->createOwnModel();
+    if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel *>(d->model)) {
+        int oldCount = dataModel->count();
+        QQmlListProperty<QQmlDelegate> delegates = dataModel->delegates();
+        delegates.append(&delegates, delegate);
+        if (q->isComponentComplete())
+            d->recreateVisibleItems();
+        if (oldCount != dataModel->count())
+            emit q->countChanged();
+    }
+}
+
+int QQuickAbstractItemViewPrivate::delegates_count(QQmlListProperty<QQmlDelegate> *prop)
+{
+    QQuickAbstractItemViewPrivate *d = static_cast<QQuickAbstractItemViewPrivate *>(prop->data);
+    if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model)) {
+        QQmlListProperty<QQmlDelegate> delegates = dataModel->delegates();
+        return delegates.count(&delegates);
+    }
+    return 0;
+}
+
+QQmlDelegate *QQuickAbstractItemViewPrivate::delegates_at(QQmlListProperty<QQmlDelegate> *prop, int index)
+{
+    QQuickAbstractItemViewPrivate *d = static_cast<QQuickAbstractItemViewPrivate *>(prop->data);
+    if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model)) {
+        QQmlListProperty<QQmlDelegate> delegates = dataModel->delegates();
+        return delegates.at(&delegates, index);
+    }
+    return 0;
+}
+
+void QQuickAbstractItemViewPrivate::delegates_clear(QQmlListProperty<QQmlDelegate> *prop)
+{
+    QQuickAbstractItemView *q = static_cast<QQuickAbstractItemView *>(prop->object);
+    QQuickAbstractItemViewPrivate *d = static_cast<QQuickAbstractItemViewPrivate *>(prop->data);
+    if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel *>(d->model)) {
+        int oldCount = dataModel->count();
+        QQmlListProperty<QQmlDelegate> delegates = dataModel->delegates();
+        delegates.clear(&delegates);
+        if (q->isComponentComplete())
+            d->recreateVisibleItems();
+        if (oldCount != dataModel->count())
+            emit q->countChanged();
+    }
+}
+
+QQmlListProperty<QQmlDelegate> QQuickAbstractItemView::delegates()
+{
+    Q_D(QQuickAbstractItemView);
+    return QQmlListProperty<QQmlDelegate>(this, d,
+                                          QQuickAbstractItemViewPrivate::delegates_append,
+                                          QQuickAbstractItemViewPrivate::delegates_count,
+                                          QQuickAbstractItemViewPrivate::delegates_at,
+                                          QQuickAbstractItemViewPrivate::delegates_clear);
+}
+
 int QQuickAbstractItemView::count() const
 {
     Q_D(const QQuickAbstractItemView);

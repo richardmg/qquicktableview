@@ -60,6 +60,7 @@
 
 #include <private/qv8engine_p.h>
 #include <private/qqmlglobal_p.h>
+#include <qqmlscriptstring.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -67,6 +68,9 @@ class QQmlChangeSet;
 class QQmlComponent;
 class QQuickPackage;
 class QQmlV4Function;
+class QQmlScriptString;
+class QQmlDelegate;
+class QQmlDelegatePrivate;
 class QQmlDelegateModelGroup;
 class QQmlDelegateModelAttached;
 class QQmlDelegateModelPrivate;
@@ -79,6 +83,7 @@ class Q_QML_PRIVATE_EXPORT QQmlDelegateModel : public QQmlInstanceModel, public 
 
     Q_PROPERTY(QVariant model READ model WRITE setModel)
     Q_PROPERTY(QQmlComponent *delegate READ delegate WRITE setDelegate)
+    Q_PROPERTY(QQmlListProperty<QQmlDelegate> delegates READ delegates REVISION 10)
     Q_PROPERTY(QString filterOnGroup READ filterGroup WRITE setFilterGroup NOTIFY filterGroupChanged RESET resetFilterGroup)
     Q_PROPERTY(QQmlDelegateModelGroup *items READ items CONSTANT) //TODO : worth renaming?
     Q_PROPERTY(QQmlDelegateModelGroup *persistedItems READ persistedItems CONSTANT)
@@ -103,6 +108,8 @@ public:
     QQmlComponent *delegate() const;
     void setDelegate(QQmlComponent *);
 
+    QQmlListProperty<QQmlDelegate> delegates();
+
     QVariant rootIndex() const;
     void setRootIndex(const QVariant &root);
 
@@ -118,7 +125,7 @@ public:
     Q_INVOKABLE QVariant parentModelIndex() const;
 
     int count() const override;
-    bool isValid() const override { return delegate() != 0; }
+    bool isValid() const override;
     QObject *object(int index, bool asynchronous = false) override;
     ReleaseFlags release(QObject *object) override;
     void cancel(int index) override;
@@ -246,10 +253,44 @@ public:
     friend class QQmlDelegateModelAttachedMetaObject;
 };
 
+class Q_QML_PRIVATE_EXPORT QQmlDelegate : public QObject, public QQmlParserStatus
+{
+    Q_OBJECT
+    Q_INTERFACES(QQmlParserStatus)
+    Q_PROPERTY(QQmlComponent *component READ component WRITE setComponent)
+    Q_PROPERTY(int index READ index WRITE setIndex)
+    Q_PROPERTY(QQmlScriptString when READ when WRITE setWhen)
+    Q_CLASSINFO("DefaultProperty", "component")
+
+public:
+    QQmlDelegate(QObject *parent = nullptr);
+
+    QQmlComponent *component() const;
+    void setComponent(QQmlComponent *component);
+
+    int index() const;
+    void setIndex(int index);
+
+    int row() const;
+    void setRow(int row);
+
+    QQmlScriptString when() const;
+    void setWhen(const QQmlScriptString &when);
+
+protected:
+    void classBegin() override;
+    void componentComplete() override;
+
+private:
+    Q_DISABLE_COPY(QQmlDelegate)
+    Q_DECLARE_PRIVATE(QQmlDelegate)
+};
+
 QT_END_NAMESPACE
 
 QML_DECLARE_TYPE(QQmlDelegateModel)
 QML_DECLARE_TYPEINFO(QQmlDelegateModel, QML_HAS_ATTACHED_PROPERTIES)
 QML_DECLARE_TYPE(QQmlDelegateModelGroup)
+QML_DECLARE_TYPE(QQmlDelegate)
 
 #endif // QQMLDATAMODEL_P_H

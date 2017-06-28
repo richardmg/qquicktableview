@@ -118,6 +118,8 @@ public:
 
     int groupIndex(Compositor::Group group);
 
+    bool selectDelegate(QQmlDelegate *delegate, QQmlContextData *context);
+
     int modelIndex() const { return index; }
     virtual void setModelIndex(int idx) { index = idx; Q_EMIT modelIndexChanged(); }
 
@@ -139,6 +141,7 @@ public:
     QPointer<QObject> object;
     QPointer<QQmlDelegateModelAttached> attached;
     QQDMIncubationTask *incubationTask;
+    QQmlComponent *delegate;
     int objectRef;
     int scriptRef;
     int groups;
@@ -305,9 +308,17 @@ public:
     void setRows(int rows);
     void setColumns(int columns);
 
+    bool hasDelegate() const { return m_delegate || !m_delegates.isEmpty(); }
+
+    static void delegates_append(QQmlListProperty<QQmlDelegate> *prop, QQmlDelegate *delegate);
+    static int delegates_count(QQmlListProperty<QQmlDelegate> *prop);
+    static QQmlDelegate *delegates_at(QQmlListProperty<QQmlDelegate> *prop, int index);
+    static void delegates_clear(QQmlListProperty<QQmlDelegate> *prop);
+
     QQmlAdaptorModel m_adaptorModel;
     QQmlListCompositor m_compositor;
     QQmlComponent *m_delegate;
+    QList<QQmlDelegate *> m_delegates;
     QQmlDelegateModelItemMetaType *m_cacheMetaType;
     QPointer<QQmlContext> m_context;
     QQmlDelegateModelParts *m_parts;

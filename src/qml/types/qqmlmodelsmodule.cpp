@@ -58,6 +58,8 @@ void QQmlModelsModule::defineModule()
     qmlRegisterType<QQmlObjectModel,3>(uri, 2, 3, "ObjectModel");
 
     qmlRegisterType<QItemSelectionModel>(uri, 2, 2, "ItemSelectionModel");
+
+    qmlRegisterType<QQmlDelegate>(uri, 2, 10, "Delegate");
 }
 
 QT_END_NAMESPACE

@@ -63,6 +63,7 @@ QT_BEGIN_NAMESPACE
 
 Q_DECLARE_LOGGING_CATEGORY(lcItemViewDelegateLifecycle)
 
+class QQmlDelegate;
 class QQmlChangeSet;
 class QQuickAbstractItemViewPrivate;
 
@@ -72,6 +73,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemView : public QQuickFlickable
 
     Q_PROPERTY(QVariant model READ model WRITE setModel NOTIFY modelChanged)
     Q_PROPERTY(QQmlComponent *delegate READ delegate WRITE setDelegate NOTIFY delegateChanged)
+    Q_PROPERTY(QQmlListProperty<QQmlDelegate> delegates READ delegates NOTIFY delegatesChanged REVISION 10)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
@@ -127,6 +129,8 @@ public:
 
     QQmlComponent *delegate() const;
     void setDelegate(QQmlComponent *);
+
+    QQmlListProperty<QQmlDelegate> delegates();
 
     int count() const;
 
@@ -216,6 +220,7 @@ public:
 Q_SIGNALS:
     void modelChanged();
     void delegateChanged();
+    Q_REVISION(10) void delegatesChanged();
     void countChanged();
     void currentIndexChanged();
     void currentItemChanged();

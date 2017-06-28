@@ -165,6 +165,11 @@ public:
     QQuickItem *createHighlightItem() const;
     QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
 
+    static void delegates_append(QQmlListProperty<QQmlDelegate> *prop, QQmlDelegate *delegate);
+    static int delegates_count(QQmlListProperty<QQmlDelegate> *prop);
+    static QQmlDelegate *delegates_at(QQmlListProperty<QQmlDelegate> *prop, int index);
+    static void delegates_clear(QQmlListProperty<QQmlDelegate> *prop);
+
     void updateCurrent(int modelIndex);
     void updateTrackedItem();
     void updateUnrequestedIndexes();
