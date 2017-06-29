@@ -17,11 +17,18 @@ public:
     int columnCount(const QModelIndex & = QModelIndex()) const override { return m_cols; }
     void setColumnCount(int count) { beginResetModel(); m_cols = count; emit columnCountChanged(); endResetModel(); }
 
+    QVariant headerData(int section, Qt::Orientation orientation, int role) const
+    {
+        Q_UNUSED(orientation);
+        Q_UNUSED(role);
+        return QStringLiteral("Column header");
+    }
+
     QVariant data(const QModelIndex &index, int role) const override
     {
         if (!index.isValid() || role != Qt::DisplayRole)
             return QVariant();
-        return QString("[%1-%2]").arg(index.row()).arg(index.column());
+        return QString("[%1-%2]").arg(index.column()).arg(index.row());
     }
 
     QHash<int, QByteArray> roleNames() const override
@@ -46,9 +53,9 @@ int main(int argc, char *argv[])
     qmlRegisterType<TableModel>("QAbstractTableModel", 0, 1, "QAbstractTableModel");
 
     QQmlApplicationEngine engine;
-    engine.load(QUrl(QStringLiteral("qrc:/tableview.qml")));
+    engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
 
     return app.exec();
 }
 
-#include "tableview.moc"
+#include "main.moc"

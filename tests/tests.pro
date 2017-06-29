@@ -1,3 +1,3 @@
 TEMPLATE = subdirs
-SUBDIRS +=  auto
+SUBDIRS +=  auto manual
 #contains(QT_CONFIG, release): SUBDIRS += benchmarks
