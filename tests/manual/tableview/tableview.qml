@@ -13,22 +13,25 @@ Window {
         spacing: 1
         anchors.fill: parent
 
+
+
+
         TableView {
             id: tableModelView
             model: QAbstractTableModel {
                 rowCount: 10
-                columnCount: 3
+                columnCount: 10
             }
             delegate: Text {
                 text: modelData
                 width: tableModelView.cellWidth
                 height: tableModelView.cellHeight
-                Text {
-                    font.pixelSize: 8
-                    anchors.bottom: parent.bottom
-                    anchors.right: parent.right
-                    text: qsTr("index=%1\nrow=%2\ncolumn=%3").arg(index).arg(row).arg(column)
-                }
+//                Text {
+//                    font.pixelSize: 8
+//                    anchors.bottom: parent.bottom
+//                    anchors.right: parent.right
+//                    text: qsTr("index=%1\nrow=%2\ncolumn=%3").arg(index).arg(row).arg(column)
+//                }
             }
             Text { font.pixelSize: 8; text: "QAbstractTableModel (model columns)" }
             Text {
@@ -43,19 +46,29 @@ Window {
             height: parent.height / 3 - 2
         }
 
+
+
+
+
         Rectangle { width: parent.width; height: 1; color: "silver" }
 
         TableView {
             id: listModelView
+
+            // Setting columns and rows is not really needed, since the ListModel contains the info.
+            // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
             columns: 2
+
             model: ListModel {
                 ListElement { foo: "foo0"; bar: "bar0" }
                 ListElement { foo: "foo1"; bar: "bar1" }
                 ListElement { foo: "foo2"; bar: "bar2" }
             }
+
             delegate: Text {
                 text: column == 0 ? foo : bar // modelData
             }
+
             Text { font.pixelSize: 8; text: "QML ListModel (roles)" }
             Text {
                 font.pixelSize: 8
@@ -68,6 +81,9 @@ Window {
             width: parent.width
             height: parent.height / 3 - 2
         }
+
+
+
 
         Rectangle { width: parent.width; height: 1; color: "silver" }
 

@@ -518,7 +518,6 @@ public:
             return QVariant();
         }
     }
-
     QVariant parentModelIndex(const QQmlAdaptorModel &model) const override
     {
         return model
