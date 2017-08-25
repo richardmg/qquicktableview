@@ -512,7 +512,7 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     // It appears that we create to many items in the next loop. Figure out why!
     qDebug() << "fill to:" << fillTo.x() << fillTo.y();
 
-    while (modelIndex < model->count() && (pos.x() <= fillTo.x() || pos.y() <= fillTo.y())) {
+    while (modelIndex < model->count() && (pos.x() <= fillTo.x() && pos.y() <= fillTo.y())) {
         if (!(item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer))))
             break;
         qCDebug(lcItemViewDelegateLifecycle) << "refill: append item" << modelIndex << "pos" << pos << "buffer" << doBuffer << "item" << (QObject *)(item->item);
