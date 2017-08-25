@@ -390,19 +390,25 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     currentChanges.reset(); // ###
 
     QPointF from, to;
-    QSizeF s = size();
-    s.setWidth(qMax<qreal>(s.width(), 0.0));
-    s.setHeight(qMax<qreal>(s.height(), 0.0));
-    QPointF pos = position();
+    QSizeF tableViewSize = size();
+    tableViewSize.setWidth(qMax<qreal>(tableViewSize.width(), 0.0));
+    tableViewSize.setHeight(qMax<qreal>(tableViewSize.height(), 0.0));
+
+    QPointF contentPos = position();
+
     if (isContentFlowReversed()) {
-        from = -pos /*- displayMarginBeginning*/ - s;
-        to = -pos /*+ displayMarginEnd*/;
+        from = -contentPos /*- displayMarginBeginning*/ - tableViewSize;
+        to = -contentPos /*+ displayMarginEnd*/;
     } else {
-        from = pos /*- displayMarginBeginning*/;
-        to = pos /*+ displayMarginEnd*/ + s;
+        from = contentPos /*- displayMarginBeginning*/;
+        to = contentPos /*+ displayMarginEnd*/ + tableViewSize;
     }
 
+    // XXX: why do we update itemCount here? What is it used for? It contains the
+    // number of items in the model, which can be thousands...
     itemCount = model->count();
+
+    // XXX: what does buffer hold? Is it the same as cacheBuffer?
     QPointF bufferFrom = from - QPointF(buffer, buffer);
     QPointF bufferTo = to + QPointF(buffer, buffer);
     QPointF fillFrom = from;
@@ -411,19 +417,19 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     bool added = addVisibleItems(fillFrom, fillTo, bufferFrom, bufferTo, false);
     bool removed = removeNonVisibleItems(bufferFrom, bufferTo);
 
-    if (requestedIndex == -1 && buffer && bufferMode != NoBuffer) {
-        if (added) {
-            // We've already created a new delegate this frame.
-            // Just schedule a buffer refill.
-            bufferPause.start();
-        } else {
-            if (bufferMode & BufferAfter)
-                fillTo = bufferTo;
-            if (bufferMode & BufferBefore)
-                fillFrom = bufferFrom;
-            added |= addVisibleItems(fillFrom, fillTo, bufferFrom, bufferTo, true);
-        }
-    }
+//    if (requestedIndex == -1 && buffer && bufferMode != NoBuffer) {
+//        if (added) {
+//            // We've already created a new delegate this frame.
+//            // Just schedule a buffer refill.
+//            bufferPause.start();
+//        } else {
+//            if (bufferMode & BufferAfter)
+//                fillTo = bufferTo;
+//            if (bufferMode & BufferBefore)
+//                fillFrom = bufferFrom;
+//            added |= addVisibleItems(fillFrom, fillTo, bufferFrom, bufferTo, true);
+//        }
+//    }
     return added || removed;
 }
 
@@ -462,6 +468,14 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     }
 
     int modelIndex = findLastVisibleIndex();
+
+
+    // findLastVisibleIndex() returnerer dobbelt så mange som faktisk får plass.
+    // Det betyr at vi lager opp dobbelt så mange som vi trenger nedenfor!
+
+    qDebug() << "last visible index:" << modelIndex;
+
+
     bool haveValidItems = modelIndex >= 0;
     modelIndex = modelIndex < 0 ? visibleIndex : modelIndex + 1;
 
@@ -469,6 +483,9 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                            || bufferFrom.y() > itemEnd.y() + averageSize.height() + rowSpacing
                            || bufferTo.x() < visiblePos.x() - averageSize.width() - columnSpacing
                            || bufferTo.y() < visiblePos.y() - averageSize.height() - rowSpacing)) {
+
+        qDebug() << "NEVER HERE!!!!!!";
+
         // We've jumped more than a page.  Estimate which items are now
         // visible and fill from there.
         int rows = (fillFrom.y() - itemEnd.y()) / (averageSize.height() + rowSpacing);
@@ -491,6 +508,10 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     bool changed = false;
     FxTableItemSG *item = nullptr;
     QPointF pos = itemEnd;
+
+    // It appears that we create to many items in the next loop. Figure out why!
+    qDebug() << "fill to:" << fillTo.x() << fillTo.y();
+
     while (modelIndex < model->count() && (pos.x() <= fillTo.x() || pos.y() <= fillTo.y())) {
         if (!(item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer))))
             break;
