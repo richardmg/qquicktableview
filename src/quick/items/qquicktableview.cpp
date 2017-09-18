@@ -460,6 +460,18 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
 bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
                                              const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer)
 {
+    // For hver row, så må jeg finne lastVisibleItem (lastVisibleColumn?). Og når jeg fyller inn items, så
+    // må jeg bruke QModelIndex som argument til createItem (og ikke en int), siden den har row/col støtte.
+    // Og så må jeg finne lastVisibleRow, og gjenta det over for hver row.
+    // Dette betyr at visibleItems slik det er i dag ikke holder siden den er en-dimensjonal. Men siden jeg
+    // har row og col spesifisert, bør det la set gjøre å bygge to-dimensjonal logikk over QList slik at
+    // jeg ikke trenger å endre visibleItems. Men da må jeg først undersøke hvordan visibleItems
+    // brukes å superklassene, siden den sikkert kalkulerere informasjon ut i fra at listen er en-dimensjonal.
+    // Hvis ikke superklassene takler at listen er "to-dimensjonal", eller kanskje rettere sagt, at
+    // item i visibleItems kan ligge ved siden av hverandre, og ikke bare under hverandre, så kanskje det
+    // er bedre å gjøre visibleItems om til en to-dimensjonal liste med en gang, og heller skrive om
+    // logikken i superklassene. På en måte høres dette ut som den riktigste løsninen på sikt.
+
     Q_Q(QQuickTableView);
     QPointF itemEnd = visiblePos;
     if (visibleItems.count()) {
@@ -473,8 +485,8 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     // findLastVisibleIndex() returnerer dobbelt så mange som faktisk får plass.
     // Det betyr at vi lager opp dobbelt så mange som vi trenger nedenfor!
 
-    qDebug() << "last visible index:" << modelIndex;
-
+    qDebug() << "Begin refill!";
+    qDebug() << "last visible (one dimentional) index:" << modelIndex;
 
     bool haveValidItems = modelIndex >= 0;
     modelIndex = modelIndex < 0 ? visibleIndex : modelIndex + 1;
@@ -507,25 +519,61 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
 
     bool changed = false;
     FxTableItemSG *item = nullptr;
+    
+    // Set start pos. Here we need to take into account 
     QPointF pos = itemEnd;
 
     // It appears that we create to many items in the next loop. Figure out why!
-    qDebug() << "fill to:" << fillTo.x() << fillTo.y();
+    qDebug() << "fill from:" << fillFrom.x() << fillFrom.y() << ", to:" << fillTo.x() << fillTo.y();
 
-    while (modelIndex < model->count() && (pos.x() <= fillTo.x() && pos.y() <= fillTo.y())) {
-        if (!(item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer))))
-            break;
-        qCDebug(lcItemViewDelegateLifecycle) << "refill: append item" << modelIndex << "pos" << pos << "buffer" << doBuffer << "item" << (QObject *)(item->item);
-        if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) // pos will be set by layoutVisibleItems()
-            item->setPosition(pos, true);
-        if (item->item)
-            QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
-        QSizeF size = itemSize(item);
-        pos += QPointF(size.width() + columnSpacing, size.height() + rowSpacing);
-        visibleItems.append(item);
-        ++modelIndex;
-        changed = true;
+    // Set the position of the new item to be the 'pos' that was calculated from the item before in the loop (which means that
+    // we don't have a transition at this point).
+    // This is needs to change. The new pos should be calculated somehow depending on row/col. Perhaps
+    // create a function that can give the position based on row/col.
+    // But currently we have a modelIndex that is an int (one dimentional). What we need is two indices, or the
+    // index of the bottom right item? And we cannot just fill, but need to fill both horizontally and vertically.
+    // Perhaps we should split it up in two functions, one for each direction? We then need a double while-loop, one that
+    // goes one row at a time, and an inner that fills out columns?
+
+    qreal nextRowYPos = 0;
+
+    // In the first couple of calls, fillTo will be (0, 0). Currently we then end up drawing one
+    // item since we test for <=. But I think the test is correct. But we should instead do:
+    // 1. perhaps avoid calling this function in the first place for empty fillTo?
+    // 2. Add logic so that figure out which position to start when continuing filling in
+    // subsequent calls.
+    while (modelIndex < model->count() && pos.y() <= fillTo.y()) {
+        while (modelIndex < model->count() && pos.x() <= fillTo.x()) {
+
+            // modelIndex needs to be two dimentional for the call to createItem
+            if (!(item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer))))
+                break;
+
+            qCDebug(lcItemViewDelegateLifecycle) << "refill: append item" << modelIndex << "pos" << pos << "buffer" << doBuffer << "item" << (QObject *)(item->item);
+
+            if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) // pos will be set by layoutVisibleItems()
+                item->setPosition(pos, true);
+
+            if (item->item)
+                QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
+
+            visibleItems.append(item);
+
+            // Calculate the pos for the next item (if any). The y pos should
+            // be the same for all items in the same row!
+            QSizeF size = itemSize(item);
+            pos.rx() += size.width() + columnSpacing;
+            nextRowYPos = size.height() + rowSpacing;
+
+            ++modelIndex;
+            changed = true;
+        }
+
+        // Prepare position for next row
+        pos = QPointF(0, pos.y() + nextRowYPos);
     }
+
+    qDebug() << "done!";
 
     if (doBuffer && requestedIndex != -1) // already waiting for an item
         return changed;
