@@ -322,6 +322,16 @@ bool QQuickAbstractItemViewPrivate::isValid() const
     return model && model->count() && model->isValid();
 }
 
+int QQuickAbstractItemViewPrivate::findFirstVisibleIndex(int defaultValue) const
+{
+    for (auto it = visibleItems.begin(), end = visibleItems.end(); it != end; ++it) {
+        auto item = *it;
+        if (item->index != -1)
+            return item->index;
+    }
+    return defaultValue;
+}
+
 int QQuickAbstractItemViewPrivate::findLastVisibleIndex(int defaultValue) const
 {
     for (auto it = visibleItems.rbegin(), end = visibleItems.rend(); it != end; ++it) {

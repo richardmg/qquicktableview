@@ -62,14 +62,14 @@ Window {
             // Setting columns and rows is not really needed, since the ListModel contains the info.
             // But it should probably be the oposite, so that we always use columns and rows?
             // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
-            columns: 2
+            columns: 4
 
 
             delegate: Text {
                 text: "foobar"//column == 0 ? foo : bar // modelData
             }
 
-            Text { font.pixelSize: 8; text: "QML ListModel (roles)" }
+//            Text { font.pixelSize: 8; text: "QML ListModel (roles)" }
             Text {
                 font.pixelSize: 8
                 anchors.bottom: parent.bottom

@@ -141,6 +141,7 @@ public:
     enum MovementReason { Other, SetIndex, Mouse };
 
     bool isValid() const;
+    int findFirstVisibleIndex(int defaultValue = -1) const;
     int findLastVisibleIndex(int defaultValue = -1) const;
     FxViewItem *visibleItem(int modelIndex) const;
 

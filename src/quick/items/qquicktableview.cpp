@@ -153,20 +153,31 @@ bool QQuickTableViewPrivate::isBottomToTop() const
 
 int QQuickTableViewPrivate::rowAt(int index) const
 {
+    // Consider factoring this out to a common function, e.g inside QQmlDelegateModel, so that
+    // VDMAbstractItemModelDataType can access it as well.
+
+    // Note that we for now rely on the property "rows". But when a proper TableModel is assigned
+    // as model, then we should use rowCount from the model if not rows is specified.
+
+    // The trick here is that we convert row and col into an integer/index. This so we can pass
+    // that index to the model, regardless of what that model might be (e.g a ListModel). But
+    // if the model happens to be a TableModel, or QAbstractItemModel/VDMAbstractItemModelDataType, we
+    // then convert the index back to row/col inside there later.
+
     Q_Q(const QQuickTableView);
-    int rows = q->rows();
-    if (index < 0 || index >= itemCount || rows <= 0)
+    int columns = q->columns();
+    if (index < 0 || index >= itemCount || columns <= 0)
         return -1;
-    return index % rows;
+    return index % columns;
 }
 
 int QQuickTableViewPrivate::columnAt(int index) const
 {
     Q_Q(const QQuickTableView);
-    int rows = q->rows();
-    if (index < 0 || index >= itemCount || rows <= 0)
+    int columns = q->columns();
+    if (index < 0 || index >= itemCount || columns <= 0)
         return -1;
-    return index / rows;
+    return index / columns;
 }
 
 int QQuickTableViewPrivate::indexAt(int row, int column) const
@@ -472,6 +483,9 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     // er bedre å gjøre visibleItems om til en to-dimensjonal liste med en gang, og heller skrive om
     // logikken i superklassene. På en måte høres dette ut som den riktigste løsninen på sikt.
 
+    if ((fillFrom - fillTo).isNull())
+        return false;
+
     Q_Q(QQuickTableView);
     QPointF itemEnd = visiblePos;
     if (visibleItems.count()) {
@@ -479,14 +493,21 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
         itemEnd = itemEndPosition(*(--visibleItems.constEnd())) + QPointF(columnSpacing, rowSpacing);
     }
 
-    int modelIndex = findLastVisibleIndex();
+    // findLastVisibleIndex tror jeg blir for enkel. Vi skal nå legge til flere items, og må dermed finne ut om
+    // vi må legge til flere kolonner, og i såfall fylle opp disse, og deretter det samme for rader.
+    // lastVisibleIndex må i så fall gi meg item-et som er nederst til høyre.
 
+    // Jeg tror jeg må finne første synlige rad, slik at jeg kan begynne å fylle ut ledige kolonner
+    // allerede fra toppen.
+
+    int firstVisibleIndex = findFirstVisibleIndex();
+    int modelIndex = findLastVisibleIndex();
+    ''
+    qDebug() << "Begin refill!" << qDebug() << "first visible index:" << firstVisibleIndex << ", last:" << modelIndex << "model count:" << model->count();
 
     // findLastVisibleIndex() returnerer dobbelt så mange som faktisk får plass.
     // Det betyr at vi lager opp dobbelt så mange som vi trenger nedenfor!
 
-    qDebug() << "Begin refill!";
-    qDebug() << "last visible (one dimentional) index:" << modelIndex;
 
     bool haveValidItems = modelIndex >= 0;
     modelIndex = modelIndex < 0 ? visibleIndex : modelIndex + 1;
@@ -518,7 +539,6 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     }
 
     bool changed = false;
-    FxTableItemSG *item = nullptr;
     
     // Set start pos. Here we need to take into account 
     QPointF pos = itemEnd;
@@ -543,13 +563,19 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     // 2. Add logic so that figure out which position to start when continuing filling in
     // subsequent calls.
     while (modelIndex < model->count() && pos.y() <= fillTo.y()) {
-        while (modelIndex < model->count() && pos.x() <= fillTo.x()) {
+        while (modelIndex < model->count() && pos.x() <= fillTo.x() && columnAt(modelIndex) < q->columns()) {
 
-            // modelIndex needs to be two dimentional for the call to createItem
-            if (!(item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer))))
+            FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer));
+            if (!item)
                 break;
 
-            qCDebug(lcItemViewDelegateLifecycle) << "refill: append item" << modelIndex << "pos" << pos << "buffer" << doBuffer << "item" << (QObject *)(item->item);
+            qCDebug(lcItemViewDelegateLifecycle) << "refill: append item with"
+                                                 << "index:" << modelIndex
+                                                 << "row:" << rowAt(modelIndex)
+                                                 << "col:" << columnAt(modelIndex)
+                                                 << "pos:" << pos
+                                                 << "buffer:" << doBuffer
+                                                 << "item:" << (QObject *)(item->item);
 
             if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) // pos will be set by layoutVisibleItems()
                 item->setPosition(pos, true);
@@ -579,8 +605,10 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
         return changed;
 
     while (visibleIndex > 0 && visibleIndex <= model->count() && (visiblePos.x() > fillFrom.x() || visiblePos.y() > fillFrom.y())) {
-        if (!(item = static_cast<FxTableItemSG *>(createItem(visibleIndex-1, doBuffer))))
+        FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(visibleIndex-1, doBuffer));
+        if (!item)
             break;
+
         qCDebug(lcItemViewDelegateLifecycle) << "refill: prepend item" << visibleIndex-1 << "current top pos" << visiblePos << "buffer" << doBuffer << "item" << (QObject *)(item->item);
         --visibleIndex;
         QSizeF size = itemSize(item);
