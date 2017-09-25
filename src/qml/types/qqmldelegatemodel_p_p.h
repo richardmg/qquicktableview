@@ -292,6 +292,7 @@ public:
     void itemsChanged(const QVector<Compositor::Change> &changes);
     void emitChanges();
     void emitModelUpdated(const QQmlChangeSet &changeSet, bool reset) override;
+    void delegateChanged(bool add = true, bool remove = true);
 
     bool insert(Compositor::insert_iterator &before, const QV4::Value &object, int groups);
 
@@ -306,6 +307,7 @@ public:
     QQmlAdaptorModel m_adaptorModel;
     QQmlListCompositor m_compositor;
     QQmlComponent *m_delegate;
+    QQmlDelegateChooser *m_delegateChooser;
     QQmlDelegateModelItemMetaType *m_cacheMetaType;
     QPointer<QQmlContext> m_context;
     QQmlDelegateModelParts *m_parts;
@@ -419,6 +421,17 @@ private:
     QMetaObject * const metaObject;
     const int memberPropertyOffset;
     const int indexPropertyOffset;
+};
+
+class QQmlDelegateChooserPrivate : public QObjectPrivate
+{
+    Q_DECLARE_PUBLIC(QQmlDelegateChooser)
+public:
+    static QQmlDelegateChooserPrivate *get(QQmlDelegateChooser *c) {
+        return static_cast<QQmlDelegateChooserPrivate *>(QObjectPrivate::get(c));
+    }
+
+    QQmlDelegateModelPrivate *m_delegateModel;
 };
 
 QT_END_NAMESPACE
