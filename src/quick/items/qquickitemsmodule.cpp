@@ -424,6 +424,10 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
     qmlRegisterType<QQuickItem, 11>(uri, 2, 11,"Item");
 
     qmlRegisterType<QQuickAnimatedSprite, 12>("QtQuick", 2, 12, "AnimatedSprite");
+
+#if QT_CONFIG(quick_itemview)
+    qmlRegisterUncreatableType<QQuickItemView, 11>(uri, 2, 11, itemViewName, itemViewMessage);
+#endif
 }
 
 static void initResources()

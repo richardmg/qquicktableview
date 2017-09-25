@@ -66,6 +66,11 @@ void QQmlModelsModule::defineModule()
     qmlRegisterType<QQmlObjectModel,3>(uri, 2, 3, "ObjectModel");
 
     qmlRegisterType<QItemSelectionModel>(uri, 2, 2, "ItemSelectionModel");
+
+    qmlRegisterType<QQmlDelegateModel, 11>(uri, 2, 11, "DelegateModel");
+    qmlRegisterUncreatableType<QQmlDelegateChooser>(uri, 2, 11, "DelegateChooser", QQmlDelegateChooser::tr("Cannot create instance of abstract class DelegateChooser."));
+    qmlRegisterType<QQmlDefaultDelegateChooser>(uri, 2, 11, "DefaultDelegateChooser");
+    qmlRegisterType<QQmlDelegateChoice>(uri, 2, 11, "DelegateChoice");
 }
 
 QT_END_NAMESPACE

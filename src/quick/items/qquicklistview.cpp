@@ -2014,6 +2014,17 @@ QQuickListView::~QQuickListView()
 
     \sa {Stacking Order in ListView}
 */
+
+/*!
+    \qmlproperty DelegateChooser QtQuick::ListView::delegateChooser
+
+    The delegate chooser supports multiple delegate types for a view.
+
+    ListViews that use delegateChooser must also provide a default delegate via the \l delegate property.
+
+    \sa delegate, DefaultDelegateChooser
+*/
+
 /*!
     \qmlproperty int QtQuick::ListView::currentIndex
     \qmlproperty Item QtQuick::ListView::currentItem

@@ -215,14 +215,8 @@ void QQuickItemView::setModel(const QVariant &m)
         }
         d->model = vim;
     } else {
-        if (!d->ownModel) {
-            d->model = new QQmlDelegateModel(qmlContext(this), this);
-            d->ownModel = true;
-            if (isComponentComplete())
-                static_cast<QQmlDelegateModel *>(d->model.data())->componentComplete();
-        } else {
+        if (!d->createOwnModel())
             d->model = oldModel;
-        }
         if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model))
             dataModel->setModel(model);
     }
@@ -268,31 +262,11 @@ void QQuickItemView::setDelegate(QQmlComponent *delegate)
     Q_D(QQuickItemView);
     if (delegate == this->delegate())
         return;
-    if (!d->ownModel) {
-        d->model = new QQmlDelegateModel(qmlContext(this));
-        d->ownModel = true;
-        if (isComponentComplete())
-            static_cast<QQmlDelegateModel *>(d->model.data())->componentComplete();
-    }
+    d->createOwnModel();
     if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model)) {
         int oldCount = dataModel->count();
         dataModel->setDelegate(delegate);
-        if (isComponentComplete()) {
-            d->releaseVisibleItems();
-            d->releaseItem(d->currentItem);
-            d->currentItem = nullptr;
-            d->updateSectionCriteria();
-            d->refill();
-            d->moveReason = QQuickItemViewPrivate::SetIndex;
-            d->updateCurrent(d->currentIndex);
-            if (d->highlight && d->currentItem) {
-                if (d->autoHighlight)
-                    d->resetHighlightPosition();
-                d->updateTrackedItem();
-            }
-            d->moveReason = QQuickItemViewPrivate::Other;
-            d->updateViewport();
-        }
+        d->delegateChange();
         if (oldCount != dataModel->count())
             emit countChanged();
     }
@@ -300,6 +274,33 @@ void QQuickItemView::setDelegate(QQmlComponent *delegate)
     d->delegateValidated = false;
 }
 
+QQmlDelegateChooser *QQuickItemView::delegateChooser() const
+{
+    Q_D(const QQuickItemView);
+    if (d->model) {
+        if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model))
+            return dataModel->delegateChooser();
+    }
+
+    return 0;
+}
+
+void QQuickItemView::setDelegateChooser(QQmlDelegateChooser *chooser)
+{
+    Q_D(QQuickItemView);
+    if (chooser == delegateChooser())
+        return;
+    d->createOwnModel();
+    if (QQmlDelegateModel *dataModel = qobject_cast<QQmlDelegateModel*>(d->model)) {
+        int oldCount = dataModel->count();
+        dataModel->setDelegateChooser(chooser);
+        d->delegateChange();
+        if (oldCount != dataModel->count())
+            emit countChanged();
+    }
+    emit delegateChooserChanged();
+    d->delegateValidated = false;
+}
 
 int QQuickItemView::count() const
 {
@@ -954,6 +955,19 @@ void QQuickItemView::forceLayout()
     Q_D(QQuickItemView);
     if (isComponentComplete() && (d->currentChanges.hasPendingChanges() || d->forceLayout))
         d->layout();
+}
+
+bool QQuickItemViewPrivate::createOwnModel()
+{
+    Q_Q(QQuickItemView);
+    if (!ownModel) {
+        model = new QQmlDelegateModel(qmlContext(q));
+        ownModel = true;
+        if (q->isComponentComplete())
+            static_cast<QQmlDelegateModel *>(model.data())->componentComplete();
+        return true;
+    }
+    return false;
 }
 
 void QQuickItemViewPrivate::applyPendingChanges()
@@ -1755,6 +1769,27 @@ void QQuickItemViewPrivate::refill(qreal from, qreal to)
         if (prevCount != itemCount)
             emit q->countChanged();
     } while (currentChanges.hasPendingChanges() || bufferedChanges.hasPendingChanges());
+}
+
+void QQuickItemViewPrivate::delegateChange()
+{
+    if (!componentComplete)
+        return;
+
+    releaseVisibleItems();
+    releaseItem(currentItem);
+    currentItem = 0;
+    updateSectionCriteria();
+    refill();
+    moveReason = QQuickItemViewPrivate::SetIndex;
+    updateCurrent(currentIndex);
+    if (highlight && currentItem) {
+        if (autoHighlight)
+            resetHighlightPosition();
+        updateTrackedItem();
+    }
+    moveReason = QQuickItemViewPrivate::Other;
+    updateViewport();
 }
 
 void QQuickItemViewPrivate::regenerate(bool orientationChanged)
