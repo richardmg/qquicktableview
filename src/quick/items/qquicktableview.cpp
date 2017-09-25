@@ -168,7 +168,7 @@ int QQuickTableViewPrivate::rowAt(int index) const
     int columns = q->columns();
     if (index < 0 || index >= itemCount || columns <= 0)
         return -1;
-    return index % columns;
+    return index / columns;
 }
 
 int QQuickTableViewPrivate::columnAt(int index) const
@@ -177,7 +177,7 @@ int QQuickTableViewPrivate::columnAt(int index) const
     int columns = q->columns();
     if (index < 0 || index >= itemCount || columns <= 0)
         return -1;
-    return index / columns;
+    return index % columns;
 }
 
 int QQuickTableViewPrivate::indexAt(int row, int column) const
