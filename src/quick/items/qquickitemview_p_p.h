@@ -172,6 +172,7 @@ public:
     void refill();
     void refill(qreal from, qreal to);
     void mirrorChange() override;
+    void delegateChange();
 
     FxViewItem *createItem(int modelIndex,QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested);
     virtual bool releaseItem(FxViewItem *item);
@@ -190,6 +191,8 @@ public:
     qreal maxExtentForAxis(const AxisData &axisData, bool forXAxis) const;
     qreal calculatedMinExtent() const;
     qreal calculatedMaxExtent() const;
+
+    bool createOwnModel();
 
     void applyPendingChanges();
     bool applyModelChanges(ChangeResult *insertionResult, ChangeResult *removalResult);

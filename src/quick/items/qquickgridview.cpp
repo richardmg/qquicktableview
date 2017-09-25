@@ -1342,6 +1342,16 @@ void QQuickGridView::setHighlightFollowsCurrentItem(bool autoHighlight)
 */
 
 /*!
+    \qmlproperty DelegateChooser QtQuick::GridView::delegateChooser
+
+    The delegate chooser supports multiple delegate types for a view.
+
+    GridViews that use delegateChooser must also provide a default delegate via the \l delegate property.
+
+    \sa delegate, DefaultDelegateChooser
+*/
+
+/*!
   \qmlproperty int QtQuick::GridView::currentIndex
   \qmlproperty Item QtQuick::GridView::currentItem
 
