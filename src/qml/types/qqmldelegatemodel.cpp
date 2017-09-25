@@ -201,6 +201,7 @@ QQmlDelegateModelParts::QQmlDelegateModelParts(QQmlDelegateModel *parent)
 
 QQmlDelegateModelPrivate::QQmlDelegateModelPrivate(QQmlContext *ctxt)
     : m_delegate(nullptr)
+    , m_delegateChooser(nullptr)
     , m_cacheMetaType(nullptr)
     , m_context(ctxt)
     , m_parts(nullptr)
@@ -411,19 +412,35 @@ void QQmlDelegateModel::setDelegate(QQmlComponent *delegate)
     bool wasValid = d->m_delegate != nullptr;
     d->m_delegate = delegate;
     d->m_delegateValidated = false;
-    if (wasValid && d->m_complete) {
-        for (int i = 1; i < d->m_groupCount; ++i) {
-            QQmlDelegateModelGroupPrivate::get(d->m_groups[i])->changeSet.remove(
-                    0, d->m_compositor.count(Compositor::Group(i)));
-        }
-    }
-    if (d->m_complete && d->m_delegate) {
-        for (int i = 1; i < d->m_groupCount; ++i) {
-            QQmlDelegateModelGroupPrivate::get(d->m_groups[i])->changeSet.insert(
-                    0, d->m_compositor.count(Compositor::Group(i)));
-        }
-    }
-    d->emitChanges();
+    d->delegateChanged(d->m_delegate, wasValid);
+}
+
+/*!
+    \qmlproperty DelegateChooser QtQml.Models::DelegateModel::delegateChooser
+
+    The delegate chooser supports multiple delegate types for a view.
+
+    DelegateModels that use delegateChooser must also provide a default delegate via the \l delegate property.
+
+    \sa delegate, DefaultDelegateChooser
+*/
+QQmlDelegateChooser *QQmlDelegateModel::delegateChooser() const
+{
+    Q_D(const QQmlDelegateModel);
+    return d->m_delegateChooser;
+}
+
+void QQmlDelegateModel::setDelegateChooser(QQmlDelegateChooser *chooser)
+{
+    Q_D(QQmlDelegateModel);
+    if (d->m_delegateChooser == chooser)
+        return;
+
+    if (d->m_delegateChooser)
+        QQmlDelegateChooserPrivate::get(d->m_delegateChooser)->m_delegateModel = nullptr;
+
+    d->m_delegateChooser = chooser;
+    QQmlDelegateChooserPrivate::get(d->m_delegateChooser)->m_delegateModel = d;
 }
 
 /*!
@@ -997,7 +1014,13 @@ QObject *QQmlDelegateModelPrivate::object(Compositor::Group group, int index, QQ
             cacheItem->incubationTask->forceCompletion();
         }
     } else if (!cacheItem->object) {
-        QQmlContext *creationContext = m_delegate->creationContext();
+        QQmlComponent *delegate = nullptr;
+        if (m_delegateChooser)
+            delegate = m_delegateChooser->delegate(index);
+        if (!delegate)
+            delegate = m_delegate;
+
+        QQmlContext *creationContext = delegate->creationContext();
 
         cacheItem->scriptRef += 1;
 
@@ -1022,10 +1045,10 @@ QObject *QQmlDelegateModelPrivate::object(Compositor::Group group, int index, QQ
             }
         }
 
-        QQmlComponentPrivate *cp = QQmlComponentPrivate::get(m_delegate);
+        QQmlComponentPrivate *cp = QQmlComponentPrivate::get(delegate);
         cp->incubateObject(
                     cacheItem->incubationTask,
-                    m_delegate,
+                    delegate,
                     m_context->engine(),
                     ctxt,
                     QQmlContextData::get(m_context));
@@ -1506,6 +1529,32 @@ void QQmlDelegateModelPrivate::emitModelUpdated(const QQmlChangeSet &changeSet, 
     emit q->modelUpdated(changeSet, reset);
     if (changeSet.difference() != 0)
         emit q->countChanged();
+}
+
+void QQmlDelegateModelPrivate::delegateChanged(bool add, bool remove)
+{
+    Q_Q(QQmlDelegateModel);
+    if (!m_complete)
+        return;
+
+    if (m_transaction) {
+        qmlWarning(q) << QQmlDelegateModel::tr("The delegates of a DelegateModel cannot be changed within onUpdated.");
+        return;
+    }
+
+    if (remove) {
+        for (int i = 1; i < m_groupCount; ++i) {
+            QQmlDelegateModelGroupPrivate::get(m_groups[i])->changeSet.remove(
+                    0, m_compositor.count(Compositor::Group(i)));
+        }
+    }
+    if (add) {
+        for (int i = 1; i < m_groupCount; ++i) {
+            QQmlDelegateModelGroupPrivate::get(m_groups[i])->changeSet.insert(
+                    0, m_compositor.count(Compositor::Group(i)));
+        }
+    }
+    emitChanges();
 }
 
 void QQmlDelegateModelPrivate::emitChanges()
@@ -3394,6 +3443,221 @@ QV4::ReturnedValue QQmlDelegateModelEngineData::array(QV4::ExecutionEngine *v4,
     QV4::Scope scope(v4);
     QV4::ScopedObject o(scope, QQmlDelegateModelGroupChangeArray::create(v4, changes));
     return o.asReturnedValue();
+}
+
+QQmlDelegateChooser::QQmlDelegateChooser(QObject *parent)
+    : QObject(*(new QQmlDelegateChooserPrivate()), parent)
+{
+}
+
+QQmlDelegateChooser::~QQmlDelegateChooser()
+{
+}
+
+QVariant QQmlDelegateChooser::value(int index, const QString &role) const
+{
+    Q_D(const QQmlDelegateChooser);
+    if (!d->m_delegateModel)
+        return QVariant();
+    return d->m_delegateModel->m_adaptorModel.value(index, role);
+}
+
+void QQmlDelegateChooser::delegateChange() const
+{
+    Q_D(const QQmlDelegateChooser);
+    if (d->m_delegateModel)
+        d->m_delegateModel->delegateChanged();
+}
+
+/*!
+    \qmltype DelegateChoice
+    \instantiates QQmlDelegateChoice
+    \inqmlmodule QtQml.Models
+    \brief Encapsulates a delegate and when to use it
+
+    The DelegateChoice type defines a delegate and the circumstances in which it should be chosen.
+
+    \sa DefaultDelegateChooser
+*/
+
+/*!
+    \qmlproperty string QtQml.Models::DelegateChoice::value
+    This property holds the value used to match the data provided by \l DefaultDelegateChooser::role.
+
+    This property is used in conjunction with the various index properties. If a value is not specified,
+    DelegateChoice will use index information exclusively.
+*/
+void QQmlDelegateChoice::setValue(const QVariant &value)
+{
+    if (m_value == value)
+        return;
+    m_value = value;
+    emit valueChanged();
+    emit changed();
+}
+
+/*!
+    \qmlproperty int QtQml.Models::DelegateChoice::startIndex
+    This property holds the startIndex used to match model items.
+*/
+void QQmlDelegateChoice::setStartIndex(int index)
+{
+    if (m_startIndex == index)
+        return;
+    m_startIndex = index;
+    emit startIndexChanged();
+    emit changed();
+}
+
+/*!
+    \qmlproperty int QtQml.Models::DelegateChoice::endIndex
+    This property holds the endIndex used to match model items.
+*/
+void QQmlDelegateChoice::setEndIndex(int index)
+{
+    if (m_endIndex == index)
+        return;
+    m_endIndex = index;
+    emit endIndexChanged();
+    emit changed();
+}
+
+/*!
+    \qmlproperty int QtQml.Models::DelegateChoice::nthIndex
+    This property holds the nthIndex used to match model items.
+
+    For example, by setting \c nthIndex to 2 you can specify a
+    different delegate for every 2nd model item.
+*/
+void QQmlDelegateChoice::setNthIndex(int index)
+{
+    if (m_nthIndex == index)
+        return;
+    m_nthIndex = index;
+    emit nthIndexChanged();
+    emit changed();
+}
+
+/*!
+    \qmlproperty Component QtQml.Models::DelegateChoice::delegate
+    This property holds the delegate to use if this choice matches the model item.
+*/
+void QQmlDelegateChoice::setDelegate(QQmlComponent *delegate)
+{
+    if (m_delegate == delegate)
+        return;
+    m_delegate = delegate;
+    emit delegateChanged();
+    emit changed();
+}
+
+bool QQmlDelegateChoice::match(int index, const QVariant &value) const
+{
+    if (m_startIndex != -1) {
+        if (index < m_startIndex)
+            return false;
+        if (m_endIndex != -1 && index > m_endIndex)
+            return false;
+        if (m_nthIndex != -1 && ((index - m_startIndex) % m_nthIndex != 0))
+            return false;
+    }
+    if (!m_value.isValid())
+        return true;
+
+    return value == m_value;
+}
+
+/*!
+    \qmltype DefaultDelegateChooser
+    \instantiates QQmlDefaultDelegateChooser
+    \inqmlmodule QtQml.Models
+    \brief Encapsulates a set of delegates
+
+    The DefaultDelegateChooser type encapsulates a set of DelegateChoices. These choices determine
+    the delegates that will be instantiated for the items in the model. DefaultDelegateChooser
+    allows a view to use different delegates for different types of items in the model.
+
+    \sa DelegateChoice
+*/
+
+/*!
+    \qmlproperty string QtQml.Models::DefaultDelegateChooser::role
+    This property holds the role used to determine the delegate for a given model item.
+
+    If a role is note specified, DelegateChoice will use index information exclusively.
+
+    \sa DelegateChoice
+*/
+void QQmlDefaultDelegateChooser::setRole(const QString &role)
+{
+    if (m_role == role)
+        return;
+    m_role = role;
+    emit roleChanged();
+}
+
+/*!
+    \qmlproperty list<DelegateChoice> QtQml.Models::DefaultDelegateChooser::choices
+    \default
+    The list of DelegateChoices for the chooser.
+
+    The list is treated as an ordered list, where the first DelegateChoice to match
+    will be used be a view.
+
+    It should not generally be necessary to refer to the \c choices property,
+    as it is the default property for DefaultDelegateChooser and thus all child items are
+    automatically assigned to this property.
+*/
+
+QQmlListProperty<QQmlDelegateChoice> QQmlDefaultDelegateChooser::choices()
+{
+    return QQmlListProperty<QQmlDelegateChoice>(this, nullptr,
+                                                QQmlDefaultDelegateChooser::choices_append,
+                                                QQmlDefaultDelegateChooser::choices_count,
+                                                QQmlDefaultDelegateChooser::choices_at,
+                                                QQmlDefaultDelegateChooser::choices_clear);
+}
+
+void QQmlDefaultDelegateChooser::choices_append(QQmlListProperty<QQmlDelegateChoice> *prop, QQmlDelegateChoice *choice)
+{
+    QQmlDefaultDelegateChooser *q = static_cast<QQmlDefaultDelegateChooser*>(prop->object);
+    q->m_choices.append(choice);
+    connect(choice, &QQmlDelegateChoice::changed, q, &QQmlDefaultDelegateChooser::delegateChange);
+    q->delegateChange();
+}
+
+int QQmlDefaultDelegateChooser::choices_count(QQmlListProperty<QQmlDelegateChoice> *prop)
+{
+    QQmlDefaultDelegateChooser *q = static_cast<QQmlDefaultDelegateChooser*>(prop->object);
+    return q->m_choices.count();
+}
+
+QQmlDelegateChoice *QQmlDefaultDelegateChooser::choices_at(QQmlListProperty<QQmlDelegateChoice> *prop, int index)
+{
+    QQmlDefaultDelegateChooser *q = static_cast<QQmlDefaultDelegateChooser*>(prop->object);
+    return q->m_choices.at(index);
+}
+
+void QQmlDefaultDelegateChooser::choices_clear(QQmlListProperty<QQmlDelegateChoice> *prop)
+{
+    QQmlDefaultDelegateChooser *q = static_cast<QQmlDefaultDelegateChooser*>(prop->object);
+    for (QQmlDelegateChoice *choice : q->m_choices)
+        disconnect(choice, &QQmlDelegateChoice::changed, q, &QQmlDefaultDelegateChooser::delegateChange);
+    q->m_choices.clear();
+    q->delegateChange();
+}
+
+QQmlComponent *QQmlDefaultDelegateChooser::delegate(int index) const
+{
+    QVariant v = value(index, m_role);
+    // loop through choices, finding first one that fits
+    for (int i = 0; i < m_choices.count(); ++i) {
+        const QQmlDelegateChoice *choice = m_choices.at(i);
+        if (choice->match(index, v))
+            return choice->delegate();
+    }
+
+    return nullptr;
 }
 
 QT_END_NAMESPACE
