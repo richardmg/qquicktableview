@@ -73,6 +73,7 @@ class QQmlV4Function;
 class QQmlDelegateModelGroup;
 class QQmlDelegateModelAttached;
 class QQmlDelegateModelPrivate;
+class QQmlDelegateChooser;
 
 
 class Q_QML_PRIVATE_EXPORT QQmlDelegateModel : public QQmlInstanceModel, public QQmlParserStatus
@@ -82,6 +83,7 @@ class Q_QML_PRIVATE_EXPORT QQmlDelegateModel : public QQmlInstanceModel, public 
 
     Q_PROPERTY(QVariant model READ model WRITE setModel)
     Q_PROPERTY(QQmlComponent *delegate READ delegate WRITE setDelegate)
+    Q_PROPERTY(QQmlDelegateChooser *delegateChooser READ delegateChooser WRITE setDelegateChooser REVISION 11)
     Q_PROPERTY(QString filterOnGroup READ filterGroup WRITE setFilterGroup NOTIFY filterGroupChanged RESET resetFilterGroup)
     Q_PROPERTY(QQmlDelegateModelGroup *items READ items CONSTANT) //TODO : worth renaming?
     Q_PROPERTY(QQmlDelegateModelGroup *persistedItems READ persistedItems CONSTANT)
@@ -105,6 +107,9 @@ public:
 
     QQmlComponent *delegate() const;
     void setDelegate(QQmlComponent *);
+
+    QQmlDelegateChooser *delegateChooser() const;
+    void setDelegateChooser(QQmlDelegateChooser *chooser);
 
     QVariant rootIndex() const;
     void setRootIndex(const QVariant &root);
@@ -245,10 +250,102 @@ public:
     friend class QQmlDelegateModelAttachedMetaObject;
 };
 
+// TODO: consider making QQmlDelegateChooser public API
+class QQmlDelegateChooserPrivate;
+class Q_QML_PRIVATE_EXPORT QQmlDelegateChooser : public QObject
+{
+    Q_OBJECT
+public:
+    QQmlDelegateChooser(QObject *parent = nullptr);
+    ~QQmlDelegateChooser() override;
+
+    virtual QQmlComponent *delegate(int index) const = 0;
+
+protected:
+    QVariant value(int index, const QString &role) const;
+    void delegateChange() const;
+
+private:
+    Q_DECLARE_PRIVATE(QQmlDelegateChooser)
+    Q_DISABLE_COPY(QQmlDelegateChooser)
+};
+
+class Q_QML_PRIVATE_EXPORT QQmlDelegateChoice : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
+    Q_PROPERTY(QQmlComponent* delegate READ delegate WRITE setDelegate NOTIFY delegateChanged)
+    Q_PROPERTY(int startIndex READ startIndex WRITE setStartIndex NOTIFY startIndexChanged)
+    Q_PROPERTY(int endIndex READ endIndex WRITE setEndIndex NOTIFY endIndexChanged)
+    Q_PROPERTY(int nthIndex READ nthIndex WRITE setNthIndex NOTIFY nthIndexChanged)
+    Q_CLASSINFO("DefaultProperty", "delegate")
+public:
+    QVariant value() const { return m_value; }
+    void setValue(const QVariant &value);
+
+    QQmlComponent *delegate() const { return m_delegate; }
+    void setDelegate(QQmlComponent *delegate);
+
+    int startIndex() const { return m_startIndex; }
+    void setStartIndex(int index);
+
+    int endIndex() const { return m_endIndex; }
+    void setEndIndex(int index);
+
+    int nthIndex() const { return m_nthIndex; }
+    void setNthIndex(int index);
+
+    bool match(int index, const QVariant &value) const;
+
+signals:
+    void valueChanged();
+    void delegateChanged();
+    void startIndexChanged();
+    void endIndexChanged();
+    void nthIndexChanged();
+    void changed();
+
+private:
+    int m_startIndex = -1;
+    int m_endIndex = -1;
+    int m_nthIndex = -1;
+    QVariant m_value;
+    QQmlComponent *m_delegate = nullptr;
+};
+
+class Q_QML_PRIVATE_EXPORT QQmlDefaultDelegateChooser : public QQmlDelegateChooser
+{
+    Q_OBJECT
+    Q_PROPERTY(QString role READ role WRITE setRole NOTIFY roleChanged)
+    Q_PROPERTY(QQmlListProperty<QQmlDelegateChoice> choices READ choices CONSTANT)
+    Q_CLASSINFO("DefaultProperty", "choices")
+
+public:
+    QString role() const { return m_role; }
+    void setRole(const QString &role);
+
+    QQmlListProperty<QQmlDelegateChoice> choices();
+    static void choices_append(QQmlListProperty<QQmlDelegateChoice> *, QQmlDelegateChoice *);
+    static int choices_count(QQmlListProperty<QQmlDelegateChoice> *);
+    static QQmlDelegateChoice *choices_at(QQmlListProperty<QQmlDelegateChoice> *, int);
+    static void choices_clear(QQmlListProperty<QQmlDelegateChoice> *);
+
+    QQmlComponent *delegate(int index) const override;
+
+signals:
+    void roleChanged();
+
+private:
+    QString m_role;
+    QList<QQmlDelegateChoice*> m_choices;
+};
+
 QT_END_NAMESPACE
 
 QML_DECLARE_TYPE(QQmlDelegateModel)
 QML_DECLARE_TYPEINFO(QQmlDelegateModel, QML_HAS_ATTACHED_PROPERTIES)
 QML_DECLARE_TYPE(QQmlDelegateModelGroup)
+QML_DECLARE_TYPE(QQmlDelegateChoice)
+QML_DECLARE_TYPE(QQmlDefaultDelegateChooser)
 
 #endif // QQMLDATAMODEL_P_H
