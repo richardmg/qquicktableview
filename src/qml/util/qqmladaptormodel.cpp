@@ -499,12 +499,12 @@ public:
 
     int rowAt(const QQmlAdaptorModel &model, int index) const
     {
-        return index % qMax(1, model.rowCount());
+        return model.columnCount() <= 0 ? -1 : index / model.columnCount();
     }
 
     int columnAt(const QQmlAdaptorModel &model, int index) const
     {
-        return model.columnCount() == 1 ? 0 : index / qMax(1, model.rowCount());
+        return model.columnCount() <= 0 ? -1 : index % model.columnCount();
     }
 
     QVariant value(const QQmlAdaptorModel &model, int index, const QString &role) const override
