@@ -497,23 +497,13 @@ public:
         const_cast<VDMAbstractItemModelDataType *>(this)->release();
     }
 
-    int rowAt(const QQmlAdaptorModel &model, int index) const
-    {
-        return model.columnCount() <= 0 ? -1 : index / model.columnCount();
-    }
-
-    int columnAt(const QQmlAdaptorModel &model, int index) const
-    {
-        return model.columnCount() <= 0 ? -1 : index % model.columnCount();
-    }
-
     QVariant value(const QQmlAdaptorModel &model, int index, const QString &role) const override
     {
         QHash<QByteArray, int>::const_iterator it = roleNames.find(role.toUtf8());
         if (it != roleNames.end()) {
-            return model.aim()->index(rowAt(model, index), columnAt(model, index), model.rootIndex).data(*it);
+            return model.aim()->index(model.rowAt(index), model.columnAt(index), model.rootIndex).data(*it);
         } else if (role == QLatin1String("hasModelChildren")) {
-            return QVariant(model.aim()->hasChildren(model.aim()->index(rowAt(model, index), columnAt(model, index), model.rootIndex)));
+            return QVariant(model.aim()->hasChildren(model.aim()->index(model.rowAt(index), model.columnAt(index), model.rootIndex)));
         } else {
             return QVariant();
         }
@@ -528,7 +518,7 @@ public:
     QVariant modelIndex(const QQmlAdaptorModel &model, int index) const override
     {
         return model
-                ? QVariant::fromValue(model.aim()->index(rowAt(model, index), columnAt(model, index), model.rootIndex))
+                ? QVariant::fromValue(model.aim()->index(model.rowAt(index), model.columnAt(index), model.rootIndex))
                 : QVariant();
     }
 
@@ -607,8 +597,8 @@ bool QQmlDMAbstractItemModelData::resolveIndex(const QQmlAdaptorModel &model, in
 void QQmlDMAbstractItemModelData::syncIndex(int idx)
 {
     VDMAbstractItemModelDataType *dataType = static_cast<VDMAbstractItemModelDataType *>(type);
-    row = dataType->rowAt(*type->model, idx);
-    column = dataType->columnAt(*type->model, idx);
+    row = dataType->model->rowAt(idx);
+    column = dataType->model->columnAt(idx);
 }
 
 //-----------------------------------------------------------------
@@ -1041,6 +1031,18 @@ int QQmlAdaptorModel::columnCount() const
     if (columns.isValid())
         return columns.value;
     return accessors->columnCount(*this);
+}
+
+int QQmlAdaptorModel::rowAt(int index) const
+{
+    int count = columnCount();
+    return count <= 0 ? -1 : index / count;
+}
+
+int QQmlAdaptorModel::columnAt(int index) const
+{
+    int count = columnCount();
+    return count <= 0 ? -1 : index % count;
 }
 
 void QQmlAdaptorModel::objectDestroyed(QObject *)

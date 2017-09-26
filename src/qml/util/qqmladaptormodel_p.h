@@ -122,6 +122,8 @@ public:
     int count() const;
     int rowCount() const;
     int columnCount() const;
+    int rowAt(int index) const;
+    int columnAt(int index) const;
 
     inline QAbstractItemModel *aim() { return static_cast<QAbstractItemModel *>(object()); }
     inline const QAbstractItemModel *aim() const { return static_cast<const QAbstractItemModel *>(object()); }
