@@ -1030,14 +1030,17 @@ int QQmlAdaptorModel::rowCount() const
 {
     if (rows.isValid())
         return rows.value;
-    return qMax(0, accessors->rowCount(*this));
+    return accessors->rowCount(*this);
 }
 
 int QQmlAdaptorModel::columnCount() const
 {
+    // We operate with two different column counts. One first is the actual
+    // number of columns in the model, and the other is the count specified by the view.
+    // If the view has columns set, it will override the model.
     if (columns.isValid())
         return columns.value;
-    return qMax(isValid() ? 1 : 0, accessors->columnCount(*this));
+    return accessors->columnCount(*this);
 }
 
 void QQmlAdaptorModel::objectDestroyed(QObject *)
