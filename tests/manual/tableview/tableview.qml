@@ -69,7 +69,7 @@ Window {
 
 
             delegate: Text {
-                text: "(" + row + ", " + column + ")"
+                text: "(" + row + ", " + column + ", " + index + ", " + (foo ? foo : "<empty>") + ")"
             }
 
 //            Text { font.pixelSize: 8; text: "QML ListModel (roles)" }
