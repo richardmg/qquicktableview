@@ -502,8 +502,7 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
 
     int firstVisibleIndex = findFirstVisibleIndex();
     int modelIndex = findLastVisibleIndex();
-    ''
-    qDebug() << "Begin refill!" << qDebug() << "first visible index:" << firstVisibleIndex << ", last:" << modelIndex << "model count:" << model->count();
+    qDebug() << "Begin refill!" << "first visible index:" << firstVisibleIndex << ", last:" << modelIndex << "model count:" << model->count();
 
     // findLastVisibleIndex() returnerer dobbelt så mange som faktisk får plass.
     // Det betyr at vi lager opp dobbelt så mange som vi trenger nedenfor!
@@ -512,36 +511,37 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     bool haveValidItems = modelIndex >= 0;
     modelIndex = modelIndex < 0 ? visibleIndex : modelIndex + 1;
 
-    if (haveValidItems && (bufferFrom.x() > itemEnd.x() + averageSize.width() + columnSpacing
-                           || bufferFrom.y() > itemEnd.y() + averageSize.height() + rowSpacing
-                           || bufferTo.x() < visiblePos.x() - averageSize.width() - columnSpacing
-                           || bufferTo.y() < visiblePos.y() - averageSize.height() - rowSpacing)) {
+//    if (haveValidItems && (bufferFrom.x() > itemEnd.x() + averageSize.width() + columnSpacing
+//                           || bufferFrom.y() > itemEnd.y() + averageSize.height() + rowSpacing
+//                           || bufferTo.x() < visiblePos.x() - averageSize.width() - columnSpacing
+//                           || bufferTo.y() < visiblePos.y() - averageSize.height() - rowSpacing)) {
 
-        qDebug() << "NEVER HERE!!!!!!";
+//        qDebug() << "NEVER HERE!!!!!!";
 
-        // We've jumped more than a page.  Estimate which items are now
-        // visible and fill from there.
-        int rows = (fillFrom.y() - itemEnd.y()) / (averageSize.height() + rowSpacing);
-        int columns = (fillFrom.x() - itemEnd.x()) / (averageSize.width() + columnSpacing);
-        int count = rows * q->columns() + columns;
-        int newModelIdx = qBound(0, modelIndex + count, model->count());
-        count = newModelIdx - modelIndex;
-        if (count) {
-            for (FxViewItem *item : qAsConst(visibleItems))
-                releaseItem(item);
-            visibleItems.clear();
-            modelIndex = newModelIdx;
-            visibleIndex = modelIndex;
-            visiblePos = itemEnd + QPointF((averageSize.width() + columnSpacing) * columns,
-                                           (averageSize.height() + rowSpacing) * rows);
-            itemEnd = visiblePos;
-        }
-    }
+//        // We've jumped more than a page.  Estimate which items are now
+//        // visible and fill from there.
+//        int rows = (fillFrom.y() - itemEnd.y()) / (averageSize.height() + rowSpacing);
+//        int columns = (fillFrom.x() - itemEnd.x()) / (averageSize.width() + columnSpacing);
+//        int count = rows * q->columns() + columns;
+//        int newModelIdx = qBound(0, modelIndex + count, model->count());
+//        count = newModelIdx - modelIndex;
+//        if (count) {
+//            for (FxViewItem *item : qAsConst(visibleItems))
+//                releaseItem(item);
+//            visibleItems.clear();
+//            modelIndex = newModelIdx;
+//            visibleIndex = modelIndex;
+//            visiblePos = itemEnd + QPointF((averageSize.width() + columnSpacing) * columns,
+//                                           (averageSize.height() + rowSpacing) * rows);
+//            itemEnd = visiblePos;
+//        }
+//    }
 
     bool changed = false;
     
-    // Set start pos. Here we need to take into account 
-    QPointF pos = itemEnd;
+    // Set start pos to be the end of last item. But if the last item was
+    // in the last column, we need to wrap to the next line
+    QPointF pos = columnAt(modelIndex) > 0 ? itemEnd : QPointF(0, itemEnd.y());
 
     // It appears that we create to many items in the next loop. Figure out why!
     qDebug() << "fill from:" << fillFrom.x() << fillFrom.y() << ", to:" << fillTo.x() << fillTo.y();
@@ -562,8 +562,19 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     // 1. perhaps avoid calling this function in the first place for empty fillTo?
     // 2. Add logic so that figure out which position to start when continuing filling in
     // subsequent calls.
+
+
+//    - Greit å jobbe med ListModel nå i begynnelsen. TableModel kan komme senere.
+//    - Trenger å finne en bedre måte å finne ut når vi trenger linjeskift. Det virker
+//        Det virker litt rotete sånn det er nå.
+//    - Greit også å anta at vi bare scroller nedover i begynnelsen, og ikke ta hensyn til
+//        columns
+
+    // Start for now by assuming that we should continue filling items after the last item. In reality this is
+    // not true, since we might need to fill in items at the end of every row.
     while (modelIndex < model->count() && pos.y() <= fillTo.y()) {
-        while (modelIndex < model->count() && pos.x() <= fillTo.x() && columnAt(modelIndex) < q->columns()) {
+        qDebug() << "new line: pos:" << pos << columnAt(modelIndex) << q->columns();
+        while (modelIndex < model->count() && pos.x() <= fillTo.x()) {
 
             FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer));
             if (!item)
@@ -592,6 +603,11 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
             nextRowYPos = size.height() + rowSpacing;
 
             ++modelIndex;
+            if (columnAt(modelIndex) == 0) {
+                // new line
+                break;
+            }
+
             changed = true;
         }
 

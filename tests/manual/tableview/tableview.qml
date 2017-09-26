@@ -57,6 +57,9 @@ Window {
             clip: true
             anchors.fill: parent
 
+            columnSpacing: 10
+            rowSpacing: 10
+
             model: listModel
 
             // Setting columns and rows is not really needed, since the ListModel contains the info.
@@ -66,7 +69,7 @@ Window {
 
 
             delegate: Text {
-                text: "foobar"//column == 0 ? foo : bar // modelData
+                text: "(" + row + ", " + column + ")"
             }
 
 //            Text { font.pixelSize: 8; text: "QML ListModel (roles)" }
