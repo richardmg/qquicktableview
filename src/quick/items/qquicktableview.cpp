@@ -91,6 +91,7 @@ public:
     QPointF endPosition() const;
     QPointF lastPosition() const;
 
+    QPointF itemPosition(int row, int column) const;
     QPointF itemPosition(FxViewItem *item) const;
     QPointF itemEndPosition(FxViewItem *item) const;
     QSizeF itemSize(FxViewItem *item) const;
@@ -205,60 +206,74 @@ FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
 
 qreal QQuickTableViewPrivate::rowPos(int row) const
 {
-    // ### TODO: bottom-to-top
-    int visibleColumn = columnAt(visibleIndex);
-    FxViewItem *item = visibleItemAt(row, visibleColumn);
-    if (item)
-        return item->itemY();
+    // ### TODO: Support rows having different heights. Should this be stored in a separate list as well?
+    return row * rowHeight(row);
 
-    // estimate
-    int visibleRow = rowAt(visibleIndex);
-    if (row < visibleRow) {
-        int count = visibleRow - row;
-        FxViewItem *topLeft = visibleItemAt(visibleRow, visibleColumn);
-        return topLeft->itemY() - count * averageSize.height(); // ### spacing
-    } else if (row > visibleRow + visibleRows) {
-        int count = row - visibleRow - visibleRows;
-        FxViewItem *bottomLeft = visibleItemAt(visibleRow + visibleRows, visibleColumn);
-        return bottomLeft->itemY() + bottomLeft->itemHeight() + count * averageSize.height(); // ### spacing
-    }
-    return 0;
+//    // ### TODO: bottom-to-top
+//    int visibleColumn = columnAt(visibleIndex);
+//    FxViewItem *item = visibleItemAt(row, visibleColumn);
+//    if (item)
+//        return item->itemY();
+
+//    // estimate
+//    int visibleRow = rowAt(visibleIndex);
+//    if (row < visibleRow) {
+//        int count = visibleRow - row;
+//        FxViewItem *topLeft = visibleItemAt(visibleRow, visibleColumn);
+//        return topLeft->itemY() - count * averageSize.height(); // ### spacing
+//    } else if (row > visibleRow + visibleRows) {
+//        int count = row - visibleRow - visibleRows;
+//        FxViewItem *bottomLeft = visibleItemAt(visibleRow + visibleRows, visibleColumn);
+//        return bottomLeft->itemY() + bottomLeft->itemHeight() + count * averageSize.height(); // ### spacing
+//    }
+//    return 0;
 }
 
 qreal QQuickTableViewPrivate::rowHeight(int row) const
 {
-    int column = columnAt(visibleIndex);
-    FxViewItem *item = visibleItemAt(row, column);
-    return item ? item->itemHeight() : averageSize.height();
+    // ### TODO: Rather than search through visible items, I think this information should be
+    // specified more explixit, e.g in an separate list. Use a constant for now.
+    return 20;
+
+//    int column = columnAt(visibleIndex);
+//    FxViewItem *item = visibleItemAt(row, column);
+//    return item ? item->itemHeight() : averageSize.height();
 }
 
 qreal QQuickTableViewPrivate::columnPos(int column) const
 {
-    // ### TODO: right-to-left
-    int visibleRow = rowAt(visibleIndex);
-    FxViewItem *item = visibleItemAt(visibleRow, column);
-    if (item)
-        return item->itemX();
+    // ### TODO: Support columns having different widths. Should this be stored in a separate list as well?
+    return column * columnWidth(column);
 
-    // estimate
-    int visibleColumn = columnAt(visibleIndex);
-    if (column < visibleColumn) {
-        int count = visibleColumn - column;
-        FxViewItem *topLeft = visibleItemAt(visibleRow, visibleColumn);
-        return topLeft->itemX() - count * averageSize.width(); // ### TODO: spacing
-    } else if (column > visibleColumn + visibleColumns) {
-        int count = column - visibleColumn - visibleColumns;
-        FxViewItem *topRight = visibleItemAt(visibleRow, visibleColumn + visibleColumns);
-        return topRight->itemX() + topRight->itemWidth() + count * averageSize.width(); // ### TODO: spacing
-    }
-    return 0;
+//    // ### TODO: right-to-left
+//    int visibleRow = rowAt(visibleIndex);
+//    FxViewItem *item = visibleItemAt(visibleRow, column);
+//    if (item)
+//        return item->itemX();
+
+//    // estimate
+//    int visibleColumn = columnAt(visibleIndex);
+//    if (column < visibleColumn) {
+//        int count = visibleColumn - column;
+//        FxViewItem *topLeft = visibleItemAt(visibleRow, visibleColumn);
+//        return topLeft->itemX() - count * averageSize.width(); // ### TODO: spacing
+//    } else if (column > visibleColumn + visibleColumns) {
+//        int count = column - visibleColumn - visibleColumns;
+//        FxViewItem *topRight = visibleItemAt(visibleRow, visibleColumn + visibleColumns);
+//        return topRight->itemX() + topRight->itemWidth() + count * averageSize.width(); // ### TODO: spacing
+//    }
+//    return 0;
 }
 
 qreal QQuickTableViewPrivate::columnWidth(int column) const
 {
-    int row = rowAt(visibleIndex);
-    FxViewItem *item = visibleItemAt(row, column);
-    return item ? item->itemWidth() : averageSize.width();
+    // ### TODO: Rather than search through visible items, I think this information should be
+    // specified more explixit, e.g in an separate list. Use a constant for now.
+    return 120;
+
+//    int row = rowAt(visibleIndex);
+//    FxViewItem *item = visibleItemAt(row, column);
+//    return item ? item->itemWidth() : averageSize.width();
 }
 
 void QQuickTableViewPrivate::updateAverageSize()
@@ -348,6 +363,11 @@ QPointF QQuickTableViewPrivate::lastPosition() const
             pos.setY(rows * averageSize.height() + (rows - 1) * rowSpacing);
     }
     return pos;
+}
+
+QPointF QQuickTableViewPrivate::itemPosition(int row, int column) const
+{
+   return QPointF(columnPos(column), rowPos(row));
 }
 
 QPointF QQuickTableViewPrivate::itemPosition(FxViewItem *item) const
