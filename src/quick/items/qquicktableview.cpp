@@ -491,173 +491,57 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
 bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
                                              const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer)
 {
-    // For hver row, så må jeg finne lastVisibleItem (lastVisibleColumn?). Og når jeg fyller inn items, så
-    // må jeg bruke QModelIndex som argument til createItem (og ikke en int), siden den har row/col støtte.
-    // Og så må jeg finne lastVisibleRow, og gjenta det over for hver row.
-    // Dette betyr at visibleItems slik det er i dag ikke holder siden den er en-dimensjonal. Men siden jeg
-    // har row og col spesifisert, bør det la set gjøre å bygge to-dimensjonal logikk over QList slik at
-    // jeg ikke trenger å endre visibleItems. Men da må jeg først undersøke hvordan visibleItems
-    // brukes å superklassene, siden den sikkert kalkulerere informasjon ut i fra at listen er en-dimensjonal.
-    // Hvis ikke superklassene takler at listen er "to-dimensjonal", eller kanskje rettere sagt, at
-    // item i visibleItems kan ligge ved siden av hverandre, og ikke bare under hverandre, så kanskje det
-    // er bedre å gjøre visibleItems om til en to-dimensjonal liste med en gang, og heller skrive om
-    // logikken i superklassene. På en måte høres dette ut som den riktigste løsninen på sikt.
-
     if ((fillFrom - fillTo).isNull())
         return false;
 
     Q_Q(QQuickTableView);
-    QPointF itemEnd = visiblePos;
-    if (visibleItems.count()) {
-        visiblePos = itemPosition(*visibleItems.constBegin());
-        itemEnd = itemEndPosition(*(--visibleItems.constEnd())) + QPointF(columnSpacing, rowSpacing);
-    }
 
-    // findLastVisibleIndex tror jeg blir for enkel. Vi skal nå legge til flere items, og må dermed finne ut om
-    // vi må legge til flere kolonner, og i såfall fylle opp disse, og deretter det samme for rader.
-    // lastVisibleIndex må i så fall gi meg item-et som er nederst til høyre.
+    // Start by figuring out the first row visible. We need to go through each row
+    // and append items in newly revealed columns. I assume for now that the first
+    // item in visibleItems is already upper-left in the table.
+    // ### TODO: calculate firstVisibleRow/col directly from fillFrom? Or is it
+    // actually faster to just inspect the visible items?
 
-    // Jeg tror jeg må finne første synlige rad, slik at jeg kan begynne å fylle ut ledige kolonner
-    // allerede fra toppen.
+    int modelIndexOfItemTopLeft = visibleItems.isEmpty() ? 0 : visibleItems.at(0)->index;
+    int firstVisibleRow = rowAt(modelIndexOfItemTopLeft);
+    int firstVisibleColumn = columnAt(modelIndexOfItemTopLeft);
 
-    int firstVisibleIndex = findFirstVisibleIndex();
-    int modelIndex = findLastVisibleIndex();
-    qDebug() << "Begin refill!" << "first visible index:" << firstVisibleIndex << ", last:" << modelIndex << "model count:" << model->count();
+    qCDebug(lcItemViewDelegateLifecycle) << "refill:"
+                                         << "from:" << fillFrom
+                                         << "to:" << fillTo
+                                         << "first row:" << firstVisibleRow
+                                         << "first column:" << firstVisibleColumn;
 
-    // findLastVisibleIndex() returnerer dobbelt så mange som faktisk får plass.
-    // Det betyr at vi lager opp dobbelt så mange som vi trenger nedenfor!
-
-
-    bool haveValidItems = modelIndex >= 0;
-    modelIndex = modelIndex < 0 ? visibleIndex : modelIndex + 1;
-
-//    if (haveValidItems && (bufferFrom.x() > itemEnd.x() + averageSize.width() + columnSpacing
-//                           || bufferFrom.y() > itemEnd.y() + averageSize.height() + rowSpacing
-//                           || bufferTo.x() < visiblePos.x() - averageSize.width() - columnSpacing
-//                           || bufferTo.y() < visiblePos.y() - averageSize.height() - rowSpacing)) {
-
-//        qDebug() << "NEVER HERE!!!!!!";
-
-//        // We've jumped more than a page.  Estimate which items are now
-//        // visible and fill from there.
-//        int rows = (fillFrom.y() - itemEnd.y()) / (averageSize.height() + rowSpacing);
-//        int columns = (fillFrom.x() - itemEnd.x()) / (averageSize.width() + columnSpacing);
-//        int count = rows * q->columns() + columns;
-//        int newModelIdx = qBound(0, modelIndex + count, model->count());
-//        count = newModelIdx - modelIndex;
-//        if (count) {
-//            for (FxViewItem *item : qAsConst(visibleItems))
-//                releaseItem(item);
-//            visibleItems.clear();
-//            modelIndex = newModelIdx;
-//            visibleIndex = modelIndex;
-//            visiblePos = itemEnd + QPointF((averageSize.width() + columnSpacing) * columns,
-//                                           (averageSize.height() + rowSpacing) * rows);
-//            itemEnd = visiblePos;
-//        }
-//    }
-
-    bool changed = false;
-    
-    // Set start pos to be the end of last item. But if the last item was
-    // in the last column, we need to wrap to the next line
-    QPointF pos = columnAt(modelIndex) > 0 ? itemEnd : QPointF(0, itemEnd.y());
-
-    // It appears that we create to many items in the next loop. Figure out why!
-    qDebug() << "fill from:" << fillFrom.x() << fillFrom.y() << ", to:" << fillTo.x() << fillTo.y();
-
-    // Set the position of the new item to be the 'pos' that was calculated from the item before in the loop (which means that
-    // we don't have a transition at this point).
-    // This is needs to change. The new pos should be calculated somehow depending on row/col. Perhaps
-    // create a function that can give the position based on row/col.
-    // But currently we have a modelIndex that is an int (one dimentional). What we need is two indices, or the
-    // index of the bottom right item? And we cannot just fill, but need to fill both horizontally and vertically.
-    // Perhaps we should split it up in two functions, one for each direction? We then need a double while-loop, one that
-    // goes one row at a time, and an inner that fills out columns?
-
-    qreal nextRowYPos = 0;
-
-    // In the first couple of calls, fillTo will be (0, 0). Currently we then end up drawing one
-    // item since we test for <=. But I think the test is correct. But we should instead do:
-    // 1. perhaps avoid calling this function in the first place for empty fillTo?
-    // 2. Add logic so that figure out which position to start when continuing filling in
-    // subsequent calls.
-
-
-//    - Greit å jobbe med ListModel nå i begynnelsen. TableModel kan komme senere.
-//    - Trenger å finne en bedre måte å finne ut når vi trenger linjeskift. Det virker
-//        Det virker litt rotete sånn det er nå.
-//    - Greit også å anta at vi bare scroller nedover i begynnelsen, og ikke ta hensyn til
-//        columns
-
-    // Start for now by assuming that we should continue filling items after the last item. In reality this is
-    // not true, since we might need to fill in items at the end of every row.
-    while (modelIndex < model->count() && pos.y() <= fillTo.y()) {
-        qDebug() << "new line: pos:" << pos << columnAt(modelIndex) << q->columns();
-        while (modelIndex < model->count() && pos.x() <= fillTo.x()) {
-
+    for (int row = 0; row < 10; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            int modelIndex = indexAt(row, col);
             FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer));
             if (!item)
                 break;
 
-            qCDebug(lcItemViewDelegateLifecycle) << "refill: append item with"
-                                                 << "index:" << modelIndex
-                                                 << "row:" << rowAt(modelIndex)
-                                                 << "col:" << columnAt(modelIndex)
-                                                 << "pos:" << pos
-                                                 << "buffer:" << doBuffer
-                                                 << "item:" << (QObject *)(item->item);
-
-            if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) // pos will be set by layoutVisibleItems()
-                item->setPosition(pos, true);
+            QPointF itemPos = itemPosition(row, col);
+            if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true));
+                item->setPosition(itemPos, true);
 
             if (item->item)
                 QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
 
             visibleItems.append(item);
 
-            // Calculate the pos for the next item (if any). The y pos should
-            // be the same for all items in the same row!
-            QSizeF size = itemSize(item);
-            pos.rx() += size.width() + columnSpacing;
-            nextRowYPos = size.height() + rowSpacing;
-
-            ++modelIndex;
-            if (columnAt(modelIndex) == 0) {
-                // new line
-                break;
-            }
-
-            changed = true;
+            qCDebug(lcItemViewDelegateLifecycle) << "refill: append item with"
+                                                 << "index:" << modelIndex
+                                                 << "row:" << row
+                                                 << "col:" << col
+                                                 << "pos:" << itemPos
+                                                 << "buffer:" << doBuffer
+                                                 << "item:" << (QObject *)(item->item);
         }
 
-        // Prepare position for next row
-        pos = QPointF(0, pos.y() + nextRowYPos);
     }
 
-    qDebug() << "done!";
-
-    if (doBuffer && requestedIndex != -1) // already waiting for an item
-        return changed;
-
-    while (visibleIndex > 0 && visibleIndex <= model->count() && (visiblePos.x() > fillFrom.x() || visiblePos.y() > fillFrom.y())) {
-        FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(visibleIndex-1, doBuffer));
-        if (!item)
-            break;
-
-        qCDebug(lcItemViewDelegateLifecycle) << "refill: prepend item" << visibleIndex-1 << "current top pos" << visiblePos << "buffer" << doBuffer << "item" << (QObject *)(item->item);
-        --visibleIndex;
-        QSizeF size = itemSize(item);
-        visiblePos -= QPointF(size.width() + columnSpacing, size.height() + rowSpacing);
-        if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) // pos will be set by layoutVisibleItems()
-            item->setPosition(visiblePos, true);
-        if (item->item)
-            QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
-        visibleItems.prepend(item);
-        changed = true;
-    }
-
-    return changed;
+    // ### TODO: Handle items that should be prepended
+    // ### TODO: Don't always return true
+    return true;
 }
 
 bool QQuickTableViewPrivate::removeNonVisibleItems(const QPointF &bufferFrom, const QPointF &bufferTo)
