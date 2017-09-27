@@ -187,7 +187,7 @@ int QQuickTableViewPrivate::indexAt(int row, int column) const
     int columns = q->columns();
     if (row < 0 || row >= rows || column < 0 || column >= columns)
         return -1;
-    return row + column * rows;
+    return column + row * columns;
 }
 
 FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
