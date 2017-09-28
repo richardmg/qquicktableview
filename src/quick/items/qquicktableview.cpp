@@ -130,6 +130,7 @@ protected:
     bool addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
                          const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer);
     bool removeNonVisibleItems(const QPointF &bufferFrom, const QPointF &bufferTo);
+    void createAndPositionItem(int row, int col, bool doBuffer);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -251,6 +252,7 @@ qreal QQuickTableViewPrivate::rowHeight(int row) const
 {
     // ### TODO: Rather than search through visible items, I think this information should be
     // specified more explixit, e.g in an separate list. Use a constant for now.
+    Q_UNUSED(row);
     return 60;
 
 //    int column = columnAt(visibleIndex);
@@ -287,6 +289,7 @@ qreal QQuickTableViewPrivate::columnWidth(int column) const
 {
     // ### TODO: Rather than search through visible items, I think this information should be
     // specified more explixit, e.g in an separate list. Use a constant for now.
+    Q_UNUSED(column);
     return 120;
 
 //    int row = rowAt(visibleIndex);
@@ -506,13 +509,41 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
     return new FxTableItemSG(item, q, false);
 }
 
+void QQuickTableViewPrivate::createAndPositionItem(int row, int col, bool doBuffer)
+{
+    int modelIndex = indexAt(row, col);
+    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer));
+    if (!item)
+        return;
+
+    QPointF itemPos = itemPosition(row, col);
+    if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true))
+        item->setPosition(itemPos, true);
+
+    if (item->item)
+        QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
+
+    visibleItems.append(item);
+
+    qCDebug(lcItemViewDelegateLifecycle) << "index:" << modelIndex
+                                         << "row:" << row
+                                         << "col:" << col
+                                         << "pos:" << itemPos
+//                                                 << "buffer:" << doBuffer
+//                                                 << "item:" << (QObject *)(item->item)
+                                            ;
+}
+
 bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
                                              const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer)
 {
+    Q_UNUSED(bufferFrom);
+    Q_UNUSED(bufferTo);
+
     if ((fillFrom - fillTo).isNull())
         return false;
 
-    Q_Q(QQuickTableView);
+//    Q_Q(QQuickTableView);
 
     QPointF previousVisiblePos = visiblePos;
     int previousBottomRow = rowAtPos(previousVisiblePos.y() + height);
@@ -524,86 +555,30 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     int currentLeftColumn = columnAtPos(visiblePos.x());
     int currentRightColumn = columnAtPos(visiblePos.x() + width);
 
-
-//    int numberOfRowsInsideFillArea = 10;
-//    int modelIndexOfItemTopLeft = visibleItems.isEmpty() ? 0 : visibleItems.at(0)->index;
-//    int firstVisibleRow = fillFrom.y() / rowHeight(0);
-//    int lastVisibleRow = firstVisibleRow + numberOfRowsInsideFillArea;
-//    int firstVisibleColumn = columnAt(modelIndexOfItemTopLeft);
-
     if (visibleItems.isEmpty()) {
         // Fill the whole table
         previousBottomRow = -1;
         previousRightColumn = -1;
     }
 
-    qCDebug(lcItemViewDelegateLifecycle) << "refill:"
-//                                         << "from:" << fillFrom
-//                                         << "to:" << fillTo
+    qCDebug(lcItemViewDelegateLifecycle) << "from:" << fillFrom
+                                         << "to:" << fillTo
                                          << "previousBottomRow:" << previousBottomRow
                                          << "currentBottomRow:" << currentBottomRow
                                          << "previousRightColumn:" << previousRightColumn
-                                         << "currentRightColumn:" << currentRightColumn
-                                            ;
+                                         << "currentRightColumn:" << currentRightColumn;
 
     // Fill in missing columns for already existsing rows
-
     for (int row = currentTopRow; row <= previousBottomRow; ++row) {
         for (int col = previousRightColumn + 1; col <= currentRightColumn; ++col) {
-
-            int modelIndex = indexAt(row, col);
-            FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer));
-            if (!item)
-                break;
-
-            QPointF itemPos = itemPosition(row, col);
-            if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true));
-                item->setPosition(itemPos, true);
-
-            if (item->item)
-                QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
-
-            visibleItems.append(item);
-
-            qCDebug(lcItemViewDelegateLifecycle) << "refill: append to existing rows"
-                                                 << "index:" << modelIndex
-                                                 << "row:" << row
-                                                 << "col:" << col
-                                                 << "pos:" << itemPos
-//                                                 << "buffer:" << doBuffer
-//                                                 << "item:" << (QObject *)(item->item)
-                                                    ;
+            createAndPositionItem(row, col, doBuffer);
         }
-
     }
 
     // Fill in missing rows at the bottom
-
     for (int row = previousBottomRow + 1; row <= currentBottomRow; ++row) {
         for (int col = currentLeftColumn; col <= currentRightColumn; ++col) {
-
-            int modelIndex = indexAt(row, col);
-            FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer));
-            if (!item)
-                break;
-
-            QPointF itemPos = itemPosition(row, col);
-            if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true));
-                item->setPosition(itemPos, true);
-
-            if (item->item)
-                QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
-
-            visibleItems.append(item);
-
-            qCDebug(lcItemViewDelegateLifecycle) << "refill: append to new row at the bottom"
-                                                 << "index:" << modelIndex
-                                                 << "row:" << row
-                                                 << "col:" << col
-                                                 << "pos:" << itemPos
-//                                                 << "buffer:" << doBuffer
-//                                                 << "item:" << (QObject *)(item->item)
-                                                    ;
+            createAndPositionItem(row, col, doBuffer);
         }
 
     }
