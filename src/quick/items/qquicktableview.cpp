@@ -557,12 +557,14 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
 
     if (visibleItems.isEmpty()) {
         // Fill the whole table
-        previousBottomRow = -1;
-        previousRightColumn = -1;
+        previousBottomRow = currentTopRow - 1;
+        previousRightColumn = currentLeftColumn - 1;
     }
 
     qCDebug(lcItemViewDelegateLifecycle) << "from:" << fillFrom
                                          << "to:" << fillTo
+                                         << "bufferFrom:" << bufferFrom
+                                         << "bufferTo:" << bufferFrom
                                          << "previousBottomRow:" << previousBottomRow
                                          << "currentBottomRow:" << currentBottomRow
                                          << "previousRightColumn:" << previousRightColumn
