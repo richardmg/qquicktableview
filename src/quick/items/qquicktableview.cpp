@@ -73,8 +73,10 @@ public:
     bool isRightToLeft() const;
     bool isBottomToTop() const;
 
-    int rowAt(int index) const;
-    int columnAt(int index) const;
+    int rowAtIndex(int index) const;
+    int rowAtPos(qreal y) const;
+    int columnAtIndex(int index) const;
+    int columnAtPos(qreal x) const;
     int indexAt(int row, int column) const;
     FxViewItem *visibleItemAt(int row, int column) const;
 
@@ -152,7 +154,7 @@ bool QQuickTableViewPrivate::isBottomToTop() const
     return orientation == QQuickTableView::Vertical && verticalLayoutDirection == QQuickAbstractItemView::BottomToTop;
 }
 
-int QQuickTableViewPrivate::rowAt(int index) const
+int QQuickTableViewPrivate::rowAtIndex(int index) const
 {
     // Consider factoring this out to a common function, e.g inside QQmlDelegateModel, so that
     // VDMAbstractItemModelDataType can access it as well.
@@ -172,13 +174,29 @@ int QQuickTableViewPrivate::rowAt(int index) const
     return index / columns;
 }
 
-int QQuickTableViewPrivate::columnAt(int index) const
+int QQuickTableViewPrivate::rowAtPos(qreal y) const
+{
+    // ### TODO: for now we assume all rows has the same height. This will not be the case in the end.
+    // The strategy should either be to keep all the row heights in a separate array, or
+    // inspect the current visible items to make a guess.
+    return y / rowHeight(0);
+}
+
+int QQuickTableViewPrivate::columnAtIndex(int index) const
 {
     Q_Q(const QQuickTableView);
     int columns = q->columns();
     if (index < 0 || index >= itemCount || columns <= 0)
         return -1;
     return index % columns;
+}
+
+int QQuickTableViewPrivate::columnAtPos(qreal x) const
+{
+    // ### TODO: for now we assume all columns has the same width. This will not be the case in the end.
+    // The strategy should either be to keep all the column widths in a separate array, or
+    // inspect the current visible items to make a guess.
+    return x / columnWidth(0);
 }
 
 int QQuickTableViewPrivate::indexAt(int row, int column) const
@@ -193,8 +211,8 @@ int QQuickTableViewPrivate::indexAt(int row, int column) const
 
 FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
 {
-    int visibleRow = rowAt(visibleIndex);
-    int visibleColumn = columnAt(visibleIndex);
+    int visibleRow = rowAtIndex(visibleIndex);
+    int visibleColumn = columnAtIndex(visibleIndex);
     if (row < visibleRow || row >= visibleRow + visibleRows
             || column < visibleColumn || column >= visibleRow + visibleRows)
         return nullptr;
@@ -233,7 +251,7 @@ qreal QQuickTableViewPrivate::rowHeight(int row) const
 {
     // ### TODO: Rather than search through visible items, I think this information should be
     // specified more explixit, e.g in an separate list. Use a constant for now.
-    return 20;
+    return 60;
 
 //    int column = columnAt(visibleIndex);
 //    FxViewItem *item = visibleItemAt(row, column);
@@ -313,8 +331,8 @@ QPointF QQuickTableViewPrivate::originPosition() const
         FxViewItem *item = visibleItems.first();
         pos = QPointF(item->itemX(), item->itemY());
         if (visibleIndex > 0) {
-            pos.rx() -= columnAt(visibleIndex) * (averageSize.width() + rowSpacing);
-            pos.ry() -= rowAt(visibleIndex) * (averageSize.height() + columnSpacing);
+            pos.rx() -= columnAtIndex(visibleIndex) * (averageSize.width() + rowSpacing);
+            pos.ry() -= rowAtIndex(visibleIndex) * (averageSize.height() + columnSpacing);
         }
     }
     return pos;
@@ -348,10 +366,10 @@ QPointF QQuickTableViewPrivate::lastPosition() const
         }
         FxViewItem *item = *(--visibleItems.constEnd());
         pos = QPointF(item->itemX() + item->itemWidth(), item->itemY() + item->itemHeight());
-        int columns = columnAt(invisibleCount);
+        int columns = columnAtIndex(invisibleCount);
         if (columns > 0)
-            pos.rx() += columnAt(invisibleCount) * (averageSize.width() + columnSpacing);
-        int rows = rowAt(invisibleCount);
+            pos.rx() += columnAtIndex(invisibleCount) * (averageSize.width() + columnSpacing);
+        int rows = rowAtIndex(invisibleCount);
         if (rows > 0)
             pos.ry() += invisibleCount * (averageSize.height() + rowSpacing);
     } else if (model) {
@@ -496,18 +514,16 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
 
     Q_Q(QQuickTableView);
 
-    // Start by figuring out the first row visible. We need to go through each row
-    // and append items in newly revealed columns. I assume for now that the first
-    // item in visibleItems is already upper-left in the table.
-    // ### TODO: calculate firstVisibleRow/col directly from fillFrom? Or is it
-    // actually faster to just inspect the visible items?
-
     QPointF previousVisiblePos = visiblePos;
-    int previousBottomRow = (previousVisiblePos.y() + height) / rowHeight(0);
-    int fillFromRow = visibleItems.isEmpty() ? 0 : previousBottomRow;
+    int previousBottomRow = rowAtPos(previousVisiblePos.y() + height);
+    int previousRightColumn = columnAtPos(previousVisiblePos.x() + width);
 
     visiblePos = fillFrom;
-    int currentBottomRow = (visiblePos.y() + height) / rowHeight(0);
+    int currentTopRow = rowAtPos(visiblePos.y());
+    int currentBottomRow = rowAtPos(visiblePos.y() + height);
+    int currentLeftColumn = columnAtPos(visiblePos.x());
+    int currentRightColumn = columnAtPos(visiblePos.x() + width);
+
 
 //    int numberOfRowsInsideFillArea = 10;
 //    int modelIndexOfItemTopLeft = visibleItems.isEmpty() ? 0 : visibleItems.at(0)->index;
@@ -515,16 +531,26 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
 //    int lastVisibleRow = firstVisibleRow + numberOfRowsInsideFillArea;
 //    int firstVisibleColumn = columnAt(modelIndexOfItemTopLeft);
 
+    if (visibleItems.isEmpty()) {
+        // Fill the whole table
+        previousBottomRow = -1;
+        previousRightColumn = -1;
+    }
+
     qCDebug(lcItemViewDelegateLifecycle) << "refill:"
-                                         << "from:" << fillFrom
-                                         << "to:" << fillTo
-                                         << "currentBottomRow:" << currentBottomRow
+//                                         << "from:" << fillFrom
+//                                         << "to:" << fillTo
                                          << "previousBottomRow:" << previousBottomRow
-                                         << "fillFromRow:" << fillFromRow
+                                         << "currentBottomRow:" << currentBottomRow
+                                         << "previousRightColumn:" << previousRightColumn
+                                         << "currentRightColumn:" << currentRightColumn
                                             ;
 
-    for (int row = fillFromRow; row < currentBottomRow; ++row) {
-        for (int col = 0; col < 5; ++col) {
+    // Fill in missing columns for already existsing rows
+
+    for (int row = currentTopRow; row <= previousBottomRow; ++row) {
+        for (int col = previousRightColumn + 1; col <= currentRightColumn; ++col) {
+
             int modelIndex = indexAt(row, col);
             FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer));
             if (!item)
@@ -539,7 +565,38 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
 
             visibleItems.append(item);
 
-            qCDebug(lcItemViewDelegateLifecycle) << "refill: append item with"
+            qCDebug(lcItemViewDelegateLifecycle) << "refill: append to existing rows"
+                                                 << "index:" << modelIndex
+                                                 << "row:" << row
+                                                 << "col:" << col
+                                                 << "pos:" << itemPos
+//                                                 << "buffer:" << doBuffer
+//                                                 << "item:" << (QObject *)(item->item)
+                                                    ;
+        }
+
+    }
+
+    // Fill in missing rows at the bottom
+
+    for (int row = previousBottomRow + 1; row <= currentBottomRow; ++row) {
+        for (int col = currentLeftColumn; col <= currentRightColumn; ++col) {
+
+            int modelIndex = indexAt(row, col);
+            FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer));
+            if (!item)
+                break;
+
+            QPointF itemPos = itemPosition(row, col);
+            if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true));
+                item->setPosition(itemPos, true);
+
+            if (item->item)
+                QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
+
+            visibleItems.append(item);
+
+            qCDebug(lcItemViewDelegateLifecycle) << "refill: append to new row at the bottom"
                                                  << "index:" << modelIndex
                                                  << "row:" << row
                                                  << "col:" << col
