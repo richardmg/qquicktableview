@@ -476,8 +476,8 @@ bool QQuickTableViewPrivate::isContentFlowReversed() const
 
 void QQuickTableViewPrivate::visibleItemsChanged()
 {
-    if (!visibleItems.isEmpty())
-        visiblePos = itemPosition(*visibleItems.constBegin());
+//    if (!visibleItems.isEmpty())
+//        visiblePos = itemPosition(*visibleItems.constBegin());
     updateAverageSize();
 }
 
@@ -502,17 +502,28 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     // ### TODO: calculate firstVisibleRow/col directly from fillFrom? Or is it
     // actually faster to just inspect the visible items?
 
-    int modelIndexOfItemTopLeft = visibleItems.isEmpty() ? 0 : visibleItems.at(0)->index;
-    int firstVisibleRow = rowAt(modelIndexOfItemTopLeft);
-    int firstVisibleColumn = columnAt(modelIndexOfItemTopLeft);
+    QPointF previousVisiblePos = visiblePos;
+    int previousBottomRow = (previousVisiblePos.y() + height) / rowHeight(0);
+    int fillFromRow = visibleItems.isEmpty() ? 0 : previousBottomRow;
+
+    visiblePos = fillFrom;
+    int currentBottomRow = (visiblePos.y() + height) / rowHeight(0);
+
+//    int numberOfRowsInsideFillArea = 10;
+//    int modelIndexOfItemTopLeft = visibleItems.isEmpty() ? 0 : visibleItems.at(0)->index;
+//    int firstVisibleRow = fillFrom.y() / rowHeight(0);
+//    int lastVisibleRow = firstVisibleRow + numberOfRowsInsideFillArea;
+//    int firstVisibleColumn = columnAt(modelIndexOfItemTopLeft);
 
     qCDebug(lcItemViewDelegateLifecycle) << "refill:"
                                          << "from:" << fillFrom
                                          << "to:" << fillTo
-                                         << "first row:" << firstVisibleRow
-                                         << "first column:" << firstVisibleColumn;
+                                         << "currentBottomRow:" << currentBottomRow
+                                         << "previousBottomRow:" << previousBottomRow
+                                         << "fillFromRow:" << fillFromRow
+                                            ;
 
-    for (int row = 0; row < 10; ++row) {
+    for (int row = fillFromRow; row < currentBottomRow; ++row) {
         for (int col = 0; col < 5; ++col) {
             int modelIndex = indexAt(row, col);
             FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer));
@@ -533,8 +544,9 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                                  << "row:" << row
                                                  << "col:" << col
                                                  << "pos:" << itemPos
-                                                 << "buffer:" << doBuffer
-                                                 << "item:" << (QObject *)(item->item);
+//                                                 << "buffer:" << doBuffer
+//                                                 << "item:" << (QObject *)(item->item)
+                                                    ;
         }
 
     }
