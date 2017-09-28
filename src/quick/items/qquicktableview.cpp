@@ -226,7 +226,7 @@ FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
 qreal QQuickTableViewPrivate::rowPos(int row) const
 {
     // ### TODO: Support rows having different heights. Should this be stored in a separate list as well?
-    return row * rowHeight(row);
+    return row * (rowHeight(row) + rowSpacing);
 
 //    // ### TODO: bottom-to-top
 //    int visibleColumn = columnAt(visibleIndex);
@@ -263,7 +263,7 @@ qreal QQuickTableViewPrivate::rowHeight(int row) const
 qreal QQuickTableViewPrivate::columnPos(int column) const
 {
     // ### TODO: Support columns having different widths. Should this be stored in a separate list as well?
-    return column * columnWidth(column);
+    return column * (columnWidth(column) + columnSpacing);
 
 //    // ### TODO: right-to-left
 //    int visibleRow = rowAt(visibleIndex);
