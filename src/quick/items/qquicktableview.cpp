@@ -129,7 +129,8 @@ public:
 protected:
     bool addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
                          const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer);
-    bool removeNonVisibleItems(const QPointF &bufferFrom, const QPointF &bufferTo);
+    bool removeNonVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
+                               const QPointF &bufferFrom, const QPointF &bufferTo);
     void createAndPositionItem(int row, int col, bool doBuffer);
 };
 
@@ -467,7 +468,7 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     QPointF fillTo = to;
 
     bool added = addVisibleItems(fillFrom, fillTo, bufferFrom, bufferTo, false);
-    bool removed = removeNonVisibleItems(bufferFrom, bufferTo);
+    bool removed = removeNonVisibleItems(fillFrom, fillTo, bufferFrom, bufferTo);
 
 //    if (requestedIndex == -1 && buffer && bufferMode != NoBuffer) {
 //        if (added) {
@@ -529,8 +530,8 @@ void QQuickTableViewPrivate::createAndPositionItem(int row, int col, bool doBuff
                                          << "row:" << row
                                          << "col:" << col
                                          << "pos:" << itemPos
-//                                                 << "buffer:" << doBuffer
-//                                                 << "item:" << (QObject *)(item->item)
+                                         << "buffer:" << doBuffer
+                                         << "item:" << (QObject *)(item->item)
                                             ;
 }
 
@@ -543,17 +544,35 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     if ((fillFrom - fillTo).isNull())
         return false;
 
+    if (true) {
+        // Remove all items each time for now
+        for (FxViewItem *item : visibleItems)
+            releaseItem(item);
+
+        releaseItem(currentItem);
+        currentItem = 0;
+        visibleItems.clear();
+    }
+
 //    Q_Q(QQuickTableView);
 
+    // For simplicity, we assume that we always specify the number of rows and columns directly
+    // in TableView. But we should also allow those properties to be unspecified, and if so, get
+    // the counts from the model instead. In addition, the counts might change inbetween two calls
+    // to this function, which might cause previousBottomRow and previousRightColumn to end up wrong!
+    // So we should probably store the last values used to be certain.
+    int rowCount = rows;
+    int columnCount = columns;
+
     QPointF previousVisiblePos = visiblePos;
-    int previousBottomRow = rowAtPos(previousVisiblePos.y() + height);
-    int previousRightColumn = columnAtPos(previousVisiblePos.x() + width);
+    int previousBottomRow = qMin(rowAtPos(previousVisiblePos.y() + height), rowCount - 1);
+    int previousRightColumn = qMin(columnAtPos(previousVisiblePos.x() + width), columnCount - 1);
 
     visiblePos = fillFrom;
     int currentTopRow = rowAtPos(visiblePos.y());
-    int currentBottomRow = rowAtPos(visiblePos.y() + height);
+    int currentBottomRow = qMin(rowAtPos(visiblePos.y() + height), rowCount - 1);
     int currentLeftColumn = columnAtPos(visiblePos.x());
-    int currentRightColumn = columnAtPos(visiblePos.x() + width);
+    int currentRightColumn = qMin(columnAtPos(visiblePos.x() + width), columnCount - 1);
 
     if (visibleItems.isEmpty()) {
         // Fill the whole table
@@ -561,13 +580,13 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
         previousRightColumn = currentLeftColumn - 1;
     }
 
-    qCDebug(lcItemViewDelegateLifecycle) << "from:" << fillFrom
+    qCDebug(lcItemViewDelegateLifecycle) << "\n\tfrom:" << fillFrom
                                          << "to:" << fillTo
-                                         << "bufferFrom:" << bufferFrom
+                                         << "\n\tbufferFrom:" << bufferFrom
                                          << "bufferTo:" << bufferFrom
-                                         << "previousBottomRow:" << previousBottomRow
+                                         << "\n\tpreviousBottomRow:" << previousBottomRow
                                          << "currentBottomRow:" << currentBottomRow
-                                         << "previousRightColumn:" << previousRightColumn
+                                         << "\n\tpreviousRightColumn:" << previousRightColumn
                                          << "currentRightColumn:" << currentRightColumn;
 
     // Fill in missing columns for already existsing rows
@@ -582,15 +601,19 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
         for (int col = currentLeftColumn; col <= currentRightColumn; ++col) {
             createAndPositionItem(row, col, doBuffer);
         }
-
     }
+
+    // Next:
+    // - fill top and left.
+    // - don't refill a cell if the item for that cell has already been created
 
     // ### TODO: Handle items that should be prepended
     // ### TODO: Don't always return true
     return true;
 }
 
-bool QQuickTableViewPrivate::removeNonVisibleItems(const QPointF &bufferFrom, const QPointF &bufferTo)
+bool QQuickTableViewPrivate::removeNonVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
+                                                   const QPointF &bufferFrom, const QPointF &bufferTo)
 {
     Q_UNUSED(bufferFrom);
     Q_UNUSED(bufferTo);

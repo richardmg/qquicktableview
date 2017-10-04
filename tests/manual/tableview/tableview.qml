@@ -67,6 +67,7 @@ Window {
             // But it should probably be the oposite, so that we always use columns and rows?
             // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
             columns: 8
+            rows: 50
 
 
             delegate: Rectangle {
@@ -78,7 +79,7 @@ Window {
                 Text {
                     x: 2
                     y: 2
-                    text: "[" + row + ", " + column + "]\nIndex: " + index + "\nData: " + (foo ? foo : "<empty>")
+                    text: "[" + model.row + ", " + column + "]\nIndex: " + index + "\nData: " + (foo ? foo : "<empty>")
                 }
             }
 
