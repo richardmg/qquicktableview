@@ -126,7 +126,7 @@ public:
     QPointF visiblePos;
     QSizeF averageSize;
 
-    bool debug_removeAllItems();
+    void debug_removeAllItems();
 
 protected:
     bool addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
@@ -495,7 +495,7 @@ void QQuickTableViewPrivate::createAndPositionItem(int row, int col, bool doBuff
                                             ;
 }
 
-bool QQuickTableViewPrivate::debug_removeAllItems()
+void QQuickTableViewPrivate::debug_removeAllItems()
 {
     for (FxViewItem *item : visibleItems)
         releaseItem(item);

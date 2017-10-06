@@ -57,8 +57,7 @@ Window {
             clip: true
             anchors.fill: parent
 
-            columnSpacing: 10
-            rowSpacing: 10
+            //contentHeight: 1000;
 
             cacheBuffer: 0
             model: listModel
@@ -68,6 +67,9 @@ Window {
             // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
             columns: 8
             rows: 50
+
+            columnSpacing: 10
+            rowSpacing: 10
 
 
             delegate: Rectangle {
