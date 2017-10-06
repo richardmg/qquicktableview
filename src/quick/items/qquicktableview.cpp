@@ -181,7 +181,7 @@ int QQuickTableViewPrivate::rowAtPos(qreal y) const
     // ### TODO: for now we assume all rows has the same height. This will not be the case in the end.
     // The strategy should either be to keep all the row heights in a separate array, or
     // inspect the current visible items to make a guess.
-    return y / rowHeight(0);
+    return y / (rowHeight(0) + rowSpacing);
 }
 
 int QQuickTableViewPrivate::columnAtIndex(int index) const
@@ -198,7 +198,7 @@ int QQuickTableViewPrivate::columnAtPos(qreal x) const
     // ### TODO: for now we assume all columns has the same width. This will not be the case in the end.
     // The strategy should either be to keep all the column widths in a separate array, or
     // inspect the current visible items to make a guess.
-    return x / columnWidth(0);
+    return x / (columnWidth(0) + columnSpacing);
 }
 
 int QQuickTableViewPrivate::indexAt(int row, int column) const
