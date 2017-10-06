@@ -330,16 +330,7 @@ QPointF QQuickTableViewPrivate::startPosition() const
 
 QPointF QQuickTableViewPrivate::originPosition() const
 {
-    QPointF pos;
-    if (!visibleItems.isEmpty()) {
-        FxViewItem *item = visibleItems.first();
-        pos = QPointF(item->itemX(), item->itemY());
-        if (visibleIndex > 0) {
-            pos.rx() -= columnAtIndex(visibleIndex) * (averageSize.width() + rowSpacing);
-            pos.ry() -= rowAtIndex(visibleIndex) * (averageSize.height() + columnSpacing);
-        }
-    }
-    return pos;
+    return QPointF(0, 0);
 }
 
 QPointF QQuickTableViewPrivate::endPosition() const
@@ -349,42 +340,9 @@ QPointF QQuickTableViewPrivate::endPosition() const
 
 QPointF QQuickTableViewPrivate::lastPosition() const
 {
-    Q_Q(const QQuickTableView);
-    QPointF pos;
-    if (!visibleItems.isEmpty()) {
-        int invisibleCount = INT_MIN;
-        int delayRemovedCount = 0;
-        for (int i = visibleItems.count()-1; i >= 0; --i) {
-            FxViewItem *item = visibleItems.at(i);
-            if (item->index != -1) {
-                // Find the invisible count after the last visible item with known index
-                invisibleCount = model->count() - (item->index + 1 + delayRemovedCount);
-                break;
-            } else if (item->attached->delayRemove()) {
-                ++delayRemovedCount;
-            }
-        }
-        if (invisibleCount == INT_MIN) {
-            // All visible items are in delayRemove state
-            invisibleCount = model->count();
-        }
-        FxViewItem *item = *(--visibleItems.constEnd());
-        pos = QPointF(item->itemX() + item->itemWidth(), item->itemY() + item->itemHeight());
-        int columns = columnAtIndex(invisibleCount);
-        if (columns > 0)
-            pos.rx() += columnAtIndex(invisibleCount) * (averageSize.width() + columnSpacing);
-        int rows = rowAtIndex(invisibleCount);
-        if (rows > 0)
-            pos.ry() += invisibleCount * (averageSize.height() + rowSpacing);
-    } else if (model) {
-        int columns = q->columns();
-        if (columns > 0)
-            pos.setX(columns * averageSize.width() + (columns - 1) * columnSpacing);
-        int rows = q->rows();
-        if (rows > 0)
-            pos.setY(rows * averageSize.height() + (rows - 1) * rowSpacing);
-    }
-    return pos;
+    int lastRow = rows - 1;
+    int lastColumn = columns - 1;
+    return QPointF(columnPos(lastColumn) + columnWidth(lastColumn), rowPos(lastRow) + rowHeight(lastRow));
 }
 
 QPointF QQuickTableViewPrivate::itemPosition(int row, int column) const
