@@ -477,9 +477,8 @@ void QQuickTableViewPrivate::createAndPositionItem(int row, int col, bool doBuff
     if (!item)
         return;
 
-    QPointF itemPos = itemPosition(row, col);
     if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true))
-        item->setPosition(itemPos, true);
+        item->setPosition(itemPosition(row, col), true);
 
     if (item->item)
         QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
