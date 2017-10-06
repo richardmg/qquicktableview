@@ -513,18 +513,6 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     if ((fillFrom - fillTo).isNull())
         return false;
 
-    if (true) {
-        // Remove all items each time for now
-        for (FxViewItem *item : visibleItems)
-            releaseItem(item);
-
-        releaseItem(currentItem);
-        currentItem = 0;
-        visibleItems.clear();
-    }
-
-//    Q_Q(QQuickTableView);
-
     // For simplicity, we assume that we always specify the number of rows and columns directly
     // in TableView. But we should also allow those properties to be unspecified, and if so, get
     // the counts from the model instead. In addition, the counts might change inbetween two calls
