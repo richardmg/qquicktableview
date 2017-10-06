@@ -554,10 +554,13 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                          << "to:" << fillTo
                                          << "\n\tbufferFrom:" << bufferFrom
                                          << "bufferTo:" << bufferFrom
-                                         << "\n\tpreviousBottomRow:" << previousBottomRow
+                                         << "\n\tcurrentTopRow:" << currentTopRow
                                          << "currentBottomRow:" << currentBottomRow
-                                         << "\n\tpreviousRightColumn:" << previousRightColumn
-                                         << "currentRightColumn:" << currentRightColumn;
+                                         << "\n\tcurrentLeftColumn:" << currentLeftColumn
+                                         << "currentRightColumn:" << currentRightColumn
+                                         << "\n\tpreviousBottomRow:" << previousBottomRow
+                                         << "previousRightColumn:" << previousRightColumn
+                                            ;
 
     // Fill in missing columns for already existsing rows
     for (int row = currentTopRow; row <= previousBottomRow; ++row) {
