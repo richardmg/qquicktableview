@@ -521,14 +521,9 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     int rowCount = rows;
     int columnCount = columns;
 
-    QPointF previousVisiblePos = visiblePos;
-    int previousLeftColumn = qMin(columnAtPos(previousVisiblePos.x()), columnCount - 1);
-    int previousRightColumn = qMin(columnAtPos(previousVisiblePos.x() + width), columnCount - 1);
-    int previousTopRow = qMin(rowAtPos(previousVisiblePos.y()), rowCount - 1);
-    int previousBottomRow = qMin(rowAtPos(previousVisiblePos.y() + height), rowCount - 1);
-
     // Update visible pos. Note: previousVisiblePos should be a class variable. And
     // visiblePos should probably be set elsewhere than inside this function.
+    QPointF previousVisiblePos = visiblePos;
     visiblePos = fillFrom;
 
     int currentTopRow = rowAtPos(visiblePos.y());
@@ -538,9 +533,23 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
 
     if (visibleItems.isEmpty()) {
         // Fill the whole table
-        previousBottomRow = currentTopRow - 1;
-        previousRightColumn = currentLeftColumn - 1;
+        qCDebug(lcItemViewDelegateLifecycle) << "add all visible items:";
+        for (int row = currentTopRow; row <= currentBottomRow; ++row) {
+            for (int col = currentLeftColumn; col <= currentRightColumn; ++col)
+                createAndPositionItem(row, col, doBuffer);
+        }
+        return true;
     }
+
+    int previousLeftColumn = qMin(columnAtPos(previousVisiblePos.x()), columnCount - 1);
+    int previousRightColumn = qMin(columnAtPos(previousVisiblePos.x() + width), columnCount - 1);
+    int previousTopRow = qMin(rowAtPos(previousVisiblePos.y()), rowCount - 1);
+    int previousBottomRow = qMin(rowAtPos(previousVisiblePos.y() + height), rowCount - 1);
+
+    int previousTopRowStillVisible = qBound(currentTopRow, previousTopRow, currentBottomRow);
+    int previousBottomRowStillVisible = qBound(currentTopRow, previousBottomRow, currentBottomRow);
+    int previousLeftColumnStillVisible = qBound(currentLeftColumn, previousLeftColumn, currentRightColumn);
+    int previousRightColumnStillVisible = qBound(currentLeftColumn, previousRightColumn, currentRightColumn);
 
     qCDebug(lcItemViewDelegateLifecycle) << "\n\tfrom:" << fillFrom
                                          << "to:" << fillTo
@@ -557,10 +566,10 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                             ;
 
     // Fill in missing columns on left and right for already visible rows
-    for (int row = currentTopRow; row <= previousBottomRow; ++row) {
-        for (int col = currentLeftColumn; col < previousLeftColumn; ++col)
+    for (int row = previousTopRowStillVisible; row <= previousBottomRowStillVisible; ++row) {
+        for (int col = currentLeftColumn; col < previousLeftColumnStillVisible; ++col)
             createAndPositionItem(row, col, doBuffer);
-        for (int col = previousRightColumn + 1; col <= currentRightColumn; ++col)
+        for (int col = previousRightColumnStillVisible + 1; col <= currentRightColumn; ++col)
             createAndPositionItem(row, col, doBuffer);
     }
 
