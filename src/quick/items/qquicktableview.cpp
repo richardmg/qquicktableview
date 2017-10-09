@@ -577,6 +577,9 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     }
 
     // Next:
+    // - Remove hidden items
+    // - Support cachebuffer
+    // - Check why items are not refilled before full flick stop
     // - Check what happens if we jump more than a full content view
     // - Validate that we never end up creating FXViewItem for already visible items
 
