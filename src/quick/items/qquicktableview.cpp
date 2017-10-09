@@ -134,6 +134,7 @@ protected:
     bool removeNonVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
                                const QPointF &bufferFrom, const QPointF &bufferTo);
     void createAndPositionItem(int row, int col, bool doBuffer);
+    void createAndPositionItems(int fromColumn, int toColumn, int fromRow, int toRow, bool doBuffer);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -494,6 +495,15 @@ void QQuickTableViewPrivate::createAndPositionItem(int row, int col, bool doBuff
                                             ;
 }
 
+void QQuickTableViewPrivate::createAndPositionItems(int fromColumn, int toColumn, int fromRow, int toRow, bool doBuffer)
+{
+    // Create and position all items in the table section described by the arguments
+    for (int row = fromRow; row <= toRow; ++row) {
+        for (int col = fromColumn; col <= toColumn; ++col)
+            createAndPositionItem(row, col, doBuffer);
+    }
+}
+
 void QQuickTableViewPrivate::debug_removeAllItems()
 {
     for (FxViewItem *item : visibleItems)
@@ -533,11 +543,8 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
 
     if (visibleItems.isEmpty()) {
         // Fill the whole table
-        qCDebug(lcItemViewDelegateLifecycle) << "add all visible items:";
-        for (int row = currentTopRow; row <= currentBottomRow; ++row) {
-            for (int col = currentLeftColumn; col <= currentRightColumn; ++col)
-                createAndPositionItem(row, col, doBuffer);
-        }
+        qCDebug(lcItemViewDelegateLifecycle) << "add all visible items that fits within the content view:";
+        createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, currentBottomRow, doBuffer);
         return true;
     }
 
@@ -565,25 +572,14 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                          << "previousBottomRow:" << previousBottomRow
                                             ;
 
-    // Fill in missing columns on left and right for already visible rows
-    for (int row = previousTopRowStillVisible; row <= previousBottomRowStillVisible; ++row) {
-        for (int col = currentLeftColumn; col < previousLeftColumnStillVisible; ++col)
-            createAndPositionItem(row, col, doBuffer);
-        for (int col = previousRightColumnStillVisible + 1; col <= currentRightColumn; ++col)
-            createAndPositionItem(row, col, doBuffer);
-    }
-
-    // Fill in missing top rows
-    for (int row = currentTopRow; row < previousTopRow; ++row) {
-        for (int col = currentLeftColumn; col <= currentRightColumn; ++col)
-            createAndPositionItem(row, col, doBuffer);
-    }
-
-    // Fill in missing bottom rows
-    for (int row = previousBottomRow + 1; row <= currentBottomRow; ++row) {
-        for (int col = currentLeftColumn; col <= currentRightColumn; ++col)
-            createAndPositionItem(row, col, doBuffer);
-    }
+    // Add new items to the left of already existing items
+    createAndPositionItems(currentLeftColumn, previousLeftColumnStillVisible - 1, previousTopRowStillVisible, previousBottomRowStillVisible, doBuffer);
+    // Add new items to the right of already existing items
+    createAndPositionItems(previousRightColumnStillVisible + 1, currentRightColumn, previousTopRowStillVisible, previousBottomRowStillVisible, doBuffer);
+    // Add new items above existing items, effectively creating new rows of items at the top
+    createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, previousTopRowStillVisible, doBuffer);
+    // Add new items below existing items, effectively creating new rows of items at the bottom
+    createAndPositionItems(currentLeftColumn, currentRightColumn, previousBottomRowStillVisible + 1, currentBottomRow, doBuffer);
 
     // Next:
     // - Remove hidden items
