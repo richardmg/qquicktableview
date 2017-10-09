@@ -522,10 +522,15 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     int columnCount = columns;
 
     QPointF previousVisiblePos = visiblePos;
-    int previousBottomRow = qMin(rowAtPos(previousVisiblePos.y() + height), rowCount - 1);
+    int previousLeftColumn = qMin(columnAtPos(previousVisiblePos.x()), columnCount - 1);
     int previousRightColumn = qMin(columnAtPos(previousVisiblePos.x() + width), columnCount - 1);
+    int previousTopRow = qMin(rowAtPos(previousVisiblePos.y()), rowCount - 1);
+    int previousBottomRow = qMin(rowAtPos(previousVisiblePos.y() + height), rowCount - 1);
 
+    // Update visible pos. Note: previousVisiblePos should be a class variable. And
+    // visiblePos should probably be set elsewhere than inside this function.
     visiblePos = fillFrom;
+
     int currentTopRow = rowAtPos(visiblePos.y());
     int currentBottomRow = qMin(rowAtPos(visiblePos.y() + height), rowCount - 1);
     int currentLeftColumn = columnAtPos(visiblePos.x());
@@ -545,27 +550,35 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                          << "currentBottomRow:" << currentBottomRow
                                          << "\n\tcurrentLeftColumn:" << currentLeftColumn
                                          << "currentRightColumn:" << currentRightColumn
-                                         << "\n\tpreviousBottomRow:" << previousBottomRow
+                                         << "\n\tpreviousLeftColumn:" << previousLeftColumn
                                          << "previousRightColumn:" << previousRightColumn
+                                         << "\n\tpreviousTopRow:" << previousTopRow
+                                         << "previousBottomRow:" << previousBottomRow
                                             ;
 
-    // Fill in missing columns for already existsing rows
+    // Fill in missing columns on left and right for already visible rows
     for (int row = currentTopRow; row <= previousBottomRow; ++row) {
-        for (int col = previousRightColumn + 1; col <= currentRightColumn; ++col) {
+        for (int col = currentLeftColumn; col < previousLeftColumn; ++col)
             createAndPositionItem(row, col, doBuffer);
-        }
+        for (int col = previousRightColumn + 1; col <= currentRightColumn; ++col)
+            createAndPositionItem(row, col, doBuffer);
     }
 
-    // Fill in missing rows at the bottom
-    for (int row = previousBottomRow + 1; row <= currentBottomRow; ++row) {
-        for (int col = currentLeftColumn; col <= currentRightColumn; ++col) {
+    // Fill in missing top rows
+    for (int row = currentTopRow; row < previousTopRow; ++row) {
+        for (int col = currentLeftColumn; col <= currentRightColumn; ++col)
             createAndPositionItem(row, col, doBuffer);
-        }
+    }
+
+    // Fill in missing bottom rows
+    for (int row = previousBottomRow + 1; row <= currentBottomRow; ++row) {
+        for (int col = currentLeftColumn; col <= currentRightColumn; ++col)
+            createAndPositionItem(row, col, doBuffer);
     }
 
     // Next:
-    // - fill top and left.
-    // - don't refill a cell if the item for that cell has already been created
+    // - Check what happens if we jump more than a full content view
+    // - Validate that we never end up creating FXViewItem for already visible items
 
     // ### TODO: Handle items that should be prepended
     // ### TODO: Don't always return true
