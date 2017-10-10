@@ -135,6 +135,7 @@ protected:
                                const QPointF &bufferFrom, const QPointF &bufferTo);
     void createAndPositionItem(int row, int col, bool doBuffer);
     void createAndPositionItems(int fromColumn, int toColumn, int fromRow, int toRow, bool doBuffer);
+    void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -504,6 +505,23 @@ void QQuickTableViewPrivate::createAndPositionItems(int fromColumn, int toColumn
     }
 }
 
+void QQuickTableViewPrivate::releaseItems(int fromColumn, int toColumn, int fromRow, int toRow)
+{
+    for (int row = fromRow; row <= toRow; ++row) {
+        for (int col = fromColumn; col <= toColumn; ++col) {
+            FxViewItem *item = visibleItemAt(row, col);
+
+            qCDebug(lcItemViewDelegateLifecycle) << "row:" << row
+                                                 << "col:" << col
+                                                 << "item:" << item
+                                                    ;
+
+            visibleItems.removeOne(item);
+            releaseItem(item);
+        }
+    }
+}
+
 void QQuickTableViewPrivate::debug_removeAllItems()
 {
     for (FxViewItem *item : visibleItems)
@@ -571,6 +589,9 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                          << "\n\tpreviousTopRow:" << previousTopRow
                                          << "previousBottomRow:" << previousBottomRow
                                             ;
+
+    // Remove items to the left
+    releaseItems(previousLeftColumn, currentLeftColumn - 1, previousTopRow, previousBottomRow);
 
     // Add new items to the left of already existing items
     createAndPositionItems(currentLeftColumn, previousLeftColumnStillVisible - 1, previousTopRowStillVisible, previousBottomRowStillVisible, doBuffer);
