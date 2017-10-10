@@ -217,15 +217,13 @@ int QQuickTableViewPrivate::indexAt(int row, int column) const
 
 FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
 {
-    int visibleRow = rowAtIndex(visibleIndex);
-    int visibleColumn = columnAtIndex(visibleIndex);
-    if (row < visibleRow || row >= visibleRow + visibleRows
-            || column < visibleColumn || column >= visibleRow + visibleRows)
-        return nullptr;
+    for (FxViewItem *item : visibleItems) {
+        int index = item->index;
+        if (rowAtIndex(index) == row && columnAtIndex(index) == column)
+            return item;
+    }
 
-    int r = row - visibleRow;
-    int c = column - visibleColumn;
-    return visibleItems.value(r + c * visibleRows);
+    return nullptr;
 }
 
 qreal QQuickTableViewPrivate::rowPos(int row) const
