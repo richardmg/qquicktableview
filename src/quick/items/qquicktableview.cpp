@@ -588,20 +588,25 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                          << "previousBottomRow:" << previousBottomRow
                                             ;
 
-    // Remove items to the left
+    // Remove items outside on the left
     releaseItems(previousLeftColumn, currentLeftColumn - 1, previousTopRow, previousBottomRow);
+    // Remove items outside on the right
+    releaseItems(currentRightColumn + 1, previousRightColumn, previousTopRow, previousBottomRow);
+    // Remove items outside above
+    releaseItems(previousLeftColumn, previousRightColumn, previousTopRow, currentTopRow - 1);
+    // Remove items outside below
+    releaseItems(previousLeftColumn, previousRightColumn, currentBottomRow + 1, previousBottomRow);
 
     // Add new items to the left of already existing items
     createAndPositionItems(currentLeftColumn, previousLeftColumnStillVisible - 1, previousTopRowStillVisible, previousBottomRowStillVisible, doBuffer);
     // Add new items to the right of already existing items
     createAndPositionItems(previousRightColumnStillVisible + 1, currentRightColumn, previousTopRowStillVisible, previousBottomRowStillVisible, doBuffer);
     // Add new items above existing items, effectively creating new rows of items at the top
-    createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, previousTopRowStillVisible, doBuffer);
+    createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, previousTopRowStillVisible - 1, doBuffer);
     // Add new items below existing items, effectively creating new rows of items at the bottom
     createAndPositionItems(currentLeftColumn, currentRightColumn, previousBottomRowStillVisible + 1, currentBottomRow, doBuffer);
 
     // Next:
-    // - Remove hidden items
     // - Support cachebuffer
     // - Handle out-of-bounds cases (when releasing flick at overshoot)
     // - Check why items are not refilled before full flick stop
