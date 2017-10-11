@@ -623,14 +623,6 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
         }
     }
 
-    // Next:
-    // - Figure out why we don't recreate items on the fly _while_ flicking
-    // - Support cachebuffer
-    // - Handle out-of-bounds cases (when releasing flick at overshoot)
-    // - Check why items are not refilled before full flick stop
-    // - Check what happens if we jump more than a full content view
-    // - Validate that we never end up creating FXViewItem for already visible items
-
     // ### TODO: Don't always return true
     return true;
 }
