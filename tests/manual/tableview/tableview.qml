@@ -48,9 +48,9 @@ Window {
     }
 
     Rectangle {
-        width: parent.width / 2
-        height: parent.height / 2
-        color: "lightgray"
+        anchors.fill: parent
+        anchors.margins: 10
+        color: "darkgray"
 
         TableView {
             id: listModelView
@@ -65,27 +65,23 @@ Window {
             // Setting columns and rows is not really needed, since the ListModel contains the info.
             // But it should probably be the oposite, so that we always use columns and rows?
             // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
-            columns: 8
-            rows: 50
+            columns: 200
+            rows: 500
 
-            columnSpacing: 10
-            rowSpacing: 10
-
+            columnSpacing: 1
+            rowSpacing: 1
 
             delegate: Rectangle {
                 width: 120
                 height: 60
-                border.width: 1
-                border.color: "black"
-                color: "lightblue"
+                color: "white"
                 Text {
                     x: 2
                     y: 2
-                    text: "[" + model.row + ", " + column + "]\nIndex: " + index + "\nData: " + (foo ? foo : "<empty>")
+                    text: "[" + model.row + ", " + column + "]\nIndex: " + index + (foo ? "\nModel: " + foo : "")
                 }
             }
 
-//            Text { font.pixelSize: 8; text: "QML ListModel (roles)" }
             Text {
                 font.pixelSize: 8
                 anchors.bottom: parent.bottom
