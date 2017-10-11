@@ -569,10 +569,11 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     int previousTopRow = qMin(rowAtPos(previousVisiblePos.y()), rowCount - 1);
     int previousBottomRow = qMin(rowAtPos(previousVisiblePos.y() + height), rowCount - 1);
 
-    int previousTopRowStillVisible = qBound(currentTopRow, previousTopRow, currentBottomRow);
-    int previousBottomRowStillVisible = qBound(currentTopRow, previousBottomRow, currentBottomRow);
-    int previousLeftColumnStillVisible = qBound(currentLeftColumn, previousLeftColumn, currentRightColumn);
-    int previousRightColumnStillVisible = qBound(currentLeftColumn, previousRightColumn, currentRightColumn);
+    // Check if the old rows and columns overlap on any of the new rows and columns we are about to create
+    bool overlapsAbove = currentTopRow <= previousBottomRow && previousBottomRow <= currentBottomRow;
+    bool overlapsBelow = currentTopRow <= previousTopRow && previousTopRow <= currentBottomRow;
+    bool overlapsLeft = currentLeftColumn <= previousRightColumn && previousRightColumn <= currentRightColumn;
+    bool overlapsRight = currentLeftColumn <= previousLeftColumn && previousLeftColumn <= currentRightColumn;
 
     qCDebug(lcItemViewDelegateLifecycle) << "\n\tfrom:" << fillFrom
                                          << "to:" << fillTo
@@ -588,32 +589,48 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                          << "previousBottomRow:" << previousBottomRow
                                             ;
 
-    // Remove items outside on the left
-    releaseItems(previousLeftColumn, currentLeftColumn - 1, previousTopRow, previousBottomRow);
-    // Remove items outside on the right
-    releaseItems(currentRightColumn + 1, previousRightColumn, previousTopRow, previousBottomRow);
-    // Remove items outside above
-    releaseItems(previousLeftColumn, previousRightColumn, previousTopRow, currentTopRow - 1);
-    // Remove items outside below
-    releaseItems(previousLeftColumn, previousRightColumn, currentBottomRow + 1, previousBottomRow);
+    if (!((overlapsLeft || overlapsRight) && (overlapsAbove || overlapsBelow))) {
+        // No intersection, recreate all rows and columns
+        qCDebug(lcItemViewDelegateLifecycle) << "recreate all items";
+        releaseItems(previousLeftColumn, previousRightColumn, previousTopRow, previousBottomRow);
+        createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, currentBottomRow, doBuffer);
+    } else {
+        int previousTopRowClamped = qBound(currentTopRow, previousTopRow, currentBottomRow);
+        int previousBottomRowClamped = qBound(currentTopRow, previousBottomRow, currentBottomRow);
 
-    // Add new items to the left of already existing items
-    createAndPositionItems(currentLeftColumn, previousLeftColumnStillVisible - 1, previousTopRowStillVisible, previousBottomRowStillVisible, doBuffer);
-    // Add new items to the right of already existing items
-    createAndPositionItems(previousRightColumnStillVisible + 1, currentRightColumn, previousTopRowStillVisible, previousBottomRowStillVisible, doBuffer);
-    // Add new items above existing items, effectively creating new rows of items at the top
-    createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, previousTopRowStillVisible - 1, doBuffer);
-    // Add new items below existing items, effectively creating new rows of items at the bottom
-    createAndPositionItems(currentLeftColumn, currentRightColumn, previousBottomRowStillVisible + 1, currentBottomRow, doBuffer);
+        if (overlapsLeft) {
+            qCDebug(lcItemViewDelegateLifecycle) << "releasing items outside view on the left, and padding out with new items on the right";
+            releaseItems(previousLeftColumn, currentLeftColumn - 1, previousTopRowClamped, previousBottomRowClamped);
+            createAndPositionItems(previousRightColumn + 1, currentRightColumn, previousTopRowClamped, previousBottomRowClamped, doBuffer);
+        }
+
+        if (overlapsRight) {
+            qCDebug(lcItemViewDelegateLifecycle) << "releasing items outside view on the right, and padding out with new items on the left";
+            releaseItems(currentRightColumn + 1, previousRightColumn, previousTopRowClamped, previousBottomRowClamped);
+            createAndPositionItems(currentLeftColumn, previousLeftColumn - 1, previousTopRowClamped, previousBottomRowClamped, doBuffer);
+        }
+
+        if (overlapsAbove) {
+            qCDebug(lcItemViewDelegateLifecycle) << "releasing items outside view at the top (including corners), and padding out with new rows at the bottom";
+            releaseItems(previousLeftColumn, previousRightColumn, previousTopRow, currentTopRow - 1);
+            createAndPositionItems(currentLeftColumn, currentRightColumn, previousBottomRow + 1, currentBottomRow, doBuffer);
+        }
+
+        if (overlapsBelow) {
+            qCDebug(lcItemViewDelegateLifecycle) << "releasing items outside view at the bottom (including corners), and padding out with new rows at the top";
+            releaseItems(previousLeftColumn, previousRightColumn, currentBottomRow + 1, previousBottomRow);
+            createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, previousTopRow - 1, doBuffer);
+        }
+    }
 
     // Next:
+    // - Figure out why we don't recreate items on the fly _while_ flicking
     // - Support cachebuffer
     // - Handle out-of-bounds cases (when releasing flick at overshoot)
     // - Check why items are not refilled before full flick stop
     // - Check what happens if we jump more than a full content view
     // - Validate that we never end up creating FXViewItem for already visible items
 
-    // ### TODO: Handle items that should be prepended
     // ### TODO: Don't always return true
     return true;
 }
