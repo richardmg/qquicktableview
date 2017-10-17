@@ -111,6 +111,7 @@ protected Q_SLOTS:
 
 protected:
     void componentComplete() override;
+    void viewportMoved(Qt::Orientations orient) override;
 
 private:
     Q_DISABLE_COPY(QQuickTableView)

@@ -125,6 +125,7 @@ public:
     qreal columnSpacing;
     QPointF visiblePos;
     QSizeF averageSize;
+    bool inViewportMoved;
 
     void debug_removeAllItems();
 
@@ -145,7 +146,8 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       visibleColumns(0),
       orientation(QQuickTableView::Vertical),
       rowSpacing(0),
-      columnSpacing(0)
+      columnSpacing(0),
+      inViewportMoved(false)
 {
 }
 
@@ -395,6 +397,110 @@ static QPointF operator+(const QPointF &pos, const QSizeF &size)
 static QPointF operator-(const QPointF &pos, const QSizeF &size)
 {
     return QPointF(pos.x() + size.width(), pos.y() + size.height());
+}
+
+void QQuickTableView::viewportMoved(Qt::Orientations orient)
+{
+    Q_D(QQuickTableView);
+    QQuickAbstractItemView::viewportMoved(orient);
+
+    // Recursion can occur due to refill changing the content size.
+    if (d->inViewportMoved)
+        return;
+    d->inViewportMoved = true;
+
+//    if (yflick()) {
+//        if (d->isBottomToTop())
+//            d->bufferMode = d->vData.smoothVelocity < 0 ? QQuickListViewPrivate::BufferAfter : QQuickListViewPrivate::BufferBefore;
+//        else
+//            d->bufferMode = d->vData.smoothVelocity < 0 ? QQuickListViewPrivate::BufferBefore : QQuickListViewPrivate::BufferAfter;
+//    } else {
+//        if (d->isRightToLeft())
+//            d->bufferMode = d->hData.smoothVelocity < 0 ? QQuickListViewPrivate::BufferAfter : QQuickListViewPrivate::BufferBefore;
+//        else
+//            d->bufferMode = d->hData.smoothVelocity < 0 ? QQuickListViewPrivate::BufferBefore : QQuickListViewPrivate::BufferAfter;
+//    }
+
+    d->refillOrLayout();
+
+    // Set visibility of items to eliminate cost of items outside the visible area.
+//    qreal from = d->isContentFlowReversed() ? -d->position()-d->displayMarginBeginning-d->size() : d->position()-d->displayMarginBeginning;
+//    qreal to = d->isContentFlowReversed() ? -d->position()+d->displayMarginEnd : d->position()+d->size()+d->displayMarginEnd;
+//    for (FxViewItem *item : qAsConst(d->visibleItems)) {
+//        if (item->item)
+//            QQuickItemPrivate::get(item->item)->setCulled(d->itemEndPosition(item) < from || d->itemPosition(item) > to);
+//    }
+//    if (d->currentItem)
+//        QQuickItemPrivate::get(d->currentItem->item)->setCulled(d->itemEndPosition(d->currentItem) < from || d->itemPosition(d->currentItem) > to);
+
+//    if (d->hData.flicking || d->vData.flicking || d->hData.moving || d->vData.moving)
+//        d->moveReason = QQuickListViewPrivate::Mouse;
+//    if (d->moveReason != QQuickListViewPrivate::SetIndex) {
+//        if (d->haveHighlightRange && d->highlightRange == StrictlyEnforceRange && d->highlight) {
+//            // reposition highlight
+//            qreal pos = d->itemPosition(d->highlight);
+//            qreal viewPos = d->isContentFlowReversed() ? -d->position()-d->size() : d->position();
+//            if (pos > viewPos + d->highlightRangeEnd - d->itemSize(d->highlight))
+//                pos = viewPos + d->highlightRangeEnd - d->itemSize(d->highlight);
+//            if (pos < viewPos + d->highlightRangeStart)
+//                pos = viewPos + d->highlightRangeStart;
+//            if (pos != d->itemPosition(d->highlight)) {
+//                d->highlightPosAnimator->stop();
+//                static_cast<FxListItemSG*>(d->highlight)->setPosition(pos);
+//            } else {
+//                d->updateHighlight();
+//            }
+
+//            // update current index
+//            if (FxViewItem *snapItem = d->snapItemAt(d->itemPosition(d->highlight))) {
+//                if (snapItem->index >= 0 && snapItem->index != d->currentIndex)
+//                    d->updateCurrent(snapItem->index);
+//            }
+//        }
+//    }
+
+//    if ((d->hData.flicking || d->vData.flicking) && d->correctFlick && !d->inFlickCorrection) {
+//        d->inFlickCorrection = true;
+//        // Near an end and it seems that the extent has changed?
+//        // Recalculate the flick so that we don't end up in an odd position.
+//        if (yflick() && !d->vData.inOvershoot) {
+//            if (d->vData.velocity > 0) {
+//                const qreal minY = minYExtent();
+//                if ((minY - d->vData.move.value() < height()/2 || d->vData.flickTarget - d->vData.move.value() < height()/2)
+//                    && minY != d->vData.flickTarget)
+//                    d->flickY(-d->vData.smoothVelocity.value());
+//            } else if (d->vData.velocity < 0) {
+//                const qreal maxY = maxYExtent();
+//                if ((d->vData.move.value() - maxY < height()/2 || d->vData.move.value() - d->vData.flickTarget < height()/2)
+//                    && maxY != d->vData.flickTarget)
+//                    d->flickY(-d->vData.smoothVelocity.value());
+//            }
+//        }
+
+//        if (xflick() && !d->hData.inOvershoot) {
+//            if (d->hData.velocity > 0) {
+//                const qreal minX = minXExtent();
+//                if ((minX - d->hData.move.value() < width()/2 || d->hData.flickTarget - d->hData.move.value() < width()/2)
+//                    && minX != d->hData.flickTarget)
+//                    d->flickX(-d->hData.smoothVelocity.value());
+//            } else if (d->hData.velocity < 0) {
+//                const qreal maxX = maxXExtent();
+//                if ((d->hData.move.value() - maxX < width()/2 || d->hData.move.value() - d->hData.flickTarget < width()/2)
+//                    && maxX != d->hData.flickTarget)
+//                    d->flickX(-d->hData.smoothVelocity.value());
+//            }
+//        }
+//        d->inFlickCorrection = false;
+//    }
+//    if (d->hasStickyHeader())
+//        d->updateHeader();
+//    if (d->hasStickyFooter())
+//        d->updateFooter();
+//    if (d->sectionCriteria) {
+//        d->updateCurrentSection();
+//        d->updateStickySections();
+//    }
+    d->inViewportMoved = false;
 }
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
