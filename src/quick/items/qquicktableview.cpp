@@ -569,7 +569,7 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     int previousTopRow = qMin(rowAtPos(previousVisiblePos.y()), rowCount - 1);
     int previousBottomRow = qMin(rowAtPos(previousVisiblePos.y() + height), rowCount - 1);
 
-    // Check if the old rows and columns overlap on any of the new rows and columns we are about to create
+    // Check if the old rows and columns overlap with any of the new rows and columns we are about to create
     bool overlapsAbove = currentTopRow <= previousBottomRow && previousBottomRow <= currentBottomRow;
     bool overlapsBelow = currentTopRow <= previousTopRow && previousTopRow <= currentBottomRow;
     bool overlapsLeft = currentLeftColumn <= previousRightColumn && previousRightColumn <= currentRightColumn;
