@@ -1,2 +1,3 @@
 TEMPLATE = subdirs
-SUBDIRS += abstracttablemodel
+SUBDIRS += abstracttablemodel \
+           listmodel
