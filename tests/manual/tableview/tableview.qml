@@ -10,6 +10,7 @@ Window {
     visible: true
 
     ListModel {
+
         id: listModel
         ListElement { foo: "foo0"; bar: "bar0" }
         ListElement { foo: "foo1"; bar: "bar1" }
@@ -74,7 +75,7 @@ Window {
             delegate: Rectangle {
                 width: 120
                 height: 60
-                color: "white"
+                color: foo ? "white" : Qt.rgba(0.96, 0.96, 0.96, 1)
                 Text {
                     x: 2
                     y: 2
