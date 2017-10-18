@@ -46,9 +46,9 @@ int main(int argc, char *argv[])
     qmlRegisterType<TableModel>("QAbstractTableModel", 0, 1, "QAbstractTableModel");
 
     QQmlApplicationEngine engine;
-    engine.load(QUrl(QStringLiteral("qrc:/tableview.qml")));
+    engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
 
     return app.exec();
 }
 
-#include "tableview.moc"
+#include "main.moc"
