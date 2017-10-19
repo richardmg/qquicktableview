@@ -116,6 +116,9 @@ public:
     void changedVisibleIndex(int newIndex) override { Q_UNUSED(newIndex); }
     void translateAndTransitionFilledItems() override { }
 
+    void debug_removeAllItems();
+
+protected:
     int rows;
     int columns;
     int visibleRows;
@@ -125,11 +128,8 @@ public:
     qreal columnSpacing;
     QPointF visiblePos;
     QSizeF averageSize;
+
     bool inViewportMoved;
-
-    void debug_removeAllItems();
-
-protected:
     bool addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
                          const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer);
     bool removeNonVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
@@ -780,10 +780,7 @@ void QQuickTableView::resetRows()
 
 int QQuickTableView::columns() const
 {
-    Q_D(const QQuickTableView);
-    if (QQmlDelegateModel *delegateModel = qobject_cast<QQmlDelegateModel *>(d->model.data()))
-        return delegateModel->columns();
-    return qMax(1, d->columns);
+    return d_func()->columns;
 }
 
 void QQuickTableView::setColumns(int columns)
