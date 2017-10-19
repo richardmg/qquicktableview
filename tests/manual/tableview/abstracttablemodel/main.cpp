@@ -17,6 +17,13 @@ public:
     int columnCount(const QModelIndex & = QModelIndex()) const override { return m_cols; }
     void setColumnCount(int count) { beginResetModel(); m_cols = count; emit columnCountChanged(); endResetModel(); }
 
+    QVariant headerData(int section, Qt::Orientation orientation, int role) const
+    {
+        Q_UNUSED(orientation);
+        Q_UNUSED(role);
+        return QStringLiteral("Column header");
+    }
+
     QVariant data(const QModelIndex &index, int role) const override
     {
         if (!index.isValid() || role != Qt::DisplayRole)
