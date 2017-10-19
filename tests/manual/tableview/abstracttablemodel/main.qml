@@ -20,9 +20,38 @@ Window {
         anchors.margins: 10
         color: "darkgray"
 
-        TableView {
-            id: listModelView
+        Item {
+            anchors.fill: parent
+            anchors.margins: 1
+
+        ListView {
+            id: tableHeader
+            width: parent.width
+            height: 30
+            model: tableView.columns
             clip: true
+            orientation: Qt.Horizontal
+            spacing: tableView.columnSpacing
+
+            interactive: false
+            contentX: tableView.contentX
+
+            delegate: Rectangle {
+                color: "lightgreen"
+                width: 120
+                height: tableHeader.height
+
+                Text {
+                    anchors.centerIn: parent
+                    text: qsTr("column %1").arg(index);
+                }
+            }
+        }
+
+        TableView {
+            id: tableView
+            clip: true
+            anchors.topMargin: tableHeader.height + rowSpacing
             anchors.fill: parent
 
             cacheBuffer: 0
@@ -31,19 +60,40 @@ Window {
             // Setting columns and rows is not really needed, since the model contains the info.
             // But it should probably be the opposite, so that we always use columns and rows?
             // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
-            columns: 20
+            columns: 100
             rows: 500
 
             columnSpacing: 1
             rowSpacing: 1
 
+//            Component.onCompleted: horizontalHeader.column(100).width = 50
+
+//            horizontalHeader: TableViewHeader {
+//                delegate: Rectangle {
+//                    color: "lightgreen"
+//                    width: 120
+//                    height: 60
+//                    Text {
+//                        x: 2
+//                        y: 2
+////                        text: model.headerData.title ? model.headerData.title : ""
+//                        text: title ? title : ""
+//                    }
+//                }
+
+//                Component.onCompleted: {
+//                    print("width of column 100:", sectionWidth(100))
+//                    print("width of column 100:", column(100).size.width)
+//                }
+//            }
+
             delegate: Rectangle {
                 width: 120
                 height: 60
                 color: model.display ? "white" : Qt.rgba(0.96, 0.96, 0.96, 1)
+
                 Text {
-                    x: 2
-                    y: 2
+                    anchors.centerIn: parent
                     text: model.display ? model.display : ""
                 }
             }
@@ -53,8 +103,9 @@ Window {
                 anchors.bottom: parent.bottom
                 anchors.right: parent.right
                 horizontalAlignment: Qt.AlignRight
-                text: qsTr("count=%1\nrows=%2\ncolumns=%3").arg(listModelView.count).arg(listModelView.rows).arg(listModelView.columns)
+                text: qsTr("count=%1\nrows=%2\ncolumns=%3").arg(tableView.count).arg(tableView.rows).arg(tableView.columns)
             }
+        }
         }
     }
 }
