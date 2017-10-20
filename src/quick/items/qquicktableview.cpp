@@ -91,6 +91,7 @@ public:
     QPointF itemPosition(int row, int column) const;
     QPointF itemPosition(FxViewItem *item) const;
     QPointF itemEndPosition(FxViewItem *item) const;
+    QSizeF itemSize(int row, int column) const;
     QSizeF itemSize(FxViewItem *item) const;
 
     void updateViewport() override;
@@ -296,10 +297,10 @@ qreal QQuickTableViewPrivate::columnWidth(int column) const
 {
     switch(column) {
     case 0:
-//    case 6:
-//    case 8:
-//    case 20:
-        return 120;
+    case 6:
+    case 8:
+    case 20:
+        return 200;
     }
     return 120;
 
@@ -364,6 +365,11 @@ QPointF QQuickTableViewPrivate::itemEndPosition(FxViewItem *item) const
 QSizeF QQuickTableViewPrivate::itemSize(FxViewItem *item) const
 {
     return QSizeF(item->itemWidth(), item->itemHeight());
+}
+
+QSizeF QQuickTableViewPrivate::itemSize(int row, int column) const
+{
+    return QSizeF(columnWidth(column), rowHeight(row));
 }
 
 void QQuickTableViewPrivate::updateViewport()
@@ -563,8 +569,10 @@ void QQuickTableViewPrivate::createAndPositionItem(int row, int col, bool doBuff
         return;
     }
 
-    if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true))
+    if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) {
         item->setPosition(itemPosition(row, col), true);
+        item->setSize(itemSize(row, col), true);
+    }
 
     if (item->item)
         QQuickItemPrivate::get(item->item)->setCulled(doBuffer);

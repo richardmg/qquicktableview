@@ -76,6 +76,7 @@ public:
     inline qreal itemHeight() const { return item ? item->height() : 0; }
 
     void moveTo(const QPointF &pos, bool immediate);
+    void setSize(const QSizeF &size, bool immediate);
     void setVisible(bool visible);
     void trackGeometry(bool track);
 
