@@ -651,13 +651,6 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     int currentLeftColumn = columnAtPos(visiblePos.x());
     int currentRightColumn = qMin(columnAtPos(visiblePos.x() + width), columnCount - 1);
 
-//    if (visibleItems.isEmpty()) {
-//        // Fill the whole table
-//        qCDebug(lcItemViewDelegateLifecycle) << "add all visible items that fits within the content view:";
-//        createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, currentBottomRow, doBuffer);
-//        return true;
-//    }
-
     int previousLeftColumn = qMin(columnAtPos(previousVisiblePos.x()), columnCount - 1);
     int previousRightColumn = qMin(columnAtPos(previousVisiblePos.x() + width), columnCount - 1);
     int previousTopRow = qMin(rowAtPos(previousVisiblePos.y()), rowCount - 1);
