@@ -201,14 +201,6 @@ int QQuickTableViewPrivate::columnAtIndex(int index) const
     return index % columns;
 }
 
-int QQuickTableViewPrivate::columnAtPos(qreal x) const
-{
-    // ### TODO: for now we assume all columns has the same width. This will not be the case in the end.
-    // The strategy should either be to keep all the column widths in a separate array, or
-    // inspect the current visible items to make a guess.
-    return x / (columnWidth(0) + columnSpacing);
-}
-
 int QQuickTableViewPrivate::indexAt(int row, int column) const
 {
     Q_Q(const QQuickTableView);
@@ -267,6 +259,34 @@ qreal QQuickTableViewPrivate::rowHeight(int row) const
 //    return item ? item->itemHeight() : averageSize.height();
 }
 
+int QQuickTableViewPrivate::columnAtPos(qreal x) const
+{
+    // todo: should this have its own cache?
+
+    int cachedColumn = columnPositionCache.first;
+    const qreal columnPos = columnPositionCache.second;
+
+    if (x == columnPos)
+        return cachedColumn;
+
+    if (x == 0)
+        return 0;
+
+    if (column > cachedColumn) {
+        for (int i = cachedColumn; i < column; ++i)
+            columnPos += columnWidth(i) + columnSpacing;
+    } else if (column < cachedColumn) {
+        for (int i = cachedColumn - 1; i >= column; --i)
+            columnPos -= columnWidth(i) + columnSpacing;
+    }
+
+
+    // ### TODO: for now we assume all columns has the same width. This will not be the case in the end.
+    // The strategy should either be to keep all the column widths in a separate array, or
+    // inspect the current visible items to make a guess.
+    return x / (columnWidth(0) + columnSpacing);
+}
+
 qreal QQuickTableViewPrivate::columnPos(int column) const
 {
     // We cache the column and its pos, since it is likely that future
@@ -279,8 +299,11 @@ qreal QQuickTableViewPrivate::columnPos(int column) const
     if (column == cachedColumn)
         return columnPos;
 
-    if (column == 0)
+    if (column == 0) {
+        columnPositionCache.first = 0;
+        columnPositionCache.second = 0;
         return 0;
+    }
 
     if (column > cachedColumn) {
         for (int i = cachedColumn; i < column; ++i)
@@ -411,7 +434,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
 //            d->bufferMode = d->hData.smoothVelocity < 0 ? QQuickListViewPrivate::BufferBefore : QQuickListViewPrivate::BufferAfter;
 //    }
 
-    d->refillOrLayout();
+//    d->refillOrLayout();
 
     // Set visibility of items to eliminate cost of items outside the visible area.
 //    qreal from = d->isContentFlowReversed() ? -d->position()-d->displayMarginBeginning-d->size() : d->position()-d->displayMarginBeginning;
