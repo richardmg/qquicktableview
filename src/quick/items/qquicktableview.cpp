@@ -84,14 +84,9 @@ public:
     qreal rowHeight(int row) const;
     qreal columnPos(int column) const;
     qreal columnWidth(int column) const;
-    void updateAverageSize();
 
     QSizeF size() const;
     QPointF position() const;
-    QPointF startPosition() const;
-    QPointF originPosition() const;
-    QPointF endPosition() const;
-    QPointF lastPosition() const;
 
     QPointF itemPosition(int row, int column) const;
     QPointF itemPosition(FxViewItem *item) const;
@@ -130,6 +125,10 @@ protected:
     mutable QPair<int, qreal> columnPositionCache;
 
     bool inViewportMoved;
+
+    void updateViewportContentWidth();
+    void updateViewportContentHeight();
+
     bool addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
                          const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer);
     bool removeNonVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
@@ -269,62 +268,28 @@ qreal QQuickTableViewPrivate::rowHeight(int row) const
 
 qreal QQuickTableViewPrivate::columnPos(int column) const
 {
+    // We cache the column and its pos, since it is likely that future
+    // columnPos calls will be for columns adjacent to (or close to) column.
+    // That way, we usually need to iterate over just one column
+    // to get the correct position, at least while flicking.
     const int cachedColumn = columnPositionCache.first;
     qreal columnPos = columnPositionCache.second;
 
     if (column == cachedColumn)
         return columnPos;
 
-    qDebug() << "fetch:" << column;
-    qDebug() << "   cache:" << cachedColumn << columnPos;
-
     if (column > cachedColumn) {
-        qDebug() << "   >>";
         for (int i = cachedColumn; i < column; ++i)
             columnPos += columnWidth(i) + columnSpacing;
     } else if (column < cachedColumn) {
-        qDebug() << "   <<";
         for (int i = cachedColumn - 1; i >= column; --i)
             columnPos -= columnWidth(i) + columnSpacing;
     }
 
-    // Update cache, since it is likely that future columnPos
-    // requests will be adjacent, or close to, column.
-    qDebug() << "   update cache:" << column << columnPos;
     columnPositionCache.first = column;
     columnPositionCache.second = columnPos;
 
     return columnPos;
-
-    // Strategy:
-    // check the cache for the last columnPos calculated
-    // Brute force: summarize the columnWidth from cachepos to column, taking cache value and spacing into account
-    // 		- here we can go both forward and backward
-    // 	- store this value in a pair with the column, as a cache
-
-
-
-    // ### TODO: Support columns having different widths. Should this be stored in a separate list as well?
-//    return column * (columnWidth(column) + columnSpacing);
-
-//    // ### TODO: right-to-left
-//    int visibleRow = rowAt(visibleIndex);
-//    FxViewItem *item = visibleItemAt(visibleRow, column);
-//    if (item)
-//        return item->itemX();
-
-//    // estimate
-//    int visibleColumn = columnAt(visibleIndex);
-//    if (column < visibleColumn) {
-//        int count = visibleColumn - column;
-//        FxViewItem *topLeft = visibleItemAt(visibleRow, visibleColumn);
-//        return topLeft->itemX() - count * averageSize.width(); // ### TODO: spacing
-//    } else if (column > visibleColumn + visibleColumns) {
-//        int count = column - visibleColumn - visibleColumns;
-//        FxViewItem *topRight = visibleItemAt(visibleRow, visibleColumn + visibleColumns);
-//        return topRight->itemX() + topRight->itemWidth() + count * averageSize.width(); // ### TODO: spacing
-//    }
-//    return 0;
 }
 
 qreal QQuickTableViewPrivate::columnWidth(int column) const
@@ -343,17 +308,24 @@ qreal QQuickTableViewPrivate::columnWidth(int column) const
 //    return item ? item->itemWidth() : averageSize.width();
 }
 
-void QQuickTableViewPrivate::updateAverageSize()
+void QQuickTableViewPrivate::updateViewportContentWidth()
 {
-//    if (visibleItems.isEmpty())
-//        return;
+    Q_Q(QQuickTableView);
+    qreal contentWidth = 0;
+    for (int i = 0; i < columns; ++i)
+        contentWidth += columnWidth(i);
+    contentWidth += (columns - 1) * columnSpacing;
+    q->setContentWidth(contentWidth);
+}
 
-//    QSizeF sum;
-//    for (FxViewItem *item : qAsConst(visibleItems))
-//        sum += QSizeF(item->itemWidth(), item->itemHeight());
-
-//    averageSize.setWidth(qRound(sum.width() / visibleItems.count()));
-//    averageSize.setHeight(qRound(sum.height() / visibleItems.count()));
+void QQuickTableViewPrivate::updateViewportContentHeight()
+{
+    Q_Q(QQuickTableView);
+    qreal contentHeight = 0;
+    for (int i = 0; i < rows; ++i)
+        contentHeight += rowHeight(i);
+    contentHeight += (rows - 1) * columnSpacing;
+    q->setContentHeight(contentHeight);
 }
 
 QSizeF QQuickTableViewPrivate::size() const
@@ -366,28 +338,6 @@ QPointF QQuickTableViewPrivate::position() const
 {
     Q_Q(const QQuickTableView);
     return  orientation == QQuickTableView::Vertical ? QPointF(q->contentX(), q->contentY()) : QPointF(q->contentY(), q->contentX());
-}
-
-QPointF QQuickTableViewPrivate::startPosition() const
-{
-    return isContentFlowReversed() ? -lastPosition() : originPosition();
-}
-
-QPointF QQuickTableViewPrivate::originPosition() const
-{
-    return QPointF(0, 0);
-}
-
-QPointF QQuickTableViewPrivate::endPosition() const
-{
-    return isContentFlowReversed() ? -originPosition() : lastPosition();
-}
-
-QPointF QQuickTableViewPrivate::lastPosition() const
-{
-    int lastRow = rows - 1;
-    int lastColumn = columns - 1;
-    return QPointF(columnPos(lastColumn) + columnWidth(lastColumn), rowPos(lastRow) + rowHeight(lastRow));
 }
 
 QPointF QQuickTableViewPrivate::itemPosition(int row, int column) const
@@ -418,16 +368,6 @@ QSizeF QQuickTableViewPrivate::itemSize(FxViewItem *item) const
 
 void QQuickTableViewPrivate::updateViewport()
 {
-    Q_Q(QQuickTableView);
-    QSizeF size;
-    if (isValid() || !visibleItems.isEmpty()) {
-        QPointF start = startPosition();
-        QPointF end = endPosition();
-        size.setWidth(end.x() - start.x());
-        size.setHeight(end.y() - start.y());
-    }
-    q->setContentWidth(size.width());
-    q->setContentHeight(size.height());
 }
 
 static QPointF operator+(const QPointF &pos, const QSizeF &size)
@@ -605,9 +545,6 @@ bool QQuickTableViewPrivate::isContentFlowReversed() const
 
 void QQuickTableViewPrivate::visibleItemsChanged()
 {
-//    if (!visibleItems.isEmpty())
-//        visiblePos = itemPosition(*visibleItems.constBegin());
-    updateAverageSize();
 }
 
 FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
@@ -806,6 +743,9 @@ void QQuickTableView::setRows(int rows)
     d->rows = rows;
     if (d->componentComplete && d->model && d->ownModel)
         static_cast<QQmlDelegateModel *>(d->model.data())->setRows(rows);
+
+    d->updateViewportContentHeight();
+
     emit rowsChanged();
 }
 
@@ -835,6 +775,9 @@ void QQuickTableView::setColumns(int columns)
     d->columns = columns;
     if (d->componentComplete && d->model && d->ownModel)
         static_cast<QQmlDelegateModel *>(d->model.data())->setColumns(columns);
+
+    d->updateViewportContentWidth();
+
     emit columnsChanged();
 }
 
