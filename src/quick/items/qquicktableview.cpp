@@ -279,6 +279,9 @@ qreal QQuickTableViewPrivate::columnPos(int column) const
     if (column == cachedColumn)
         return columnPos;
 
+    if (column == 0)
+        return 0;
+
     if (column > cachedColumn) {
         for (int i = cachedColumn; i < column; ++i)
             columnPos += columnWidth(i) + columnSpacing;
