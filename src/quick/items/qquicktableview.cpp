@@ -127,7 +127,7 @@ protected:
     qreal rowSpacing;
     qreal columnSpacing;
     QPointF visiblePos;
-    QSizeF averageSize;
+    mutable QPair<int, qreal> columnPositionCache;
 
     bool inViewportMoved;
     bool addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
@@ -147,6 +147,8 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       orientation(QQuickTableView::Vertical),
       rowSpacing(0),
       columnSpacing(0),
+      visiblePos(QPointF(std::numeric_limits<qreal>::max(), std::numeric_limits<qreal>::max())),
+      columnPositionCache(qMakePair(0, 0)),
       inViewportMoved(false)
 {
 }
@@ -267,8 +269,43 @@ qreal QQuickTableViewPrivate::rowHeight(int row) const
 
 qreal QQuickTableViewPrivate::columnPos(int column) const
 {
+    const int cachedColumn = columnPositionCache.first;
+    qreal columnPos = columnPositionCache.second;
+
+    if (column == cachedColumn)
+        return columnPos;
+
+    qDebug() << "fetch:" << column;
+    qDebug() << "   cache:" << cachedColumn << columnPos;
+
+    if (column > cachedColumn) {
+        qDebug() << "   >>";
+        for (int i = cachedColumn; i < column; ++i)
+            columnPos += columnWidth(i) + columnSpacing;
+    } else if (column < cachedColumn) {
+        qDebug() << "   <<";
+        for (int i = cachedColumn - 1; i >= column; --i)
+            columnPos -= columnWidth(i) + columnSpacing;
+    }
+
+    // Update cache, since it is likely that future columnPos
+    // requests will be adjacent, or close to, column.
+    qDebug() << "   update cache:" << column << columnPos;
+    columnPositionCache.first = column;
+    columnPositionCache.second = columnPos;
+
+    return columnPos;
+
+    // Strategy:
+    // check the cache for the last columnPos calculated
+    // Brute force: summarize the columnWidth from cachepos to column, taking cache value and spacing into account
+    // 		- here we can go both forward and backward
+    // 	- store this value in a pair with the column, as a cache
+
+
+
     // ### TODO: Support columns having different widths. Should this be stored in a separate list as well?
-    return column * (columnWidth(column) + columnSpacing);
+//    return column * (columnWidth(column) + columnSpacing);
 
 //    // ### TODO: right-to-left
 //    int visibleRow = rowAt(visibleIndex);
@@ -292,9 +329,13 @@ qreal QQuickTableViewPrivate::columnPos(int column) const
 
 qreal QQuickTableViewPrivate::columnWidth(int column) const
 {
-    // ### TODO: Rather than search through visible items, I think this information should be
-    // specified more explixit, e.g in an separate list. Use a constant for now.
-    Q_UNUSED(column);
+    switch(column) {
+    case 0:
+//    case 6:
+//    case 8:
+//    case 20:
+        return 120;
+    }
     return 120;
 
 //    int row = rowAt(visibleIndex);
@@ -304,15 +345,15 @@ qreal QQuickTableViewPrivate::columnWidth(int column) const
 
 void QQuickTableViewPrivate::updateAverageSize()
 {
-    if (visibleItems.isEmpty())
-        return;
+//    if (visibleItems.isEmpty())
+//        return;
 
-    QSizeF sum;
-    for (FxViewItem *item : qAsConst(visibleItems))
-        sum += QSizeF(item->itemWidth(), item->itemHeight());
+//    QSizeF sum;
+//    for (FxViewItem *item : qAsConst(visibleItems))
+//        sum += QSizeF(item->itemWidth(), item->itemHeight());
 
-    averageSize.setWidth(qRound(sum.width() / visibleItems.count()));
-    averageSize.setHeight(qRound(sum.height() / visibleItems.count()));
+//    averageSize.setWidth(qRound(sum.width() / visibleItems.count()));
+//    averageSize.setHeight(qRound(sum.height() / visibleItems.count()));
 }
 
 QSizeF QQuickTableViewPrivate::size() const
@@ -580,8 +621,10 @@ void QQuickTableViewPrivate::createAndPositionItem(int row, int col, bool doBuff
 {
     int modelIndex = indexAt(row, col);
     FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, doBuffer));
-    if (!item)
+    if (!item) {
+        qCDebug(lcItemViewDelegateLifecycle) << "failed to create item for row/col:" << row << col;
         return;
+    }
 
     if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true))
         item->setPosition(itemPosition(row, col), true);
@@ -663,12 +706,12 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     int currentLeftColumn = columnAtPos(visiblePos.x());
     int currentRightColumn = qMin(columnAtPos(visiblePos.x() + width), columnCount - 1);
 
-    if (visibleItems.isEmpty()) {
-        // Fill the whole table
-        qCDebug(lcItemViewDelegateLifecycle) << "add all visible items that fits within the content view:";
-        createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, currentBottomRow, doBuffer);
-        return true;
-    }
+//    if (visibleItems.isEmpty()) {
+//        // Fill the whole table
+//        qCDebug(lcItemViewDelegateLifecycle) << "add all visible items that fits within the content view:";
+//        createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, currentBottomRow, doBuffer);
+//        return true;
+//    }
 
     int previousLeftColumn = qMin(columnAtPos(previousVisiblePos.x()), columnCount - 1);
     int previousRightColumn = qMin(columnAtPos(previousVisiblePos.x() + width), columnCount - 1);
