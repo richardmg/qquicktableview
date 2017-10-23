@@ -123,6 +123,7 @@ protected:
     qreal rowSpacing;
     qreal columnSpacing;
     QPointF prevContentPos;
+    QSizeF prevViewSize;
     mutable QPair<int, qreal> columnPositionCache;
 
     bool inViewportMoved;
@@ -148,6 +149,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       rowSpacing(0),
       columnSpacing(0),
       prevContentPos(QPointF(0, 0)),
+      prevViewSize(QSizeF(0, 0)),
       columnPositionCache(qMakePair(0, 0)),
       inViewportMoved(false)
 {
@@ -702,16 +704,19 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     int rowCount = rows;
 
     QPointF contentPos(q->contentX(), q->contentY());
+    QSizeF viewSize = q->size();
+    bool viewSizeChanged = viewSize != prevViewSize;
+    bool visibleItemsWasEmpty = visibleItems.empty();
 
     int previousTopRow = qMin(rowAtPos(prevContentPos.y()), rowCount - 1);
     int currentTopRow = rowAtPos(contentPos.y());
-    int previousBottomRow = qMin(rowAtPos(prevContentPos.y() + height), rowCount - 1);
-    int currentBottomRow = qMin(rowAtPos(contentPos.y() + height), rowCount - 1);
+    int previousBottomRow = qMin(rowAtPos(prevContentPos.y() + viewSize.height()), rowCount - 1);
+    int currentBottomRow = qMin(rowAtPos(contentPos.y() + viewSize.height()), rowCount - 1);
 
     int previousLeftColumn = columnAtPos(prevContentPos.x());
     int currentLeftColumn = columnAtPos(contentPos.x());
-    int previousRightColumn = columnAtPos(prevContentPos.x() + width);
-    int currentRightColumn = columnAtPos(contentPos.x() + width);
+    int previousRightColumn = columnAtPos(prevContentPos.x() + viewSize.width());
+    int currentRightColumn = columnAtPos(contentPos.x() + viewSize.width());
 
     // Check if the old rows and columns overlap with any of the new rows and columns we are about to create
     bool overlapsAbove = currentTopRow <= previousBottomRow && previousBottomRow <= currentBottomRow;
@@ -733,7 +738,7 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                          << "previousBottomRow:" << previousBottomRow
                                             ;
 
-    if (visibleItems.isEmpty()) {
+    if (viewSizeChanged || visibleItemsWasEmpty) {
         qCDebug(lcItemViewDelegateLifecycle) << "create all visible items";
         createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, currentBottomRow, doBuffer);
     } else if (!((overlapsLeft || overlapsRight) && (overlapsAbove || overlapsBelow))) {
@@ -769,7 +774,18 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
         }
     }
 
+    if (viewSizeChanged && !visibleItemsWasEmpty) {
+        qCDebug(lcItemViewDelegateLifecycle) << "view size changed, releasing visible items";
+        // When the view size changes, we release all items here in the end, after recreating them above.
+        // This because we assume most items will still be visible after the resize, so there is no need to
+        // delete them. And for such items, the ref-count should now be at least 2 (since we "recreated"
+        // them), meaning that they will not be deleted when we release them. The exception is if we had
+        // no visible items from before.
+        releaseVisibleItems();
+    }
+
     prevContentPos = contentPos;
+    prevViewSize = q->size();
 
     // ### TODO: Don't always return true
     return true;
