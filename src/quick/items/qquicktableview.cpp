@@ -147,7 +147,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       orientation(QQuickTableView::Vertical),
       rowSpacing(0),
       columnSpacing(0),
-      visiblePos(QPointF(std::numeric_limits<qreal>::max(), std::numeric_limits<qreal>::max())),
+      visiblePos(QPointF(0, 0)),
       columnPositionCache(qMakePair(0, 0)),
       inViewportMoved(false)
 {
@@ -732,9 +732,11 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                          << "previousBottomRow:" << previousBottomRow
                                             ;
 
-    if (!((overlapsLeft || overlapsRight) && (overlapsAbove || overlapsBelow))) {
-        // No intersection, recreate all rows and columns
-        qCDebug(lcItemViewDelegateLifecycle) << "recreate all items";
+    if (visibleItems.isEmpty()) {
+        qCDebug(lcItemViewDelegateLifecycle) << "create all visible items";
+        createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, currentBottomRow, doBuffer);
+    } else if (!((overlapsLeft || overlapsRight) && (overlapsAbove || overlapsBelow))) {
+        qCDebug(lcItemViewDelegateLifecycle) << "table flicked more than a page, recreate all visible items";
         releaseItems(previousLeftColumn, previousRightColumn, previousTopRow, previousBottomRow);
         createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, currentBottomRow, doBuffer);
     } else {
