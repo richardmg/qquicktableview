@@ -122,7 +122,7 @@ protected:
     QQuickTableView::Orientation orientation;
     qreal rowSpacing;
     qreal columnSpacing;
-    QPointF visiblePos;
+    QPointF prevContentPos;
     mutable QPair<int, qreal> columnPositionCache;
 
     bool inViewportMoved;
@@ -147,7 +147,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       orientation(QQuickTableView::Vertical),
       rowSpacing(0),
       columnSpacing(0),
-      visiblePos(QPointF(0, 0)),
+      prevContentPos(QPointF(0, 0)),
       columnPositionCache(qMakePair(0, 0)),
       inViewportMoved(false)
 {
@@ -684,11 +684,15 @@ void QQuickTableViewPrivate::debug_removeAllItems()
 bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPointF &fillTo,
                                              const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer)
 {
+    Q_Q(QQuickTableView);
+
+    // Note: I'm currently not basing any calcualations on the arguments, only on the geometry of the
+    // current content view. And I'm not sure why I would ever need to add items based on anything else.
+    // This needs more investigtion!
+    Q_UNUSED(fillFrom);
+    Q_UNUSED(fillTo);
     Q_UNUSED(bufferFrom);
     Q_UNUSED(bufferTo);
-
-    if ((fillFrom - fillTo).isNull())
-        return false;
 
     // For simplicity, we assume that we always specify the number of rows and columns directly
     // in TableView. But we should also allow those properties to be unspecified, and if so, get
@@ -697,20 +701,17 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     // So we should probably store the last values used to be certain.
     int rowCount = rows;
 
-    // Update visible pos. Note: previousVisiblePos should be a class variable. And
-    // visiblePos should probably be set elsewhere than inside this function.
-    QPointF previousVisiblePos = visiblePos;
-    visiblePos = fillFrom;
+    QPointF contentPos(q->contentX(), q->contentY());
 
-    int previousTopRow = qMin(rowAtPos(previousVisiblePos.y()), rowCount - 1);
-    int currentTopRow = rowAtPos(visiblePos.y());
-    int previousBottomRow = qMin(rowAtPos(previousVisiblePos.y() + height), rowCount - 1);
-    int currentBottomRow = qMin(rowAtPos(visiblePos.y() + height), rowCount - 1);
+    int previousTopRow = qMin(rowAtPos(prevContentPos.y()), rowCount - 1);
+    int currentTopRow = rowAtPos(contentPos.y());
+    int previousBottomRow = qMin(rowAtPos(prevContentPos.y() + height), rowCount - 1);
+    int currentBottomRow = qMin(rowAtPos(contentPos.y() + height), rowCount - 1);
 
-    int previousLeftColumn = columnAtPos(previousVisiblePos.x());
-    int currentLeftColumn = columnAtPos(visiblePos.x());
-    int previousRightColumn = columnAtPos(previousVisiblePos.x() + width);
-    int currentRightColumn = columnAtPos(visiblePos.x() + width);
+    int previousLeftColumn = columnAtPos(prevContentPos.x());
+    int currentLeftColumn = columnAtPos(contentPos.x());
+    int previousRightColumn = columnAtPos(prevContentPos.x() + width);
+    int currentRightColumn = columnAtPos(contentPos.x() + width);
 
     // Check if the old rows and columns overlap with any of the new rows and columns we are about to create
     bool overlapsAbove = currentTopRow <= previousBottomRow && previousBottomRow <= currentBottomRow;
@@ -767,6 +768,8 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
             createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, previousTopRow - 1, doBuffer);
         }
     }
+
+    prevContentPos = contentPos;
 
     // ### TODO: Don't always return true
     return true;
