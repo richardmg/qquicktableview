@@ -261,9 +261,24 @@ qreal QQuickTableViewPrivate::rowHeight(int row) const
 
 int QQuickTableViewPrivate::columnAtPos(qreal x) const
 {
-    // todo: should this have its own cache?
-    if (x == 0)
+    Q_Q(const QQuickTableView);
+
+    // We cache the look-up, since it is likely that future
+    // columnPos/columnAtPos calls will be for columns adjacent to
+    // (or close to) the one requested. That way, we usually need to iterate
+    // over just one column to get the correct column, at least while flicking.
+
+    if (x <= 0) {
+        columnPositionCache.first = 0;
+        columnPositionCache.second = 0;
         return 0;
+    } else if (x >= q->contentWidth()) {
+        int lastColumn = columns - 1;
+        qreal lastColumnPos = q->contentWidth() - columnWidth(lastColumn);
+        columnPositionCache.first = lastColumn;
+        columnPositionCache.second = lastColumnPos;
+        return lastColumn;
+    }
 
     const int cachedColumn = columnPositionCache.first;
     const qreal cachedColumnPos = columnPositionCache.second;
@@ -273,9 +288,10 @@ int QQuickTableViewPrivate::columnAtPos(qreal x) const
 
     if (x > cachedColumnPos) {
         for (column = cachedColumn; column < columns; ++column) {
-            columnPos += columnWidth(column) + columnSpacing;
-            if (x < columnPos)
+            qreal width = columnWidth(column) + columnSpacing;
+            if (x < columnPos + width)
                 break;
+            columnPos += width;
         }
     } else if (x < cachedColumnPos) {
         for (column = cachedColumn - 1; column >= 0; --column) {
@@ -285,25 +301,37 @@ int QQuickTableViewPrivate::columnAtPos(qreal x) const
         }
     }
 
+    columnPositionCache.first = column;
+    columnPositionCache.second = columnPos;
+
     return column;
 }
 
 qreal QQuickTableViewPrivate::columnPos(int column) const
 {
-    // We cache the column and its pos, since it is likely that future
-    // columnPos calls will be for columns adjacent to (or close to) column.
-    // That way, we usually need to iterate over just one column
-    // to get the correct position, at least while flicking.
+    Q_Q(const QQuickTableView);
+
+    // We cache the look-up, since it is likely that future
+    // columnPos/columnAtPos calls will be for columns adjacent to
+    // (or close to) the one requested. That way, we usually need to iterate
+    // over just one column to get the correct position, at least while flicking.
+
     const int cachedColumn = columnPositionCache.first;
     const qreal cachedColumnPos = columnPositionCache.second;
 
     if (column == cachedColumn)
         return cachedColumnPos;
 
-    if (column == 0) {
+    if (column <= 0) {
         columnPositionCache.first = 0;
         columnPositionCache.second = 0;
         return 0;
+    } else if (column >= columns) {
+        int lastColumn = columns - 1;
+        qreal lastColumnPos = q->contentWidth() - columnWidth(lastColumn);
+        columnPositionCache.first = lastColumn;
+        columnPositionCache.second = lastColumnPos;
+        return lastColumnPos;
     }
 
     qreal columnPos = cachedColumnPos;
@@ -668,22 +696,21 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
     // to this function, which might cause previousBottomRow and previousRightColumn to end up wrong!
     // So we should probably store the last values used to be certain.
     int rowCount = rows;
-    int columnCount = columns;
 
     // Update visible pos. Note: previousVisiblePos should be a class variable. And
     // visiblePos should probably be set elsewhere than inside this function.
     QPointF previousVisiblePos = visiblePos;
     visiblePos = fillFrom;
 
-    int currentTopRow = rowAtPos(visiblePos.y());
-    int currentBottomRow = qMin(rowAtPos(visiblePos.y() + height), rowCount - 1);
-    int currentLeftColumn = columnAtPos(visiblePos.x());
-    int currentRightColumn = qMin(columnAtPos(visiblePos.x() + width), columnCount - 1);
-
-    int previousLeftColumn = qMin(columnAtPos(previousVisiblePos.x()), columnCount - 1);
-    int previousRightColumn = qMin(columnAtPos(previousVisiblePos.x() + width), columnCount - 1);
     int previousTopRow = qMin(rowAtPos(previousVisiblePos.y()), rowCount - 1);
+    int currentTopRow = rowAtPos(visiblePos.y());
     int previousBottomRow = qMin(rowAtPos(previousVisiblePos.y() + height), rowCount - 1);
+    int currentBottomRow = qMin(rowAtPos(visiblePos.y() + height), rowCount - 1);
+
+    int previousLeftColumn = columnAtPos(previousVisiblePos.x());
+    int currentLeftColumn = columnAtPos(visiblePos.x());
+    int previousRightColumn = columnAtPos(previousVisiblePos.x() + width);
+    int currentRightColumn = columnAtPos(visiblePos.x() + width);
 
     // Check if the old rows and columns overlap with any of the new rows and columns we are about to create
     bool overlapsAbove = currentTopRow <= previousBottomRow && previousBottomRow <= currentBottomRow;
