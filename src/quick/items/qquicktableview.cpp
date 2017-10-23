@@ -94,7 +94,6 @@ public:
     QSizeF itemSize(int row, int column) const;
     QSizeF itemSize(FxViewItem *item) const;
 
-    void updateViewport() override;
     bool addRemoveVisibleItems() override;
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     bool applyModelChanges() override { return false; }
@@ -431,10 +430,6 @@ QSizeF QQuickTableViewPrivate::itemSize(FxViewItem *item) const
 QSizeF QQuickTableViewPrivate::itemSize(int row, int column) const
 {
     return QSizeF(columnWidth(column), rowHeight(row));
-}
-
-void QQuickTableViewPrivate::updateViewport()
-{
 }
 
 static QPointF operator+(const QPointF &pos, const QSizeF &size)
