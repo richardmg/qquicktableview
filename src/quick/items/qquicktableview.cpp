@@ -262,29 +262,30 @@ qreal QQuickTableViewPrivate::rowHeight(int row) const
 int QQuickTableViewPrivate::columnAtPos(qreal x) const
 {
     // todo: should this have its own cache?
-
-    int cachedColumn = columnPositionCache.first;
-    const qreal columnPos = columnPositionCache.second;
-
-    if (x == columnPos)
-        return cachedColumn;
-
     if (x == 0)
         return 0;
 
-    if (column > cachedColumn) {
-        for (int i = cachedColumn; i < column; ++i)
-            columnPos += columnWidth(i) + columnSpacing;
-    } else if (column < cachedColumn) {
-        for (int i = cachedColumn - 1; i >= column; --i)
-            columnPos -= columnWidth(i) + columnSpacing;
+    const int cachedColumn = columnPositionCache.first;
+    const qreal cachedColumnPos = columnPositionCache.second;
+
+    int column = cachedColumn;
+    qreal columnPos = cachedColumnPos;
+
+    if (x > cachedColumnPos) {
+        for (column = cachedColumn; column < columns; ++column) {
+            columnPos += columnWidth(column) + columnSpacing;
+            if (x < columnPos)
+                break;
+        }
+    } else if (x < cachedColumnPos) {
+        for (column = cachedColumn - 1; column >= 0; --column) {
+            columnPos -= columnWidth(column) + columnSpacing;
+            if (x >= columnPos)
+                break;
+        }
     }
 
-
-    // ### TODO: for now we assume all columns has the same width. This will not be the case in the end.
-    // The strategy should either be to keep all the column widths in a separate array, or
-    // inspect the current visible items to make a guess.
-    return x / (columnWidth(0) + columnSpacing);
+    return column;
 }
 
 qreal QQuickTableViewPrivate::columnPos(int column) const
@@ -294,10 +295,10 @@ qreal QQuickTableViewPrivate::columnPos(int column) const
     // That way, we usually need to iterate over just one column
     // to get the correct position, at least while flicking.
     const int cachedColumn = columnPositionCache.first;
-    qreal columnPos = columnPositionCache.second;
+    const qreal cachedColumnPos = columnPositionCache.second;
 
     if (column == cachedColumn)
-        return columnPos;
+        return cachedColumnPos;
 
     if (column == 0) {
         columnPositionCache.first = 0;
@@ -305,10 +306,12 @@ qreal QQuickTableViewPrivate::columnPos(int column) const
         return 0;
     }
 
+    qreal columnPos = cachedColumnPos;
+
     if (column > cachedColumn) {
         for (int i = cachedColumn; i < column; ++i)
             columnPos += columnWidth(i) + columnSpacing;
-    } else if (column < cachedColumn) {
+    } else {
         for (int i = cachedColumn - 1; i >= column; --i)
             columnPos -= columnWidth(i) + columnSpacing;
     }
@@ -434,7 +437,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
 //            d->bufferMode = d->hData.smoothVelocity < 0 ? QQuickListViewPrivate::BufferBefore : QQuickListViewPrivate::BufferAfter;
 //    }
 
-//    d->refillOrLayout();
+    d->refillOrLayout();
 
     // Set visibility of items to eliminate cost of items outside the visible area.
 //    qreal from = d->isContentFlowReversed() ? -d->position()-d->displayMarginBeginning-d->size() : d->position()-d->displayMarginBeginning;
