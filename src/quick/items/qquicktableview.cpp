@@ -111,8 +111,6 @@ public:
     void changedVisibleIndex(int newIndex) override { Q_UNUSED(newIndex); }
     void translateAndTransitionFilledItems() override { }
 
-    void debug_removeAllItems();
-
 protected:
     int rows;
     int columns;
@@ -629,16 +627,6 @@ void QQuickTableViewPrivate::releaseItems(int fromColumn, int toColumn, int from
             releaseItem(item);
         }
     }
-}
-
-void QQuickTableViewPrivate::debug_removeAllItems()
-{
-    for (FxViewItem *item : visibleItems)
-        releaseItem(item);
-
-    releaseItem(currentItem);
-    currentItem = 0;
-    visibleItems.clear();
 }
 
 bool QQuickTableViewPrivate::addRemoveAllVisibleItems(const QMargins &currentGrid, bool overlapHint)
