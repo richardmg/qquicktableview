@@ -634,19 +634,15 @@ void QQuickTableViewPrivate::createAndPositionItem(int row, int col, bool doBuff
         QQuickItemPrivate::get(item->item)->setCulled(doBuffer);
 
     visibleItems.append(item);
-
-    qCDebug(lcItemViewDelegateLifecycle) << "index:" << modelIndex
-                                         << "row:" << row
-                                         << "col:" << col
-                                         << "pos:" << item->item->position()
-                                         << "buffer:" << doBuffer
-                                         << "item:" << (QObject *)(item->item)
-                                            ;
 }
 
 void QQuickTableViewPrivate::createAndPositionItems(int fromColumn, int toColumn, int fromRow, int toRow, bool doBuffer)
 {
     // Create and position all items in the table section described by the arguments
+    qCDebug(lcItemViewDelegateLifecycle) << "create items ( x1:"
+                                         << fromColumn << ", x2:" << toColumn << ", y1:"
+                                         << fromRow << ", y2:" << toRow  << ")";
+
     for (int row = fromRow; row <= toRow; ++row) {
         for (int col = fromColumn; col <= toColumn; ++col)
             createAndPositionItem(row, col, doBuffer);
@@ -655,15 +651,13 @@ void QQuickTableViewPrivate::createAndPositionItems(int fromColumn, int toColumn
 
 void QQuickTableViewPrivate::releaseItems(int fromColumn, int toColumn, int fromRow, int toRow)
 {
+    qCDebug(lcItemViewDelegateLifecycle) << "release items ( x1:"
+                                         << fromColumn << ", x2:" << toColumn << ", y1:"
+                                         << fromRow << ", y2:" << toRow  << ")";
+
     for (int row = fromRow; row <= toRow; ++row) {
         for (int col = fromColumn; col <= toColumn; ++col) {
             FxViewItem *item = visibleItemAt(row, col);
-
-            qCDebug(lcItemViewDelegateLifecycle) << "row:" << row
-                                                 << "col:" << col
-                                                 << "item:" << item
-                                                    ;
-
             visibleItems.removeOne(item);
             releaseItem(item);
         }
@@ -684,6 +678,8 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
                                              const QPointF &bufferFrom, const QPointF &bufferTo, bool doBuffer)
 {
     Q_Q(QQuickTableView);
+
+    qCDebug(lcItemViewDelegateLifecycle) << "fill rect:" << fillFrom << fillTo;
 
     // Note: I'm currently not basing any calcualations on the arguments, only on the geometry of the
     // current content view. fillFrom and fillTo should be the same, it seems. But bufferFrom and
@@ -712,29 +708,17 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
             && currentTopRow == previousTopRow && currentBottomRow == previousBottomRow);
             // || columnWidth changed for any column || rowHeightChanged for any row
 
-    // Check if the old rows and columns overlap with any of the new rows and columns we are about to create
-    bool overlapsAbove = currentTopRow < previousBottomRow && previousBottomRow < currentBottomRow;
-    bool overlapsBelow = currentTopRow < previousTopRow && previousTopRow < currentBottomRow;
-    bool overlapsLeft = currentLeftColumn < previousRightColumn && previousRightColumn < currentRightColumn;
-    bool overlapsRight = currentLeftColumn < previousLeftColumn && previousLeftColumn < currentRightColumn;
-
-    qCDebug(lcItemViewDelegateLifecycle) << "\n\tfrom:" << fillFrom
-                                         << "to:" << fillTo
-                                         << "\n\tbufferFrom:" << bufferFrom
-                                         << "bufferTo:" << bufferFrom
-                                         << "\n\tcurrentTopRow:" << currentTopRow
-                                         << "currentBottomRow:" << currentBottomRow
-                                         << "\n\tcurrentLeftColumn:" << currentLeftColumn
-                                         << "currentRightColumn:" << currentRightColumn
-                                         << "\n\tpreviousLeftColumn:" << previousLeftColumn
-                                         << "previousRightColumn:" << previousRightColumn
-                                         << "\n\tpreviousTopRow:" << previousTopRow
-                                         << "previousBottomRow:" << previousBottomRow
-                                            ;
-
     if (layoutChanged || visibleItemsWasEmpty) {
+        // Because a layout change (view resize, column width change, row height change, model change) almost
+        // always only removes a subset of the currently visible items, we take care not to unnecessary
+        // destroy all the QQuickItems in visibleItems. We do this by creating the new FXViewItems first, before
+        // destroying the old ones, thereby utilizing the ref-count system in QQmlInstanceModel.
         qCDebug(lcItemViewDelegateLifecycle) << "create all visible items";
+        const QList<FxViewItem *> oldVisible = visibleItems;
+        visibleItems.clear();
         createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, currentBottomRow, doBuffer);
+        for (FxViewItem *item : oldVisible)
+            releaseItem(item);
         visibleItemsModified = true;
     } else if (!contentRect.intersects(prevContentRect)) {
         qCDebug(lcItemViewDelegateLifecycle) << "table flicked more than a page, recreate all visible items";
@@ -742,50 +726,54 @@ bool QQuickTableViewPrivate::addVisibleItems(const QPointF &fillFrom, const QPoi
         createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, currentBottomRow, doBuffer);
         visibleItemsModified = true;
     } else {
+        // Only add/remove the items on the edges that went into/out of the view
         int previousTopRowClamped = qBound(currentTopRow, previousTopRow, currentBottomRow);
         int previousBottomRowClamped = qBound(currentTopRow, previousBottomRow, currentBottomRow);
 
-        if (overlapsLeft) {
-            qCDebug(lcItemViewDelegateLifecycle) << "releasing items outside view on the left, and padding out with new items on the right";
+        if (previousLeftColumn < currentLeftColumn) {
+            qCDebug(lcItemViewDelegateLifecycle) << "items pushed out left";
             releaseItems(previousLeftColumn, currentLeftColumn - 1, previousTopRowClamped, previousBottomRowClamped);
+            visibleItemsModified = true;
+        } else if (previousRightColumn > currentRightColumn) {
+            qCDebug(lcItemViewDelegateLifecycle) << "items pushed out right";
+            releaseItems(currentRightColumn + 1, previousRightColumn, previousTopRowClamped, previousBottomRowClamped);
+            visibleItemsModified = true;
+        }
+
+        if (currentLeftColumn < previousLeftColumn) {
+            qCDebug(lcItemViewDelegateLifecycle) << "items pushed in left";
+            createAndPositionItems(currentLeftColumn, previousLeftColumn - 1, previousTopRowClamped, previousBottomRowClamped, doBuffer);
+            visibleItemsModified = true;
+        } else if (currentRightColumn > previousRightColumn) {
+            qCDebug(lcItemViewDelegateLifecycle) << "items pushed in right";
             createAndPositionItems(previousRightColumn + 1, currentRightColumn, previousTopRowClamped, previousBottomRowClamped, doBuffer);
             visibleItemsModified = true;
         }
 
-        if (overlapsRight) {
-            qCDebug(lcItemViewDelegateLifecycle) << "releasing items outside view on the right, and padding out with new items on the left";
-            releaseItems(currentRightColumn + 1, previousRightColumn, previousTopRowClamped, previousBottomRowClamped);
-            createAndPositionItems(currentLeftColumn, previousLeftColumn - 1, previousTopRowClamped, previousBottomRowClamped, doBuffer);
+        if (previousTopRow < currentTopRow) {
+            qCDebug(lcItemViewDelegateLifecycle) << "items pushed out on top";
+            releaseItems(previousLeftColumn, previousRightColumn, previousTopRow, currentTopRow - 1);
+            visibleItemsModified = true;
+        } else if (previousBottomRow> currentBottomRow) {
+            qCDebug(lcItemViewDelegateLifecycle) << "items pushed out at bottom";
+            releaseItems(previousLeftColumn, previousRightColumn, currentBottomRow + 1, previousBottomRow);
             visibleItemsModified = true;
         }
 
-        if (overlapsAbove) {
-            qCDebug(lcItemViewDelegateLifecycle) << "releasing items outside view at the top (including corners), and padding out with new rows at the bottom";
-            releaseItems(previousLeftColumn, previousRightColumn, previousTopRow, currentTopRow - 1);
+        if (currentTopRow < previousTopRow) {
+            qCDebug(lcItemViewDelegateLifecycle) << "items pushed in on top";
+            createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, previousTopRow - 1, doBuffer);
+            visibleItemsModified = true;
+        } else if (currentBottomRow > previousBottomRow) {
+            qCDebug(lcItemViewDelegateLifecycle) << "items pushed in at bottom";
             createAndPositionItems(currentLeftColumn, currentRightColumn, previousBottomRow + 1, currentBottomRow, doBuffer);
             visibleItemsModified = true;
         }
-
-        if (overlapsBelow) {
-            qCDebug(lcItemViewDelegateLifecycle) << "releasing items outside view at the bottom (including corners), and padding out with new rows at the top";
-            releaseItems(previousLeftColumn, previousRightColumn, currentBottomRow + 1, previousBottomRow);
-            createAndPositionItems(currentLeftColumn, currentRightColumn, currentTopRow, previousTopRow - 1, doBuffer);
-            visibleItemsModified = true;
-        }
-    }
-
-    if (layoutChanged && !visibleItemsWasEmpty) {
-        qCDebug(lcItemViewDelegateLifecycle) << "view size changed, releasing visible items";
-        // When the view size changes, we release all items here in the end, after recreating them above.
-        // This because we assume most items will still be visible after the resize, so there is no need to
-        // delete them. And for such items, the ref-count should now be at least 2 (since we "recreated"
-        // them), meaning that they will not be deleted when we release them. The exception is if we had
-        // no visible items from before.
-        releaseVisibleItems();
     }
 
     prevContentRect = contentRect;
 
+    qCDebug(lcItemViewDelegateLifecycle) << "done adding/removing items. Visible items in table:" << visibleItems.count();
     return visibleItemsModified;
 }
 
