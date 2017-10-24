@@ -810,6 +810,16 @@ void QQuickTableView::setOrientation(Orientation orientation)
     emit orientationChanged();
 }
 
+qreal QQuickTableView::columnWidth(int column)
+{
+    return d_func()->columnWidth(column);
+}
+
+qreal QQuickTableView::rowHeight(int row)
+{
+    return d_func()->rowHeight(row);
+}
+
 QQuickTableViewAttached *QQuickTableView::qmlAttachedProperties(QObject *obj)
 {
     return new QQuickTableViewAttached(obj);
