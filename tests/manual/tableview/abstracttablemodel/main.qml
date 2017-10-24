@@ -24,20 +24,23 @@ Window {
             anchors.fill: parent
             anchors.margins: 1
 
-            ListView {
+            TableView {
                 id: tableHeader
                 width: parent.width
-                height: 30
+                height: tableView.rowHeight(0)//30
                 model: tableView.columns
                 clip: true
-                orientation: Qt.Horizontal
-                spacing: tableView.columnSpacing
+                columnSpacing: tableView.columnSpacing
+
                 interactive: false
                 contentX: tableView.contentX
 
+                columns: tableView.columns
+                rows: 1
+
                 delegate: Rectangle {
                     color: "lightgreen"
-                    width: 120
+                    width: tableView.columnWidth(index)
                     height: tableHeader.height
 
                     Text {
@@ -60,7 +63,7 @@ Window {
                 // But it should probably be the opposite, so that we always use columns and rows?
                 // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
                 columns: 100
-                rows: 500
+                rows: 40
 
                 columnSpacing: 1
                 rowSpacing: 1
