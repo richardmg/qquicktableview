@@ -124,6 +124,7 @@ protected:
     QPointF prevContentPos;
     QSizeF prevViewSize;
     QRectF prevContentRect;
+    mutable QPair<int, qreal> rowPositionCache;
     mutable QPair<int, qreal> columnPositionCache;
 
     bool inViewportMoved;
@@ -151,6 +152,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       prevContentPos(QPointF(0, 0)),
       prevViewSize(QSizeF(0, 0)),
       prevContentRect(QRectF(0, 0, 0, 0)),
+      rowPositionCache(qMakePair(0, 0)),
       columnPositionCache(qMakePair(0, 0)),
       inViewportMoved(false)
 {
@@ -187,14 +189,6 @@ int QQuickTableViewPrivate::rowAtIndex(int index) const
     return index / columns;
 }
 
-int QQuickTableViewPrivate::rowAtPos(qreal y) const
-{
-    // ### TODO: for now we assume all rows has the same height. This will not be the case in the end.
-    // The strategy should either be to keep all the row heights in a separate array, or
-    // inspect the current visible items to make a guess.
-    return y / (rowHeight(0) + rowSpacing);
-}
-
 int QQuickTableViewPrivate::columnAtIndex(int index) const
 {
     Q_Q(const QQuickTableView);
@@ -225,37 +219,102 @@ FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
     return nullptr;
 }
 
+int QQuickTableViewPrivate::rowAtPos(qreal y) const
+{
+    Q_Q(const QQuickTableView);
+
+    // We cache the look-up, since it is likely that future
+    // rowPos/rowAtPos calls will be for rows adjacent to
+    // (or close to) the one requested. That way, we usually need to iterate
+    // over just one row to get the correct column, at least while flicking.
+
+    if (y <= 0) {
+        rowPositionCache.first = 0;
+        rowPositionCache.second = 0;
+        return 0;
+    } else if (y >= q->contentHeight()) {
+        int lastRow = rows - 1;
+        qreal lastRowPos = q->contentHeight() - rowHeight(lastRow);
+        rowPositionCache.first = lastRow;
+        rowPositionCache.second = lastRowPos;
+        return lastRow;
+    }
+
+    const int cachedRow = rowPositionCache.first;
+    const qreal cachedRowPos = rowPositionCache.second;
+
+    int row = cachedRow;
+    qreal rowPos = cachedRowPos;
+
+    if (y > cachedRowPos) {
+        for (row = cachedRow; row < rows; ++row) {
+            qreal height = rowHeight(row) + rowSpacing;
+            if (y < rowPos + height)
+                break;
+            rowPos += height;
+        }
+    } else if (y < cachedRowPos) {
+        for (row = cachedRow - 1; row >= 0; --row) {
+            rowPos -= rowHeight(row) + rowSpacing;
+            if (y >= rowPos)
+                break;
+        }
+    }
+
+    rowPositionCache.first = row;
+    rowPositionCache.second = rowPos;
+
+    return row;
+}
+
 qreal QQuickTableViewPrivate::rowPos(int row) const
 {
-    // ### TODO: Support rows having different heights. Should this be stored in a separate list as well?
-    return row * (rowHeight(row) + rowSpacing);
+    Q_Q(const QQuickTableView);
 
-//    // ### TODO: bottom-to-top
-//    int visibleColumn = columnAt(visibleIndex);
-//    FxViewItem *item = visibleItemAt(row, visibleColumn);
-//    if (item)
-//        return item->itemY();
+    // We cache the look-up, since it is likely that future
+    // rowPos/rowAtPos calls will be for rows adjacent to
+    // (or close to) the one requested. That way, we usually need to iterate
+    // over just one row to get the correct position, at least while flicking.
 
-//    // estimate
-//    int visibleRow = rowAt(visibleIndex);
-//    if (row < visibleRow) {
-//        int count = visibleRow - row;
-//        FxViewItem *topLeft = visibleItemAt(visibleRow, visibleColumn);
-//        return topLeft->itemY() - count * averageSize.height(); // ### spacing
-//    } else if (row > visibleRow + visibleRows) {
-//        int count = row - visibleRow - visibleRows;
-//        FxViewItem *bottomLeft = visibleItemAt(visibleRow + visibleRows, visibleColumn);
-//        return bottomLeft->itemY() + bottomLeft->itemHeight() + count * averageSize.height(); // ### spacing
-//    }
-//    return 0;
+    const int cachedRow = rowPositionCache.first;
+    const qreal cachedRowPos = rowPositionCache.second;
+
+    if (row == cachedRow)
+        return cachedRowPos;
+
+    if (row <= 0) {
+        rowPositionCache.first = 0;
+        rowPositionCache.second = 0;
+        return 0;
+    } else if (row >= rows) {
+        int lastRow = rows - 1;
+        qreal lastRowPos = q->contentHeight() - rowHeight(lastRow);
+        rowPositionCache.first = lastRow;
+        rowPositionCache.second = lastRowPos;
+        return lastRowPos;
+    }
+
+    qreal rowPos = cachedRowPos;
+
+    if (row > cachedRow) {
+        for (int i = cachedRow; i < row; ++i)
+            rowPos += rowHeight(i) + rowSpacing;
+    } else {
+        for (int i = cachedRow - 1; i >= row; --i)
+            rowPos -= rowHeight(i) + rowSpacing;
+    }
+
+    rowPositionCache.first = row;
+    rowPositionCache.second = rowPos;
+
+    return rowPos;
 }
 
 qreal QQuickTableViewPrivate::rowHeight(int row) const
 {
-    // ### TODO: Rather than search through visible items, I think this information should be
-    // specified more explixit, e.g in an separate list. Use a constant for now.
-    Q_UNUSED(row);
-    return 60;
+    srand(row);
+    int r = ((rand() % 100) * 2) + 50;
+    return r;
 
 //    int column = columnAt(visibleIndex);
 //    FxViewItem *item = visibleItemAt(row, column);
