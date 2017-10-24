@@ -121,7 +121,8 @@ protected:
     qreal columnSpacing;
     QPointF prevContentPos;
     QSizeF prevViewSize;
-    QRectF prevContentRect;
+
+    QMargins prevGrid;
     mutable QPair<int, qreal> rowPositionCache;
     mutable QPair<int, qreal> columnPositionCache;
 
@@ -133,8 +134,8 @@ protected:
     void createAndPositionItem(int row, int col);
     void createAndPositionItems(int fromColumn, int toColumn, int fromRow, int toRow);
     void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
-    bool addRemoveVisibleItemsOnEdges(const QMargins &previousGrid, const QMargins &currentGrid);
-    bool addRemoveAllVisibleItems(const QMargins &currentGrid, bool overlapHint);
+    bool removeVisibleItemsOutsideCurrentGrid(const QMargins &previousGrid, const QMargins &currentGrid);
+    bool addVisibleItemsInsideCurrentGrid(const QMargins &previousGrid, const QMargins &currentGrid);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -147,7 +148,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       columnSpacing(0),
       prevContentPos(QPointF(0, 0)),
       prevViewSize(QSizeF(0, 0)),
-      prevContentRect(QRectF(0, 0, 0, 0)),
+      prevGrid(QMargins(-1, -1, -1, -1)),
       rowPositionCache(qMakePair(0, 0)),
       columnPositionCache(qMakePair(0, 0)),
       inViewportMoved(false)
@@ -507,59 +508,6 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     d->inViewportMoved = false;
 }
 
-bool QQuickTableViewPrivate::addRemoveVisibleItems()
-{
-    Q_Q(QQuickTableView);
-
-    bufferPause.stop(); // ###
-    currentChanges.reset(); // ###
-
-    QPointF from, to;
-    QSizeF tableViewSize = size();
-    tableViewSize.setWidth(qMax<qreal>(tableViewSize.width(), 0.0));
-    tableViewSize.setHeight(qMax<qreal>(tableViewSize.height(), 0.0));
-
-    QPointF contentPos = position();
-
-    if (isContentFlowReversed()) {
-        from = -contentPos /*- displayMarginBeginning*/ - tableViewSize;
-        to = -contentPos /*+ displayMarginEnd*/;
-    } else {
-        from = contentPos /*- displayMarginBeginning*/;
-        to = contentPos /*+ displayMarginEnd*/ + tableViewSize;
-    }
-
-    // XXX: why do we update itemCount here? What is it used for? It contains the
-    // number of items in the model, which can be thousands...
-    itemCount = model->count();
-
-    QRectF contentRect(QPointF(q->contentX(), q->contentY()), q->size());
-
-    QPointF bufferFrom = from - QPointF(buffer, buffer);
-    QPointF bufferTo = to + QPointF(buffer, buffer);
-    QPointF fillFrom = from;
-    QPointF fillTo = to;
-
-    QMargins previousGrid(columnAtPos(prevContentRect.x()), rowAtPos(prevContentRect.y()),
-                          columnAtPos(prevContentRect.right()), rowAtPos(prevContentRect.bottom()));
-    QMargins currentGrid(columnAtPos(contentRect.x()), rowAtPos(contentRect.y()),
-                         columnAtPos(contentRect.right()), rowAtPos(contentRect.bottom()));
-
-    bool visibleItemsModified = false;
-    const bool layoutChanged = contentRect.size() != prevContentRect.size() && currentGrid != previousGrid;
-    const bool overlap = contentRect.intersects(prevContentRect);
-
-    if (layoutChanged || !overlap || visibleItems.empty())
-        visibleItemsModified = addRemoveAllVisibleItems(currentGrid, overlap);
-    else
-        visibleItemsModified = addRemoveVisibleItemsOnEdges(previousGrid, currentGrid);
-
-    prevContentRect = contentRect;
-
-    qCDebug(lcItemViewDelegateLifecycle) << "done adding/removing items. Visible items in table:" << visibleItems.count();
-    return visibleItemsModified;
-}
-
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
 {
     return static_cast<Qt::Orientation>(orientation);
@@ -629,31 +577,58 @@ void QQuickTableViewPrivate::releaseItems(int fromColumn, int toColumn, int from
     }
 }
 
-bool QQuickTableViewPrivate::addRemoveAllVisibleItems(const QMargins &currentGrid, bool overlapHint)
+bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
-    qCDebug(lcItemViewDelegateLifecycle) << currentGrid << overlapHint;
-    if (!overlapHint) {
-        releaseVisibleItems();
-        createAndPositionItems(currentGrid.left(), currentGrid.right(), currentGrid.top(), currentGrid.bottom());
+    Q_Q(QQuickTableView);
+
+    bufferPause.stop(); // ###
+    currentChanges.reset(); // ###
+
+    QPointF from, to;
+    QSizeF tableViewSize = size();
+    tableViewSize.setWidth(qMax<qreal>(tableViewSize.width(), 0.0));
+    tableViewSize.setHeight(qMax<qreal>(tableViewSize.height(), 0.0));
+
+    QPointF contentPos = position();
+
+    if (isContentFlowReversed()) {
+        from = -contentPos /*- displayMarginBeginning*/ - tableViewSize;
+        to = -contentPos /*+ displayMarginEnd*/;
     } else {
-        // Since we expect the new grid to overlap with whatever was the grid before, we
-        // take care not to unnecessary destroy all the QQuickItems in visibleItems. We do this by
-        // creating the new FXViewItems first, before destroying the old ones, thereby utilizing the
-        // ref-count system in QQmlInstanceModel to keep the ones that overlap alive.
-        const QList<FxViewItem *> oldVisible = visibleItems;
-        visibleItems.clear();
-        createAndPositionItems(currentGrid.left(), currentGrid.right(), currentGrid.top(), currentGrid.bottom());
-        for (FxViewItem *item : oldVisible)
-            releaseItem(item);
+        from = contentPos /*- displayMarginBeginning*/;
+        to = contentPos /*+ displayMarginEnd*/ + tableViewSize;
     }
 
-    return true;
+    // XXX: why do we update itemCount here? What is it used for? It contains the
+    // number of items in the model, which can be thousands...
+    itemCount = model->count();
+
+    QRectF contentRect(QPointF(q->contentX(), q->contentY()), q->size());
+
+    QPointF bufferFrom = from - QPointF(buffer, buffer);
+    QPointF bufferTo = to + QPointF(buffer, buffer);
+    QPointF fillFrom = from;
+    QPointF fillTo = to;
+
+    QMargins currentGrid(columnAtPos(contentRect.x()), rowAtPos(contentRect.y()),
+                         columnAtPos(contentRect.right()), rowAtPos(contentRect.bottom()));
+
+    bool itemsRemoved = removeVisibleItemsOutsideCurrentGrid(prevGrid, currentGrid);
+    bool itemsAdded = addVisibleItemsInsideCurrentGrid(prevGrid, currentGrid);
+
+    prevGrid = currentGrid;
+
+    if (itemsRemoved || itemsAdded) {
+        qCDebug(lcItemViewDelegateLifecycle) << "visible items count:" << visibleItems.count();
+        return true;
+    }
+
+    return false;
 }
 
-bool QQuickTableViewPrivate::addRemoveVisibleItemsOnEdges(const QMargins &previousGrid, const QMargins &currentGrid)
+bool QQuickTableViewPrivate::removeVisibleItemsOutsideCurrentGrid(const QMargins &previousGrid, const QMargins &currentGrid)
 {
-    // Only add/remove the items on the edges that went into/out of the view
-    bool visibleItemsModified = false;
+    bool itemsRemoved = false;
 
     int previousGridTopClamped = qBound(currentGrid.top(), previousGrid.top(), currentGrid.bottom());
     int previousGridBottomClamped = qBound(currentGrid.top(), previousGrid.bottom(), currentGrid.bottom());
@@ -661,44 +636,54 @@ bool QQuickTableViewPrivate::addRemoveVisibleItemsOnEdges(const QMargins &previo
     if (previousGrid.left() < currentGrid.left()) {
         qCDebug(lcItemViewDelegateLifecycle) << "items pushed out left";
         releaseItems(previousGrid.left(), currentGrid.left() - 1, previousGridTopClamped, previousGridBottomClamped);
-        visibleItemsModified = true;
+        itemsRemoved = true;
     } else if (previousGrid.right() > currentGrid.right()) {
         qCDebug(lcItemViewDelegateLifecycle) << "items pushed out right";
         releaseItems(currentGrid.right() + 1, previousGrid.right(), previousGridTopClamped, previousGridBottomClamped);
-        visibleItemsModified = true;
-    }
-
-    if (currentGrid.left() < previousGrid.left()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "items pushed in left";
-        createAndPositionItems(currentGrid.left(), previousGrid.left() - 1, previousGridTopClamped, previousGridBottomClamped);
-        visibleItemsModified = true;
-    } else if (currentGrid.right() > previousGrid.right()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "items pushed in right";
-        createAndPositionItems(previousGrid.right() + 1, currentGrid.right(), previousGridTopClamped, previousGridBottomClamped);
-        visibleItemsModified = true;
+        itemsRemoved = true;
     }
 
     if (previousGrid.top() < currentGrid.top()) {
         qCDebug(lcItemViewDelegateLifecycle) << "items pushed out on top";
         releaseItems(previousGrid.left(), previousGrid.right(), previousGrid.top(), currentGrid.top() - 1);
-        visibleItemsModified = true;
+        itemsRemoved = true;
     } else if (previousGrid.bottom()> currentGrid.bottom()) {
         qCDebug(lcItemViewDelegateLifecycle) << "items pushed out at bottom";
         releaseItems(previousGrid.left(), previousGrid.right(), currentGrid.bottom() + 1, previousGrid.bottom());
-        visibleItemsModified = true;
+        itemsRemoved = true;
+    }
+
+    return itemsRemoved;
+}
+
+bool QQuickTableViewPrivate::addVisibleItemsInsideCurrentGrid(const QMargins &previousGrid, const QMargins &currentGrid)
+{
+    bool itemsAdded = false;
+
+    int previousGridTopClamped = qBound(currentGrid.top(), previousGrid.top(), currentGrid.bottom());
+    int previousGridBottomClamped = qBound(currentGrid.top(), previousGrid.bottom(), currentGrid.bottom());
+
+    if (currentGrid.left() < previousGrid.left()) {
+        qCDebug(lcItemViewDelegateLifecycle) << "items pushed in left";
+        createAndPositionItems(currentGrid.left(), previousGrid.left() - 1, previousGridTopClamped, previousGridBottomClamped);
+        itemsAdded = true;
+    } else if (currentGrid.right() > previousGrid.right()) {
+        qCDebug(lcItemViewDelegateLifecycle) << "items pushed in right";
+        createAndPositionItems(previousGrid.right() + 1, currentGrid.right(), previousGridTopClamped, previousGridBottomClamped);
+        itemsAdded = true;
     }
 
     if (currentGrid.top() < previousGrid.top()) {
         qCDebug(lcItemViewDelegateLifecycle) << "items pushed in on top";
         createAndPositionItems(currentGrid.left(), currentGrid.right(), currentGrid.top(), previousGrid.top() - 1);
-        visibleItemsModified = true;
+        itemsAdded = true;
     } else if (currentGrid.bottom() > previousGrid.bottom()) {
         qCDebug(lcItemViewDelegateLifecycle) << "items pushed in at bottom";
         createAndPositionItems(currentGrid.left(), currentGrid.right(), previousGrid.bottom() + 1, currentGrid.bottom());
-        visibleItemsModified = true;
+        itemsAdded = true;
     }
 
-    return visibleItemsModified;
+    return itemsAdded;
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
