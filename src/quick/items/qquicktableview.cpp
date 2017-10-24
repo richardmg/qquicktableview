@@ -355,14 +355,9 @@ qreal QQuickTableViewPrivate::columnPos(int column) const
 
 qreal QQuickTableViewPrivate::columnWidth(int column) const
 {
-    switch(column) {
-    case 0:
-    case 6:
-    case 8:
-    case 20:
-        return 200;
-    }
-    return 120;
+    srand(column);
+    int r = ((rand() % 100) * 2) + 50;
+    return r;
 
 //    int row = rowAt(visibleIndex);
 //    FxViewItem *item = visibleItemAt(row, column);
