@@ -98,7 +98,8 @@ void FxViewItem::moveTo(const QPointF &pos, bool immediate)
 void FxViewItem::setSize(const QSizeF &size, bool immediate)
 {
     Q_UNUSED(immediate);
-    item->setSize(size);
+    if (item)
+        item->setSize(size);
 }
 
 void FxViewItem::setVisible(bool visible)

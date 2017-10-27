@@ -125,17 +125,19 @@ protected:
     QMargins prevGrid;
     mutable QPair<int, qreal> rowPositionCache;
     mutable QPair<int, qreal> columnPositionCache;
+    QVector<qreal> columnWidthCache;
 
     bool inViewportMoved;
 
     void updateViewportContentWidth();
     void updateViewportContentHeight();
 
-    void createAndPositionItem(int row, int col);
-    void createAndPositionItems(int fromColumn, int toColumn, int fromRow, int toRow);
+    void createTableItem(int row, int col);
+    void createTableItems(int fromColumn, int toColumn, int fromRow, int toRow);
     void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
-    bool removeVisibleItemsOutsideCurrentGrid(const QMargins &previousGrid, const QMargins &currentGrid);
-    bool addVisibleItemsInsideCurrentGrid(const QMargins &previousGrid, const QMargins &currentGrid);
+    bool removeItemsOutsideView(const QMargins &previousGrid, const QMargins &currentGrid);
+    bool addItemsInsideView(const QMargins &previousGrid, const QMargins &currentGrid);
+    void setTableItemGeometry(int row, int col, FxTableItemSG *item);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -151,6 +153,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       prevGrid(QMargins(-1, -1, -1, -1)),
       rowPositionCache(qMakePair(0, 0)),
       columnPositionCache(qMakePair(0, 0)),
+      columnWidthCache(QVector<qreal>(100, -1)),
       inViewportMoved(false)
 {
 }
@@ -529,7 +532,28 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
     return new FxTableItemSG(item, q, false);
 }
 
-void QQuickTableViewPrivate::createAndPositionItem(int row, int col)
+void QQuickTableViewPrivate::setTableItemGeometry(int row, int col, FxTableItemSG *item)
+{
+    if (transitioner && !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) {
+        // ###TODO: not sure about this path yet
+        return;
+    }
+
+//    qreal rowHeight = 60;
+
+//    qreal columnWidth = getCachedColumnWidth(col);
+//    if (columnWidth == -1) {
+//        columnWidth = item->item->width();
+//        qCDebug(lcItemViewDelegateLifecycle) << "Update column width cache (col/width):" << col << columnWidth;
+//        cacheColumnWidth(col, columnWidth);
+//    }
+
+//    item->setSize(QSizeF(columnWidth, rowHeight), true);
+    item->setPosition(itemPosition(row, col), true);
+    item->setSize(itemSize(row, col), true);
+}
+
+void QQuickTableViewPrivate::createTableItem(int row, int col)
 {
     int modelIndex = indexAt(row, col);
     FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, false));
@@ -538,18 +562,15 @@ void QQuickTableViewPrivate::createAndPositionItem(int row, int col)
         return;
     }
 
-    if (!transitioner || !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) {
-        item->setPosition(itemPosition(row, col), true);
-        item->setSize(itemSize(row, col), true);
-    }
-
-    if (item->item)
+    if (item->item) {
+        setTableItemGeometry(row, col, item);
         QQuickItemPrivate::get(item->item)->setCulled(false);
+    }
 
     visibleItems.append(item);
 }
 
-void QQuickTableViewPrivate::createAndPositionItems(int fromColumn, int toColumn, int fromRow, int toRow)
+void QQuickTableViewPrivate::createTableItems(int fromColumn, int toColumn, int fromRow, int toRow)
 {
     // Create and position all items in the table section described by the arguments
     qCDebug(lcItemViewDelegateLifecycle) << "create items ( x1:"
@@ -558,7 +579,7 @@ void QQuickTableViewPrivate::createAndPositionItems(int fromColumn, int toColumn
 
     for (int row = fromRow; row <= toRow; ++row) {
         for (int col = fromColumn; col <= toColumn; ++col)
-            createAndPositionItem(row, col);
+            createTableItem(row, col);
     }
 }
 
@@ -603,18 +624,18 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     // number of items in the model, which can be thousands...
     itemCount = model->count();
 
-    QRectF contentRect(QPointF(q->contentX(), q->contentY()), q->size());
+    QRectF visibleContentRect(QPointF(q->contentX(), q->contentY()), q->size());
 
     QPointF bufferFrom = from - QPointF(buffer, buffer);
     QPointF bufferTo = to + QPointF(buffer, buffer);
     QPointF fillFrom = from;
     QPointF fillTo = to;
 
-    QMargins currentGrid(columnAtPos(contentRect.x()), rowAtPos(contentRect.y()),
-                         columnAtPos(contentRect.right()), rowAtPos(contentRect.bottom()));
+    QMargins currentGrid(columnAtPos(visibleContentRect.x()), rowAtPos(visibleContentRect.y()),
+                         columnAtPos(visibleContentRect.right()), rowAtPos(visibleContentRect.bottom()));
 
-    bool itemsRemoved = removeVisibleItemsOutsideCurrentGrid(prevGrid, currentGrid);
-    bool itemsAdded = addVisibleItemsInsideCurrentGrid(prevGrid, currentGrid);
+    bool itemsRemoved = removeItemsOutsideView(prevGrid, currentGrid);
+    bool itemsAdded = addItemsInsideView(prevGrid, currentGrid);
 
     prevGrid = currentGrid;
 
@@ -626,7 +647,7 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     return false;
 }
 
-bool QQuickTableViewPrivate::removeVisibleItemsOutsideCurrentGrid(const QMargins &previousGrid, const QMargins &currentGrid)
+bool QQuickTableViewPrivate::removeItemsOutsideView(const QMargins &previousGrid, const QMargins &currentGrid)
 {
     bool itemsRemoved = false;
 
@@ -656,7 +677,7 @@ bool QQuickTableViewPrivate::removeVisibleItemsOutsideCurrentGrid(const QMargins
     return itemsRemoved;
 }
 
-bool QQuickTableViewPrivate::addVisibleItemsInsideCurrentGrid(const QMargins &previousGrid, const QMargins &currentGrid)
+bool QQuickTableViewPrivate::addItemsInsideView(const QMargins &previousGrid, const QMargins &currentGrid)
 {
     bool itemsAdded = false;
 
@@ -665,21 +686,21 @@ bool QQuickTableViewPrivate::addVisibleItemsInsideCurrentGrid(const QMargins &pr
 
     if (currentGrid.left() < previousGrid.left()) {
         qCDebug(lcItemViewDelegateLifecycle) << "items pushed in left";
-        createAndPositionItems(currentGrid.left(), previousGrid.left() - 1, previousGridTopClamped, previousGridBottomClamped);
+        createTableItems(currentGrid.left(), previousGrid.left() - 1, previousGridTopClamped, previousGridBottomClamped);
         itemsAdded = true;
     } else if (currentGrid.right() > previousGrid.right()) {
         qCDebug(lcItemViewDelegateLifecycle) << "items pushed in right";
-        createAndPositionItems(previousGrid.right() + 1, currentGrid.right(), previousGridTopClamped, previousGridBottomClamped);
+        createTableItems(previousGrid.right() + 1, currentGrid.right(), previousGridTopClamped, previousGridBottomClamped);
         itemsAdded = true;
     }
 
     if (currentGrid.top() < previousGrid.top()) {
         qCDebug(lcItemViewDelegateLifecycle) << "items pushed in on top";
-        createAndPositionItems(currentGrid.left(), currentGrid.right(), currentGrid.top(), previousGrid.top() - 1);
+        createTableItems(currentGrid.left(), currentGrid.right(), currentGrid.top(), previousGrid.top() - 1);
         itemsAdded = true;
     } else if (currentGrid.bottom() > previousGrid.bottom()) {
         qCDebug(lcItemViewDelegateLifecycle) << "items pushed in at bottom";
-        createAndPositionItems(currentGrid.left(), currentGrid.right(), previousGrid.bottom() + 1, currentGrid.bottom());
+        createTableItems(currentGrid.left(), currentGrid.right(), previousGrid.bottom() + 1, currentGrid.bottom());
         itemsAdded = true;
     }
 
