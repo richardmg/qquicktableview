@@ -88,10 +88,9 @@ public:
     QSizeF size() const;
     QPointF position() const;
 
-    QPointF itemPosition(int row, int column) const;
-    QPointF itemPosition(FxViewItem *item) const;
+    QPointF cellPosition(int row, int column) const;
+    QPointF cellPosition(FxViewItem *item) const;
     QPointF itemEndPosition(FxViewItem *item) const;
-    QSizeF itemSize(int row, int column) const;
     QSizeF itemSize(FxViewItem *item) const;
 
     bool addRemoveVisibleItems() override;
@@ -125,6 +124,7 @@ protected:
     QMargins prevGrid;
     mutable QPair<int, qreal> rowPositionCache;
     mutable QPair<int, qreal> columnPositionCache;
+    QVector<qreal> rowHeightCache;
     QVector<qreal> columnWidthCache;
 
     bool inViewportMoved;
@@ -132,12 +132,13 @@ protected:
     void updateViewportContentWidth();
     void updateViewportContentHeight();
 
-    void createTableItem(int row, int col);
+    FxTableItemSG *createTableItem(int row, int col);
     void createTableItems(int fromColumn, int toColumn, int fromRow, int toRow);
     void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
     bool removeItemsOutsideView(const QMargins &previousGrid, const QMargins &currentGrid);
     bool addItemsInsideView(const QMargins &previousGrid, const QMargins &currentGrid);
-    void setTableItemGeometry(int row, int col, FxTableItemSG *item);
+    qreal getCachedRowHeight(int row);
+    qreal getCachedColumnWidth(int col);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -153,6 +154,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       prevGrid(QMargins(-1, -1, -1, -1)),
       rowPositionCache(qMakePair(0, 0)),
       columnPositionCache(qMakePair(0, 0)),
+      rowHeightCache(QVector<qreal>(100, -1)),
       columnWidthCache(QVector<qreal>(100, -1)),
       inViewportMoved(false)
 {
@@ -455,12 +457,12 @@ QPointF QQuickTableViewPrivate::position() const
     return  orientation == QQuickTableView::Vertical ? QPointF(q->contentX(), q->contentY()) : QPointF(q->contentY(), q->contentX());
 }
 
-QPointF QQuickTableViewPrivate::itemPosition(int row, int column) const
+QPointF QQuickTableViewPrivate::cellPosition(int row, int column) const
 {
    return QPointF(columnPos(column), rowPos(row));
 }
 
-QPointF QQuickTableViewPrivate::itemPosition(FxViewItem *item) const
+QPointF QQuickTableViewPrivate::cellPosition(FxViewItem *item) const
 {
     if (isContentFlowReversed())
         return QPointF(-item->itemX() - item->itemWidth(), -item->itemY() - item->itemHeight());
@@ -479,11 +481,6 @@ QPointF QQuickTableViewPrivate::itemEndPosition(FxViewItem *item) const
 QSizeF QQuickTableViewPrivate::itemSize(FxViewItem *item) const
 {
     return QSizeF(item->itemWidth(), item->itemHeight());
-}
-
-QSizeF QQuickTableViewPrivate::itemSize(int row, int column) const
-{
-    return QSizeF(columnWidth(column), rowHeight(row));
 }
 
 static QPointF operator+(const QPointF &pos, const QSizeF &size)
@@ -532,42 +529,35 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
     return new FxTableItemSG(item, q, false);
 }
 
-void QQuickTableViewPrivate::setTableItemGeometry(int row, int col, FxTableItemSG *item)
+qreal QQuickTableViewPrivate::getCachedRowHeight(int row)
 {
-    if (transitioner && !transitioner->canTransition(QQuickItemViewTransitioner::PopulateTransition, true)) {
-        // ###TODO: not sure about this path yet
-        return;
-    }
-
-//    qreal rowHeight = 60;
-
-//    qreal columnWidth = getCachedColumnWidth(col);
-//    if (columnWidth == -1) {
-//        columnWidth = item->item->width();
-//        qCDebug(lcItemViewDelegateLifecycle) << "Update column width cache (col/width):" << col << columnWidth;
-//        cacheColumnWidth(col, columnWidth);
-//    }
-
-//    item->setSize(QSizeF(columnWidth, rowHeight), true);
-    item->setPosition(itemPosition(row, col), true);
-    item->setSize(itemSize(row, col), true);
+    return 20;
 }
 
-void QQuickTableViewPrivate::createTableItem(int row, int col)
+qreal QQuickTableViewPrivate::getCachedColumnWidth(int col)
 {
-    int modelIndex = indexAt(row, col);
-    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(modelIndex, false));
+    return 100;
+}
+
+FxTableItemSG *QQuickTableViewPrivate::createTableItem(int row, int col)
+{
+    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(indexAt(row, col), false));
+
     if (!item) {
-        qCDebug(lcItemViewDelegateLifecycle) << "failed to create item for row/col:" << row << col;
-        return;
+        qCDebug(lcItemViewDelegateLifecycle) << "failed to create FxTableItemSG for row/col:" << row << col;
+        return nullptr;
     }
 
-    if (item->item) {
-        setTableItemGeometry(row, col, item);
-        QQuickItemPrivate::get(item->item)->setCulled(false);
+    if (!item->item) {
+        // TODO: can item->item be null at this point, but later be incubated?
+        qCDebug(lcItemViewDelegateLifecycle) << "failed to create QQuickItem for row/col:" << row << col;
+        releaseItem(item);
+        return nullptr;
     }
 
-    visibleItems.append(item);
+    QQuickItemPrivate::get(item->item)->setCulled(false);
+
+    return item;
 }
 
 void QQuickTableViewPrivate::createTableItems(int fromColumn, int toColumn, int fromRow, int toRow)
@@ -578,8 +568,43 @@ void QQuickTableViewPrivate::createTableItems(int fromColumn, int toColumn, int 
                                          << fromRow << ", y2:" << toRow  << ")";
 
     for (int row = fromRow; row <= toRow; ++row) {
-        for (int col = fromColumn; col <= toColumn; ++col)
-            createTableItem(row, col);
+        qreal cachedRowHeight = getCachedRowHeight(row);
+
+        for (int col = fromColumn; col <= toColumn; ++col) {
+            qreal cachedColumnWidth = getCachedColumnWidth(col);
+
+            FxTableItemSG *item = createTableItem(row, col);
+            if (!item)
+                continue;
+
+            visibleItems.append(item);
+
+            // Problem: cellPosition depends on column width for all columns up to the given column.
+            // And currently, columnWidth() does not use columnWidthCache.
+            // 1. check if the cell/current grid geometry cache is empty for (row, col), and if so, assign item width/height to it here directly.
+            // 2. columnWidth() should first check the explicit column width hash, and if not found, check the grid
+            //		cache, and if not found, create a dummy item to read the size, and put it in the cache.
+            // 3. The cache size should be based on buffer size. And cleared whenever we release a row/column.
+
+           // QRectF cellGeometry = getCellGeometry(item);
+
+            if (cachedRowHeight == -1) {
+                // Since the height of the current row has not yet been cached, we cache
+                // it now based on the first item we encountered for this row.
+                cachedRowHeight = item->item->size().height();
+                rowHeightCache[row] = cachedRowHeight;
+            }
+
+            if (cachedColumnWidth == -1) {
+                // Since the width of the current column has not yet been cached, we cache
+                // it now based on the first item we encountered for this column.
+                cachedColumnWidth = item->item->size().width();
+                columnWidthCache[col] = cachedColumnWidth;
+            }
+
+            item->setPosition(cellPosition(row, col), true);
+            item->setSize(QSizeF(cachedColumnWidth, cachedRowHeight), true);
+        }
     }
 }
 
