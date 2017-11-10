@@ -111,6 +111,7 @@ Q_SIGNALS:
 
 protected Q_SLOTS:
     void initItem(int index, QObject *item) override;
+    void createdItem(int index, QObject *object) override;
 
 protected:
     void componentComplete() override;

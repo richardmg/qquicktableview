@@ -77,19 +77,19 @@ public:
         Done
     };
 
-    GridRequest(const QRect &visibleContentRect)
-        : visibleContentRect(visibleContentRect)
+    GridRequest(const QRectF &visibleContentRect)
+        : state(ReadyToLoad)
+        , visibleContentRect(visibleContentRect)
+        , waitingForIndex(kNullValue)
         , loadedWidth(0)
         , loadedHeight(0)
-        , state(ReadyToLoad)
-        , waitingForIndex(kNullValue)
     {}
 
+    State state;
     QRectF visibleContentRect;
     int waitingForIndex;
     qreal loadedWidth;
     qreal loadedHeight;
-    State state;
 };
 
 class QQuickTableViewPrivate : public QQuickAbstractItemViewPrivate
@@ -171,6 +171,7 @@ protected:
     qreal getCachedRowHeight(int row);
     qreal getCachedColumnWidth(int col);
     void continueLoadingCurrentRequest();
+    void fillTable();
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -183,12 +184,13 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       columnSpacing(0),
       prevContentPos(QPointF(0, 0)),
       prevViewSize(QSizeF(0, 0)),
+      currentRequest(QRect()),
       prevGrid(QMargins(-1, -1, -1, -1)),
       rowPositionCache(qMakePair(0, 0)),
       columnPositionCache(qMakePair(0, 0)),
       rowHeightCache(QVector<qreal>(100, kNullValue)),
       columnWidthCache(QVector<qreal>(100, kNullValue)),
-      inViewportMoved(false),
+      inViewportMoved(false)
 {
 }
 
@@ -554,6 +556,26 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     d->inViewportMoved = false;
 }
 
+void QQuickTableView::createdItem(int index, QObject* object)
+{
+    Q_UNUSED(index);
+    Q_UNUSED(object);
+
+//    QQuickItem* item = qmlobject_cast<QQuickItem*>(object);
+//    if (!d->inRequest) {
+//        d->unrequestedItems.insert(item, index);
+//        d->requestedIndex = -1;
+//        if (d->hasPendingChanges())
+//            d->layout();
+//        else
+//            d->refill();
+//        if (d->unrequestedItems.contains(item))
+//            d->repositionPackageItemAt(item, index);
+//        else if (index == d->currentIndex)
+//            d->updateCurrent(index);
+//    }
+}
+
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
 {
     return static_cast<Qt::Orientation>(orientation);
@@ -686,11 +708,12 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     if (currentRequest.state != GridRequest::Done) {
         // We are already processesing a request, so wait for it to finish.
         // todo: should I post a new polish here, to catch changes?
-        return;
+        return false;
     }
 
-    currentRequest = GridRequest(QRect(QPointF(q->contentX(), q->contentY()), q->size());
+    currentRequest = GridRequest(QRectF(QPointF(q->contentX(), q->contentY()), q->size()));
     continueLoadingCurrentRequest();
+    return true;
 }
 
 void QQuickTableViewPrivate::continueLoadingCurrentRequest()
@@ -703,18 +726,18 @@ void QQuickTableViewPrivate::continueLoadingCurrentRequest()
         createTableItem(0, 0, QQmlIncubator::Asynchronous);
         break;
     default:
-        Q_UNREACHABLE;
+        Q_UNREACHABLE();
         break;
     }
 
     // todo: load next key item. When all key items are loaded,
     // update row and column cache, and load inner items.
-    if (allItemsLoaded) {
-        currentRequest.loadingItems = true;
-        calculateRowHeights();
-        calcualteColumnWidths();
-        fillTable();
-    }
+//    if (allItemsLoaded) {
+//        currentRequest.loadingItems = true;
+//        calculateRowHeights();
+//        calcualteColumnWidths();
+//        fillTable();
+//    }
 }
 
 void QQuickTableViewPrivate::fillTable()
