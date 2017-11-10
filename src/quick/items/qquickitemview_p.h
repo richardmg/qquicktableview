@@ -113,6 +113,7 @@ protected:
 
 protected Q_SLOTS:
     void trackedPositionChanged() override;
+    void createdItem(int index, QObject *object) override;
 
 private:
     Q_DECLARE_PRIVATE(QQuickItemView)

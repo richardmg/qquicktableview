@@ -1644,23 +1644,9 @@ void QQuickAbstractItemView::destroyRemoved()
     d->forceLayoutPolish();
 }
 
-void QQuickAbstractItemView::createdItem(int index, QObject* object)
+void QQuickAbstractItemView::createdItem(int, QObject*)
 {
-    Q_D(QQuickAbstractItemView);
-
-    QQuickItem* item = qmlobject_cast<QQuickItem*>(object);
-    if (!d->inRequest) {
-        d->unrequestedItems.insert(item, index);
-        d->requestedIndex = -1;
-        if (d->hasPendingChanges())
-            d->layout();
-        else
-            d->refill();
-        if (d->unrequestedItems.contains(item))
-            d->repositionPackageItemAt(item, index);
-        else if (index == d->currentIndex)
-            d->updateCurrent(index);
-    }
+    // Called when it item has finished incubating. Override if needed.
 }
 
 void QQuickAbstractItemView::initItem(int, QObject *object)
