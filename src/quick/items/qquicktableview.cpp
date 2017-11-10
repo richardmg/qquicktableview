@@ -66,10 +66,10 @@ public:
     }
 };
 
-class GridRequest
+class GridLayoutRequest
 {
 public:
-    enum State {
+    enum LayoutState {
         NoState = 0,
         ReadyToStart,
         WaitingForAnchorItem,
@@ -78,7 +78,7 @@ public:
         Done
     };
 
-    GridRequest(const QRectF &visibleContentRect)
+    GridLayoutRequest(const QRectF &visibleContentRect)
         : state(ReadyToStart)
         , visibleContentRect(visibleContentRect)
         , waitingForIndex(kNullValue)
@@ -86,7 +86,7 @@ public:
         , loadedHeight(0)
     {}
 
-    State state;
+    LayoutState state;
     QRectF visibleContentRect;
     int waitingForIndex;
     qreal loadedWidth;
@@ -156,7 +156,8 @@ protected:
     qreal columnSpacing;
     QPointF prevContentPos;
     QSizeF prevViewSize;
-    GridRequest currentRequest;
+    GridLayoutRequest currentLayoutRequest;
+    bool createdItemSyncBlocker;
 
     QMargins prevGrid;
     mutable QPair<int, qreal> rowPositionCache;
@@ -178,9 +179,12 @@ protected:
     qreal getCachedColumnWidth(int col);
     void fillTable();
 
-    void continueProcessCurrentRequest();
-    void processReadyToStart();
-    void processWaitingForAnchorItem();
+    void continueCurrentLayoutRequest();
+    void continueReadyToStart();
+    void continueWaitingForAnchorItem();
+    void continueDone();
+
+    QString indexToString(int index);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -193,7 +197,8 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
       columnSpacing(0),
       prevContentPos(QPointF(0, 0)),
       prevViewSize(QSizeF(0, 0)),
-      currentRequest(QRect()),
+      currentLayoutRequest(QRect()),
+      createdItemSyncBlocker(false),
       prevGrid(QMargins(-1, -1, -1, -1)),
       rowPositionCache(qMakePair(0, 0)),
       columnPositionCache(qMakePair(0, 0)),
@@ -567,12 +572,29 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
 void QQuickTableView::createdItem(int index, QObject* object)
 {
     Q_D(QQuickTableView);
+
+    qCDebug(lcItemViewDelegateLifecycle) << index;
+
+    if (index == d->requestedIndex) {
+        // This is needed by the model. Essientially the same as GridLayoutRequest::waitingForIndex.
+        // TODO: let model have it's own handler, and refactor requestedIndex out the view?
+        d->requestedIndex = -1;
+    }
+
+    if (d->createdItemSyncBlocker) {
+        // The item was created synchronously. To avoid recursions on the stack, we ignore
+        // the callback, and continue from the place where the item was requested.
+        return;
+    }
+
     Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
 
-    if (d->currentRequest.waitingForIndex != index)
-        return;
+    // Currently we only ask for one item at a time, the one needed to continue with the
+    // layout. But an optimization here is to ask for more items in parallel, and instead
+    // of asserting, just return until we get the item we waiting for.
+    Q_ASSERT(d->currentLayoutRequest.waitingForIndex == index);
 
-    d->continueProcessCurrentRequest();
+    d->continueCurrentLayoutRequest();
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -706,36 +728,48 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     Q_Q(QQuickTableView);
 
-    if (currentRequest.isProcessing()) {
-        // We are already processesing a request, so wait for it to finish.
-        // todo: should I post a new polish here, to catch changes?
+    if (currentLayoutRequest.isProcessing()) {
+        // We are already processesing a layout request, so wait for it to finish.
+        // todo: should I post a new polish here, to handle the new request later?
         return false;
     }
 
     QRectF visibleContentRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
-    currentRequest = GridRequest(visibleContentRect);
-    continueProcessCurrentRequest();
+    qCDebug(lcItemViewDelegateLifecycle) << "Creating new layout request:" << visibleContentRect;
 
+    currentLayoutRequest = GridLayoutRequest(visibleContentRect);
+    continueCurrentLayoutRequest();
     return true;
 }
 
-void QQuickTableViewPrivate::continueProcessCurrentRequest()
+void QQuickTableViewPrivate::continueCurrentLayoutRequest()
 {
+    // Items will be created by the model as we continue with the layout request. The
+    // model will first check if items are already in the cache, and if not, create them
+    // async or sync depending on the incubation flags. For items that are created async, we'll
+    // get callbacks once they're done incubated, which will lead to this function being called
+    // again. We can then continue where we left off. But since we also get callbacks for items
+    // that are incubated sync, we need a blocker to avoid recursion.
+    if (createdItemSyncBlocker)
+        return;
+    QBoolBlocker ignoreCreatedItemCallback(createdItemSyncBlocker);
+
     qCDebug(lcItemViewDelegateLifecycle) << "Enter";
 
-    GridRequest::State prevState = GridRequest::NoState;
+    GridLayoutRequest::LayoutState layoutState = GridLayoutRequest::NoState;
 
-    while (currentRequest.state != prevState) {
-        prevState = currentRequest.state;
+    while (layoutState != currentLayoutRequest.state) {
+        layoutState = currentLayoutRequest.state;
 
-        switch (currentRequest.state) {
-        case GridRequest::ReadyToStart:
-            processReadyToStart();
+        switch (layoutState) {
+        case GridLayoutRequest::ReadyToStart:
+            continueReadyToStart();
             break;
-        case GridRequest::WaitingForAnchorItem:
-            processWaitingForAnchorItem();
+        case GridLayoutRequest::WaitingForAnchorItem:
+            continueWaitingForAnchorItem();
             break;
-        case GridRequest::Done:
+        case GridLayoutRequest::Done:
+            continueDone();
             break;
         default:
             Q_UNREACHABLE();
@@ -746,28 +780,35 @@ void QQuickTableViewPrivate::continueProcessCurrentRequest()
     qCDebug(lcItemViewDelegateLifecycle) << "Leave";
 }
 
-void QQuickTableViewPrivate::processReadyToStart()
+QString QQuickTableViewPrivate::indexToString(int index)
 {
-    qCDebug(lcItemViewDelegateLifecycle);
-
-    // The first state is all about figuring out which cell to start loading.
-    // This will be the anchor that we can layout the rest of the items from.
-    currentRequest.state = GridRequest::WaitingForAnchorItem;
-    currentRequest.waitingForIndex = indexAt(0, 0);
+    return QString::fromLatin1("index: %1 (%2, %3)").arg(index).arg(rowAtIndex(index)).arg(columnAtIndex(index));
 }
 
-void QQuickTableViewPrivate::processWaitingForAnchorItem()
+void QQuickTableViewPrivate::continueReadyToStart()
 {
-    qCDebug(lcItemViewDelegateLifecycle);
+    // The first state is all about figuring out which cell to start loading.
+    // This will be an anchor that we can layout the rest of the items from.
+    // The actual loading will be done from continueWaitingForAnchorItem().
+    currentLayoutRequest.state = GridLayoutRequest::WaitingForAnchorItem;
+    currentLayoutRequest.waitingForIndex = indexAt(0, 0);
+    qCDebug(lcItemViewDelegateLifecycle) << "Anchor item:" << indexToString(currentLayoutRequest.waitingForIndex);
+}
 
-    FxTableItemSG *tableItem = createTableItem(currentRequest.waitingForIndex, QQmlIncubator::Synchronous);
+void QQuickTableViewPrivate::continueWaitingForAnchorItem()
+{
+    FxTableItemSG *tableItem = createTableItem(currentLayoutRequest.waitingForIndex, QQmlIncubator::Asynchronous);
+    qCDebug(lcItemViewDelegateLifecycle) << "Anchor item" << indexToString(currentLayoutRequest.waitingForIndex) << "loaded?" << bool(tableItem);
     if (!tableItem)
         return;
 
-    qCDebug(lcItemViewDelegateLifecycle) << "Anchor item loaded";
-
     visibleItems.append(tableItem);
-    currentRequest.state = GridRequest::Done;
+    currentLayoutRequest.state = GridLayoutRequest::Done;
+}
+
+void QQuickTableViewPrivate::continueDone()
+{
+    qCDebug(lcItemViewDelegateLifecycle) << "Request done";
 }
 
 void QQuickTableViewPrivate::fillTable()
@@ -776,7 +817,7 @@ void QQuickTableViewPrivate::fillTable()
     // number of items in the model, which can be thousands...
     itemCount = model->count();
 
-    QRectF r = currentRequest.visibleContentRect;
+    QRectF r = currentLayoutRequest.visibleContentRect;
 
     // Get grid corners. This informations needs to be known before we can
     // do any useful layouting.

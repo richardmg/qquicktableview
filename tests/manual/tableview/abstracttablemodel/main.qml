@@ -24,36 +24,36 @@ Window {
             anchors.fill: parent
             anchors.margins: 1
 
-            TableView {
-                id: tableHeader
-                width: parent.width
-                height: tableView.rowHeight(0)//30
-                model: tableView.columns
-                clip: true
-                columnSpacing: tableView.columnSpacing
+//            TableView {
+//                id: tableHeader
+//                width: parent.width
+//                height: tableView.rowHeight(0)//30
+//                model: tableView.columns
+//                clip: true
+//                columnSpacing: tableView.columnSpacing
 
-                interactive: false
-                contentX: tableView.contentX
+//                interactive: false
+//                contentX: tableView.contentX
 
-                columns: tableView.columns
-                rows: 1
+//                columns: tableView.columns
+//                rows: 1
 
-                delegate: Rectangle {
-                    color: "lightgreen"
-                    width: tableView.columnWidth(index)
-                    height: tableHeader.height
+//                delegate: Rectangle {
+//                    color: "lightgreen"
+//                    width: tableView.columnWidth(index)
+//                    height: tableHeader.height
 
-                    Text {
-                        anchors.centerIn: parent
-                        text: qsTr("column %1").arg(index);
-                    }
-                }
-            }
+//                    Text {
+//                        anchors.centerIn: parent
+//                        text: qsTr("column %1").arg(index);
+//                    }
+//                }
+//            }
 
             TableView {
                 id: tableView
                 clip: true
-                anchors.topMargin: tableHeader.height + rowSpacing
+                anchors.topMargin: 20//tableHeader.height + rowSpacing
                 anchors.fill: parent
 
                 cacheBuffer: 0
