@@ -70,15 +70,16 @@ class GridRequest
 {
 public:
     enum State {
-        ReadyToLoad,
-        LoadingAnchorItem,
+        NoState = 0,
+        ReadyToStart,
+        WaitingForAnchorItem,
         LoadingKeyItems,
         LoadingInnerItems,
         Done
     };
 
     GridRequest(const QRectF &visibleContentRect)
-        : state(ReadyToLoad)
+        : state(ReadyToStart)
         , visibleContentRect(visibleContentRect)
         , waitingForIndex(kNullValue)
         , loadedWidth(0)
@@ -90,6 +91,11 @@ public:
     int waitingForIndex;
     qreal loadedWidth;
     qreal loadedHeight;
+
+    bool isProcessing()
+    {
+        return state > ReadyToStart && state < Done;
+    }
 };
 
 class QQuickTableViewPrivate : public QQuickAbstractItemViewPrivate
@@ -163,15 +169,18 @@ protected:
     void updateViewportContentWidth();
     void updateViewportContentHeight();
 
-    FxTableItemSG *createTableItem(int row, int col, QQmlIncubator::IncubationMode mode);
+    FxTableItemSG *createTableItem(int index, QQmlIncubator::IncubationMode mode);
     void createTableItems(int fromColumn, int toColumn, int fromRow, int toRow);
     void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
     bool removeItemsOutsideView(const QMargins &previousGrid, const QMargins &currentGrid);
     bool addItemsInsideView(const QMargins &previousGrid, const QMargins &currentGrid);
     qreal getCachedRowHeight(int row);
     qreal getCachedColumnWidth(int col);
-    void continueLoadingCurrentRequest();
     void fillTable();
+
+    void continueProcessCurrentRequest();
+    void processReadyToStart();
+    void processWaitingForAnchorItem();
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -246,13 +255,7 @@ int QQuickTableViewPrivate::indexAt(int row, int column) const
 
 FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
 {
-    for (FxViewItem *item : visibleItems) {
-        int index = item->index;
-        if (rowAtIndex(index) == row && columnAtIndex(index) == column)
-            return item;
-    }
-
-    return nullptr;
+    return visibleItem(indexAt(row, column));
 }
 
 int QQuickTableViewPrivate::rowAtPos(qreal y) const
@@ -476,21 +479,26 @@ qreal QQuickTableViewPrivate::columnWidth(int column) const
 void QQuickTableViewPrivate::updateViewportContentWidth()
 {
     Q_Q(QQuickTableView);
-    qreal contentWidth = 0;
-    for (int i = 0; i < columns; ++i)
-        contentWidth += columnWidth(i);
-    contentWidth += (columns - 1) * columnSpacing;
-    q->setContentWidth(contentWidth);
+//    qreal contentWidth = 0;
+//    for (int i = 0; i < columns; ++i)
+//        contentWidth += columnWidth(i);
+//    contentWidth += (columns - 1) * columnSpacing;
+//    q->setContentWidth(contentWidth);
+
+    qCDebug(lcItemViewDelegateLifecycle) << "TODO, change how we update width/height";
+    q->setContentWidth(1000);
 }
 
 void QQuickTableViewPrivate::updateViewportContentHeight()
 {
     Q_Q(QQuickTableView);
-    qreal contentHeight = 0;
-    for (int i = 0; i < rows; ++i)
-        contentHeight += rowHeight(i);
-    contentHeight += (rows - 1) * columnSpacing;
-    q->setContentHeight(contentHeight);
+//    qreal contentHeight = 0;
+//    for (int i = 0; i < rows; ++i)
+//        contentHeight += rowHeight(i);
+//    contentHeight += (rows - 1) * columnSpacing;
+//    q->setContentHeight(contentHeight);
+
+    q->setContentHeight(1000);
 }
 
 QSizeF QQuickTableViewPrivate::size() const
@@ -558,22 +566,13 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
 
 void QQuickTableView::createdItem(int index, QObject* object)
 {
-    Q_UNUSED(index);
-    Q_UNUSED(object);
+    Q_D(QQuickTableView);
+    Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
 
-//    QQuickItem* item = qmlobject_cast<QQuickItem*>(object);
-//    if (!d->inRequest) {
-//        d->unrequestedItems.insert(item, index);
-//        d->requestedIndex = -1;
-//        if (d->hasPendingChanges())
-//            d->layout();
-//        else
-//            d->refill();
-//        if (d->unrequestedItems.contains(item))
-//            d->repositionPackageItemAt(item, index);
-//        else if (index == d->currentIndex)
-//            d->updateCurrent(index);
-//    }
+    if (d->currentRequest.waitingForIndex != index)
+        return;
+
+    d->continueProcessCurrentRequest();
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -607,27 +606,29 @@ qreal QQuickTableViewPrivate::getCachedColumnWidth(int col)
     return 100;
 }
 
-FxTableItemSG *QQuickTableViewPrivate::createTableItem(int row, int col, QQmlIncubator::IncubationMode mode)
+FxTableItemSG *QQuickTableViewPrivate::createTableItem(int index, QQmlIncubator::IncubationMode mode)
 {
     // Todo: change this later. Not sure if we should always load async, or if it makes sense to
     // load items inside visibleContentView sync. This needs experimentation.
     bool loadAsync = (mode != QQmlIncubator::Synchronous);
 
-    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(indexAt(row, col), loadAsync));
+    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(index, loadAsync));
 
     if (!item) {
-        // TODO: This will happen if item gets loaded async!
-        qCDebug(lcItemViewDelegateLifecycle) << "failed to create FxTableItemSG for row/col:" << row << col;
+        // Item is not done incubating, or there is an error situation
         return nullptr;
     }
 
     if (!item->item) {
-        // TODO: can item->item be null at this point, but later be incubated?
-        qCDebug(lcItemViewDelegateLifecycle) << "failed to create QQuickItem for row/col:" << row << col;
+        qCDebug(lcItemViewDelegateLifecycle)
+                << "failed to create QQuickItem for index/row/col:"
+                << index << rowAtIndex(index) << columnAtIndex(index);
+
         releaseItem(item);
         return nullptr;
     }
 
+    // Show the item
     QQuickItemPrivate::get(item->item)->setCulled(false);
 
     return item;
@@ -646,7 +647,7 @@ void QQuickTableViewPrivate::createTableItems(int fromColumn, int toColumn, int 
         for (int col = fromColumn; col <= toColumn; ++col) {
             qreal cachedColumnWidth = getCachedColumnWidth(col);
 
-            FxTableItemSG *item = createTableItem(row, col, QQmlIncubator::Synchronous);
+            FxTableItemSG *item = createTableItem(indexAt(row, col), QQmlIncubator::Synchronous);
             if (!item) {
                 // TODO: This will happen if item get loaded async.
                 if (cachedRowHeight == kNullValue || cachedColumnWidth == kNullValue) {
@@ -705,39 +706,68 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     Q_Q(QQuickTableView);
 
-    if (currentRequest.state != GridRequest::Done) {
+    if (currentRequest.isProcessing()) {
         // We are already processesing a request, so wait for it to finish.
         // todo: should I post a new polish here, to catch changes?
         return false;
     }
 
-    currentRequest = GridRequest(QRectF(QPointF(q->contentX(), q->contentY()), q->size()));
-    continueLoadingCurrentRequest();
+    QRectF visibleContentRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
+    currentRequest = GridRequest(visibleContentRect);
+    continueProcessCurrentRequest();
+
     return true;
 }
 
-void QQuickTableViewPrivate::continueLoadingCurrentRequest()
+void QQuickTableViewPrivate::continueProcessCurrentRequest()
 {
-    switch (currentRequest.state) {
-    case GridRequest::ReadyToLoad:
-        // The first state is all about figuring out which cell to start loading.
-        // This will act as an anchor from which all the other items will be positioned.
-        currentRequest.state = GridRequest::LoadingAnchorItem;
-        createTableItem(0, 0, QQmlIncubator::Asynchronous);
-        break;
-    default:
-        Q_UNREACHABLE();
-        break;
+    qCDebug(lcItemViewDelegateLifecycle) << "Enter";
+
+    GridRequest::State prevState = GridRequest::NoState;
+
+    while (currentRequest.state != prevState) {
+        prevState = currentRequest.state;
+
+        switch (currentRequest.state) {
+        case GridRequest::ReadyToStart:
+            processReadyToStart();
+            break;
+        case GridRequest::WaitingForAnchorItem:
+            processWaitingForAnchorItem();
+            break;
+        case GridRequest::Done:
+            break;
+        default:
+            Q_UNREACHABLE();
+            break;
+        }
     }
 
-    // todo: load next key item. When all key items are loaded,
-    // update row and column cache, and load inner items.
-//    if (allItemsLoaded) {
-//        currentRequest.loadingItems = true;
-//        calculateRowHeights();
-//        calcualteColumnWidths();
-//        fillTable();
-//    }
+    qCDebug(lcItemViewDelegateLifecycle) << "Leave";
+}
+
+void QQuickTableViewPrivate::processReadyToStart()
+{
+    qCDebug(lcItemViewDelegateLifecycle);
+
+    // The first state is all about figuring out which cell to start loading.
+    // This will be the anchor that we can layout the rest of the items from.
+    currentRequest.state = GridRequest::WaitingForAnchorItem;
+    currentRequest.waitingForIndex = indexAt(0, 0);
+}
+
+void QQuickTableViewPrivate::processWaitingForAnchorItem()
+{
+    qCDebug(lcItemViewDelegateLifecycle);
+
+    FxTableItemSG *tableItem = createTableItem(currentRequest.waitingForIndex, QQmlIncubator::Synchronous);
+    if (!tableItem)
+        return;
+
+    qCDebug(lcItemViewDelegateLifecycle) << "Anchor item loaded";
+
+    visibleItems.append(tableItem);
+    currentRequest.state = GridRequest::Done;
 }
 
 void QQuickTableViewPrivate::fillTable()
