@@ -92,7 +92,18 @@ Window {
                     anchors.centerIn: parent
                     text: model.display ? model.display : ""
                 }
+
+                Component.onCompleted: wait(500)
             }
         }
+
     }
+
+    function wait(ms){
+        var start = new Date().getTime();
+        var end = start;
+        while(end < start + ms)
+            end = new Date().getTime();
+    }
+
 }
