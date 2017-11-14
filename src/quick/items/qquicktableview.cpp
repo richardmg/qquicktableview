@@ -183,6 +183,14 @@ protected:
     qreal getCachedColumnWidth(int col);
     void fillTable();
 
+    FxViewItem *visibleTableItem(int modelIndex) const;
+    void layoutTableItemTopLeft(FxTableItemSG *fxViewItem);
+    void layoutTableItemInColumn(FxTableItemSG *fxViewItem);
+    void layoutTableItemInRow(FxTableItemSG *fxViewItem);
+    void layoutTableItem(FxTableItemSG *fxViewItem);
+    void showTableItem(FxTableItemSG *fxViewItem);
+    void determineNextTableItem(FxTableItemSG *fxViewItem);
+
     void continueCurrentLayoutRequest();
     bool continueReadyToStart();
     bool continueWaitingForNextItem();
@@ -238,7 +246,7 @@ int QQuickTableViewPrivate::rowAtIndex(int index) const
 
     Q_Q(const QQuickTableView);
     int columns = q->columns();
-    if (index < 0 || index >= itemCount || columns <= 0)
+    if (index < 0 || columns <= 0)
         return -1;
     return index / columns;
 }
@@ -247,7 +255,7 @@ int QQuickTableViewPrivate::columnAtIndex(int index) const
 {
     Q_Q(const QQuickTableView);
     int columns = q->columns();
-    if (index < 0 || index >= itemCount || columns <= 0)
+    if (index < 0 || columns <= 0)
         return -1;
     return index % columns;
 }
@@ -577,7 +585,7 @@ void QQuickTableView::createdItem(int index, QObject* object)
 {
     Q_D(QQuickTableView);
 
-    qCDebug(lcItemViewDelegateLifecycle) << index;
+    qCDebug(lcItemViewDelegateLifecycle) << d->indexToString(index);
 
     if (index == d->requestedIndex) {
         // This is needed by the model. Essientially the same as GridLayoutRequest::waitingForIndex.
@@ -585,20 +593,10 @@ void QQuickTableView::createdItem(int index, QObject* object)
         d->requestedIndex = -1;
     }
 
-    if (d->createdItemSyncBlocker) {
-        // The item was created synchronously. To avoid recursions on the stack, we ignore
-        // the callback, and continue from the place where the item was requested.
-        return;
-    }
-
     Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
 
-    // Currently we only ask for one item at a time, the one needed to continue with the
-    // layout. But an optimization here is to ask for more items in parallel, and instead
-    // of asserting, just return until we get the item we waiting for.
-    Q_ASSERT(d->currentLayoutRequest.nextIndex == index);
-
-    d->continueCurrentLayoutRequest();
+    if (index == d->currentLayoutRequest.nextIndex)
+        d->continueCurrentLayoutRequest();
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -729,11 +727,114 @@ void QQuickTableViewPrivate::releaseItems(int fromColumn, int toColumn, int from
     }
 }
 
+FxViewItem *QQuickTableViewPrivate::visibleTableItem(int modelIndex) const
+{
+    // TODO: this is an overload of visibleItems, that does some wierd things
+    // with the index. Fix that up. And change to use hash or map.
+    for (int i = 0; i < visibleItems.count(); ++i) {
+        FxViewItem *item = visibleItems.at(i);
+        if (item->index == modelIndex)
+            return item;
+    }
+    return 0;
+}
+
+void QQuickTableViewPrivate::showTableItem(FxTableItemSG *fxViewItem)
+{
+    // Add the item to the list of visible items, and show it
+    visibleItems.append(fxViewItem);
+    QQuickItemPrivate::get(fxViewItem->item)->setCulled(false);
+}
+
+void QQuickTableViewPrivate::layoutTableItemTopLeft(FxTableItemSG *fxViewItem)
+{
+    QPointF itemPos = QPointF(0, 0);
+    fxViewItem->item->setPosition(itemPos);
+    qCDebug(lcItemViewDelegateLifecycle) << indexToString(fxViewItem->index) << itemPos;
+}
+
+void QQuickTableViewPrivate::layoutTableItemInColumn(FxTableItemSG *fxViewItem)
+{
+    int index = fxViewItem->index;
+    int column = columnAtIndex(index);
+    int rowAbove = rowAtIndex(index) - 1;
+    int indexAbove = indexAt(rowAbove, column);
+
+    FxViewItem *fxViewItemAbove = visibleTableItem(indexAbove);
+    Q_ASSERT(fxViewItemAbove);
+
+    QQuickItem *itemAbove = fxViewItemAbove->item;
+    QRectF itemAboveRect = QRectF(itemAbove->position(), itemAbove->size());
+    QPointF itemPos = itemAboveRect.bottomLeft() + QPointF(0, rowSpacing);
+
+    fxViewItem->item->setPosition(itemPos);
+    qCDebug(lcItemViewDelegateLifecycle) << indexToString(fxViewItem->index) << itemPos;
+}
+
+void QQuickTableViewPrivate::layoutTableItemInRow(FxTableItemSG *fxViewItem)
+{
+    int index = fxViewItem->index;
+    int row = rowAtIndex(index);
+    int columnOnTheLeft = columnAtIndex(index) - 1;
+    int indexOnTheLeft = indexAt(row, columnOnTheLeft);
+
+    FxViewItem *fxViewItemOnTheLeft = visibleTableItem(indexOnTheLeft);
+    Q_ASSERT(fxViewItemOnTheLeft);
+
+    QQuickItem *itemOnTheLeft = fxViewItemOnTheLeft->item;
+    QRectF itemOnTheLeftRect = QRectF(itemOnTheLeft->position(), itemOnTheLeft->size());
+    QPointF itemPos = itemOnTheLeftRect.topRight() + QPointF(columnSpacing, 0);
+
+    fxViewItem->item->setPosition(itemPos);
+    qCDebug(lcItemViewDelegateLifecycle) << indexToString(fxViewItem->index) << itemPos;
+}
+
+void QQuickTableViewPrivate::layoutTableItem(FxTableItemSG *fxViewItem)
+{
+    int index = fxViewItem->index;
+    int column = columnAtIndex(index);
+    int row = rowAtIndex(index);
+    int topLeftRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
+    int topLeftColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
+
+    if (row == topLeftRow && column == topLeftColumn)
+        layoutTableItemTopLeft(fxViewItem);
+    else if (column == topLeftColumn)
+        layoutTableItemInColumn(fxViewItem);
+    else
+        layoutTableItemInRow(fxViewItem);
+}
+
+void QQuickTableViewPrivate::determineNextTableItem(FxTableItemSG *fxViewItem)
+{
+    QQuickItem *tableItemItem = fxViewItem->item;
+    QRectF itemRect = QRectF(tableItemItem->position(), tableItemItem->size());
+
+    int index = fxViewItem->index;
+    int column = columnAtIndex(index);
+    int row = rowAtIndex(index);
+    int topLeftColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
+
+    bool insideOnRight = itemRect.bottomRight().x() < currentLayoutRequest.visibleContentRect.bottomRight().x();
+    bool insideBottom = itemRect.bottomRight().y() < currentLayoutRequest.visibleContentRect.bottomRight().y();
+
+    if (insideOnRight && column < columns - 1) {
+        currentLayoutRequest.nextIndex = indexAt(row, column + 1);
+    } else if (insideBottom && row < rows - 1) {
+        currentLayoutRequest.nextIndex = indexAt(row + 1, topLeftColumn);
+    } else {
+        currentLayoutRequest.nextIndex = -1;
+        currentLayoutRequest.state = GridLayoutRequest::Done;
+    }
+}
+
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     Q_Q(QQuickTableView);
 
     QRectF visibleContentRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
+    if (!visibleContentRect.isValid())
+        return false;
 
     if (currentLayoutRequest.isProcessing()) {
         // We are already processesing a layout request, so wait for it to finish.
@@ -746,6 +847,8 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 
     currentLayoutRequest = GridLayoutRequest(visibleContentRect);
     continueCurrentLayoutRequest();
+
+    // return false? or override caller?
     return true;
 }
 
@@ -799,40 +902,14 @@ bool QQuickTableViewPrivate::continueReadyToStart()
 
 bool QQuickTableViewPrivate::continueWaitingForNextItem()
 {
-    FxTableItemSG *tableItem = createTableItem(currentLayoutRequest.nextIndex, QQmlIncubator::Asynchronous);
-    qCDebug(lcItemViewDelegateLifecycle) << "item" << indexToString(currentLayoutRequest.nextIndex) << "loaded?" << bool(tableItem);
-    if (!tableItem)
+    FxTableItemSG *fxTableItem = createTableItem(currentLayoutRequest.nextIndex, QQmlIncubator::Asynchronous);
+    qCDebug(lcItemViewDelegateLifecycle) << "item" << indexToString(currentLayoutRequest.nextIndex) << "loaded?" << bool(fxTableItem);
+    if (!fxTableItem)
         return false;
 
-    // Position item next to the previous item
-    FxViewItem *prevFxViewItem = visibleItem(currentLayoutRequest.nextIndex - 1);
-
-    if (prevFxViewItem) {
-        QPointF itemPos;
-
-        QQuickItem *prevItem = prevFxViewItem->item;
-        QRectF prevItemRect = QRectF(prevItem->position(), prevItem->size());
-        bool prevItemInsideContentRect = prevItemRect.right() <= currentLayoutRequest.visibleContentRect.right();
-
-        if (prevItemInsideContentRect) {
-            itemPos = prevItemRect.topRight() + QPointF(columnSpacing, 0);
-        } else {
-            // Wrap to next line
-            itemPos = QPointF(0, prevItemRect.bottom() + rowSpacing);
-        }
-
-        tableItem->setPosition(itemPos);
-        // todo: resize according to column width
-    }
-
-    // Add the item to the list of visible items, and show it
-    visibleItems.append(tableItem);
-    QQuickItemPrivate::get(tableItem->item)->setCulled(false);
-
-    currentLayoutRequest.nextIndex++;
-
-    if (currentLayoutRequest.nextIndex == 10)
-        currentLayoutRequest.state = GridLayoutRequest::Done;
+    layoutTableItem(fxTableItem);
+    showTableItem(fxTableItem);
+    determineNextTableItem(fxTableItem);
 
     return true;
 }
