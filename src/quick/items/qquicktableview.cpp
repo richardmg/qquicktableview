@@ -72,7 +72,7 @@ public:
     enum LayoutState {
         NoState = 0,
         ReadyToStart,
-        WaitingForAnchorItem,
+        WaitingForItem,
         LoadingKeyItems,
         LoadingInnerItems,
         Done
@@ -81,14 +81,18 @@ public:
     GridLayoutRequest(const QRectF &visibleContentRect)
         : state(ReadyToStart)
         , visibleContentRect(visibleContentRect)
-        , waitingForIndex(kNullValue)
+        , pendingVisibleContentRect(QRectF())
+        , topLeftIndex(kNullValue)
+        , nextIndex(kNullValue)
         , loadedWidth(0)
         , loadedHeight(0)
     {}
 
     LayoutState state;
     QRectF visibleContentRect;
-    int waitingForIndex;
+    QRectF pendingVisibleContentRect;
+    int topLeftIndex;
+    int nextIndex;
     qreal loadedWidth;
     qreal loadedHeight;
 
@@ -180,9 +184,9 @@ protected:
     void fillTable();
 
     void continueCurrentLayoutRequest();
-    void continueReadyToStart();
-    void continueWaitingForAnchorItem();
-    void continueDone();
+    bool continueReadyToStart();
+    bool continueWaitingForNextItem();
+    bool continueDone();
 
     QString indexToString(int index);
 };
@@ -592,7 +596,7 @@ void QQuickTableView::createdItem(int index, QObject* object)
     // Currently we only ask for one item at a time, the one needed to continue with the
     // layout. But an optimization here is to ask for more items in parallel, and instead
     // of asserting, just return until we get the item we waiting for.
-    Q_ASSERT(d->currentLayoutRequest.waitingForIndex == index);
+    Q_ASSERT(d->currentLayoutRequest.nextIndex == index);
 
     d->continueCurrentLayoutRequest();
 }
@@ -628,6 +632,11 @@ qreal QQuickTableViewPrivate::getCachedColumnWidth(int col)
     return 100;
 }
 
+QString QQuickTableViewPrivate::indexToString(int index)
+{
+    return QString::fromLatin1("index: %1 (%2, %3)").arg(index).arg(rowAtIndex(index)).arg(columnAtIndex(index));
+}
+
 FxTableItemSG *QQuickTableViewPrivate::createTableItem(int index, QQmlIncubator::IncubationMode mode)
 {
     // Todo: change this later. Not sure if we should always load async, or if it makes sense to
@@ -645,13 +654,9 @@ FxTableItemSG *QQuickTableViewPrivate::createTableItem(int index, QQmlIncubator:
         qCDebug(lcItemViewDelegateLifecycle)
                 << "failed to create QQuickItem for index/row/col:"
                 << index << rowAtIndex(index) << columnAtIndex(index);
-
         releaseItem(item);
         return nullptr;
     }
-
-    // Show the item
-    QQuickItemPrivate::get(item->item)->setCulled(false);
 
     return item;
 }
@@ -728,13 +733,15 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     Q_Q(QQuickTableView);
 
+    QRectF visibleContentRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
+
     if (currentLayoutRequest.isProcessing()) {
         // We are already processesing a layout request, so wait for it to finish.
         // todo: should I post a new polish here, to handle the new request later?
+        currentLayoutRequest.pendingVisibleContentRect = visibleContentRect;
         return false;
     }
 
-    QRectF visibleContentRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
     qCDebug(lcItemViewDelegateLifecycle) << "Creating new layout request:" << visibleContentRect;
 
     currentLayoutRequest = GridLayoutRequest(visibleContentRect);
@@ -756,20 +763,18 @@ void QQuickTableViewPrivate::continueCurrentLayoutRequest()
 
     qCDebug(lcItemViewDelegateLifecycle) << "Enter";
 
-    GridLayoutRequest::LayoutState layoutState = GridLayoutRequest::NoState;
+    bool moreToDo = true;
 
-    while (layoutState != currentLayoutRequest.state) {
-        layoutState = currentLayoutRequest.state;
-
-        switch (layoutState) {
+    while (moreToDo) {
+        switch (currentLayoutRequest.state) {
         case GridLayoutRequest::ReadyToStart:
-            continueReadyToStart();
+            moreToDo = continueReadyToStart();
             break;
-        case GridLayoutRequest::WaitingForAnchorItem:
-            continueWaitingForAnchorItem();
+        case GridLayoutRequest::WaitingForItem:
+            moreToDo = continueWaitingForNextItem();
             break;
         case GridLayoutRequest::Done:
-            continueDone();
+            moreToDo = continueDone();
             break;
         default:
             Q_UNREACHABLE();
@@ -780,35 +785,69 @@ void QQuickTableViewPrivate::continueCurrentLayoutRequest()
     qCDebug(lcItemViewDelegateLifecycle) << "Leave";
 }
 
-QString QQuickTableViewPrivate::indexToString(int index)
-{
-    return QString::fromLatin1("index: %1 (%2, %3)").arg(index).arg(rowAtIndex(index)).arg(columnAtIndex(index));
-}
-
-void QQuickTableViewPrivate::continueReadyToStart()
+bool QQuickTableViewPrivate::continueReadyToStart()
 {
     // The first state is all about figuring out which cell to start loading.
-    // This will be an anchor that we can layout the rest of the items from.
-    // The actual loading will be done from continueWaitingForAnchorItem().
-    currentLayoutRequest.state = GridLayoutRequest::WaitingForAnchorItem;
-    currentLayoutRequest.waitingForIndex = indexAt(0, 0);
-    qCDebug(lcItemViewDelegateLifecycle) << "Anchor item:" << indexToString(currentLayoutRequest.waitingForIndex);
+    // This will be the top-left anchor that we can layout the rest of the items from.
+    // The actual loading will be done from continueWaitingForNextItem().
+    currentLayoutRequest.state = GridLayoutRequest::WaitingForItem;
+    currentLayoutRequest.topLeftIndex = indexAt(0, 0);
+    currentLayoutRequest.nextIndex = currentLayoutRequest.topLeftIndex;
+    qCDebug(lcItemViewDelegateLifecycle) << "Top-left:" << indexToString(currentLayoutRequest.topLeftIndex);
+    return true;
 }
 
-void QQuickTableViewPrivate::continueWaitingForAnchorItem()
+bool QQuickTableViewPrivate::continueWaitingForNextItem()
 {
-    FxTableItemSG *tableItem = createTableItem(currentLayoutRequest.waitingForIndex, QQmlIncubator::Asynchronous);
-    qCDebug(lcItemViewDelegateLifecycle) << "Anchor item" << indexToString(currentLayoutRequest.waitingForIndex) << "loaded?" << bool(tableItem);
+    FxTableItemSG *tableItem = createTableItem(currentLayoutRequest.nextIndex, QQmlIncubator::Asynchronous);
+    qCDebug(lcItemViewDelegateLifecycle) << "item" << indexToString(currentLayoutRequest.nextIndex) << "loaded?" << bool(tableItem);
     if (!tableItem)
-        return;
+        return false;
 
+    // Position item next to the previous item
+    FxViewItem *prevFxViewItem = visibleItem(currentLayoutRequest.nextIndex - 1);
+
+    if (prevFxViewItem) {
+        QPointF itemPos;
+
+        QQuickItem *prevItem = prevFxViewItem->item;
+        QRectF prevItemRect = QRectF(prevItem->position(), prevItem->size());
+        bool prevItemInsideContentRect = prevItemRect.right() <= currentLayoutRequest.visibleContentRect.right();
+
+        if (prevItemInsideContentRect) {
+            itemPos = prevItemRect.topRight() + QPointF(columnSpacing, 0);
+        } else {
+            // Wrap to next line
+            itemPos = QPointF(0, prevItemRect.bottom() + rowSpacing);
+        }
+
+        tableItem->setPosition(itemPos);
+        // todo: resize according to column width
+    }
+
+    // Add the item to the list of visible items, and show it
     visibleItems.append(tableItem);
-    currentLayoutRequest.state = GridLayoutRequest::Done;
+    QQuickItemPrivate::get(tableItem->item)->setCulled(false);
+
+    currentLayoutRequest.nextIndex++;
+
+    if (currentLayoutRequest.nextIndex == 10)
+        currentLayoutRequest.state = GridLayoutRequest::Done;
+
+    return true;
 }
 
-void QQuickTableViewPrivate::continueDone()
+bool QQuickTableViewPrivate::continueDone()
 {
     qCDebug(lcItemViewDelegateLifecycle) << "Request done";
+
+    if (currentLayoutRequest.pendingVisibleContentRect.isValid()) {
+        currentLayoutRequest = GridLayoutRequest(currentLayoutRequest.pendingVisibleContentRect);
+        qCDebug(lcItemViewDelegateLifecycle) << "Continue with pending request:" << currentLayoutRequest.visibleContentRect;
+        return true;
+    }
+
+    return false;
 }
 
 void QQuickTableViewPrivate::fillTable()
