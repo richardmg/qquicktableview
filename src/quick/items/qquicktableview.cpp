@@ -43,9 +43,9 @@
 #include <QtQml/private/qqmldelegatemodel_p.h>
 #include <QtQml/private/qqmlincubator_p.h>
 
-QT_BEGIN_NAMESPACE
+#include <QtCore/qhash.h>
 
-static const int kNullValue = -1;
+QT_BEGIN_NAMESPACE
 
 class FxTableItemSG : public FxViewItem
 {
@@ -63,62 +63,6 @@ public:
     void setPosition(const QPointF &pos, bool immediate = false)
     {
         moveTo(pos, immediate); // ###
-    }
-};
-
-class GridLayoutRequest
-{
-public:
-    enum LayoutState {
-        NoState = 0,
-        ReadyToStart,
-        LoadingTopLeftItem,
-        LoadingBorderItems,
-        CalculatingRowAndColumnSizes,
-        LoadingInnerItems,
-        CheckingForPendingRequests,
-        Done
-    };
-
-    GridLayoutRequest(const QRectF &visibleContentRect)
-        : state(NoState)
-        , visibleContentRect(visibleContentRect)
-        , pendingVisibleContentRect(QRectF())
-        , topLeftIndex(kNullValue)
-        , nextTopColumnIndex(kNullValue)
-        , nextLeftRowIndex(kNullValue)
-        , nextInnerIndex(kNullValue)
-        , visualRowCount(kNullValue)
-        , visualColumnCount(kNullValue)
-    {}
-
-    LayoutState state;
-    QRectF visibleContentRect;
-    QRectF pendingVisibleContentRect;
-    int topLeftIndex;
-    int nextTopColumnIndex;
-    int nextLeftRowIndex;
-    int nextInnerIndex;
-    int visualRowCount;
-    int visualColumnCount;
-
-    bool hasStartedButIsNotDone()
-    {
-        return state > ReadyToStart && state < Done;
-    }
-
-    bool isDoneLeftRow() {
-        return nextLeftRowIndex == kNullValue;
-    }
-
-    bool isDoneTopColumn() {
-        return nextTopColumnIndex == kNullValue;
-    }
-
-    void moveToNextState()
-    {
-        state = LayoutState(state + 1);
-        qCDebug(lcItemViewDelegateLifecycle) << state;
     }
 };
 
@@ -186,8 +130,11 @@ protected:
     QMargins prevGrid;
     mutable QPair<int, qreal> rowPositionCache;
     mutable QPair<int, qreal> columnPositionCache;
-    QVector<qreal> rowHeightCache;
-    QVector<qreal> columnWidthCache;
+    QVector<qreal> rowHeightCache_unused;
+    QVector<qreal> columnWidthCache_unused;
+
+    QHash<int, qreal> columnWidthCache;
+    QHash<int, qreal> rowHeightCache;
 
     bool inViewportMoved;
 
@@ -225,26 +172,34 @@ protected:
     QString indexToString(int index);
     bool canHaveMoreRowsBelow(FxTableItemSG *fxViewItem);
     bool canHaveMoreColumnsAfter(FxTableItemSG *fxViewItem);
+
+    void setColumnWidth(int column, qreal width);
+    void clearColumnWidth(int column);
+    qreal columnWidth(int column);
+
+    void setRowHeight(int row, qreal height);
+    void clearRowHeight(int row);
+    qreal rowHeight(int row);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
-    : rows(-1),
-      columns(-1),
-      visibleRows(0),
-      visibleColumns(0),
-      orientation(QQuickTableView::Vertical),
-      rowSpacing(0),
-      columnSpacing(0),
-      prevContentPos(QPointF(0, 0)),
-      prevViewSize(QSizeF(0, 0)),
-      currentLayoutRequest(QRect()),
-      createdItemSyncBlocker(false),
-      prevGrid(QMargins(-1, -1, -1, -1)),
-      rowPositionCache(qMakePair(0, 0)),
-      columnPositionCache(qMakePair(0, 0)),
-      rowHeightCache(QVector<qreal>(100, kNullValue)),
-      columnWidthCache(QVector<qreal>(100, kNullValue)),
-      inViewportMoved(false)
+    : rows(-1)
+    , columns(-1)
+    , visibleRows(0)
+    , visibleColumns(0)
+    , orientation(QQuickTableView::Vertical)
+    , rowSpacing(0)
+    , columnSpacing(0)
+    , prevContentPos(QPointF(0, 0))
+    , prevViewSize(QSizeF(0, 0))
+    , currentLayoutRequest(QRect())
+    , createdItemSyncBlocker(false)
+    , prevGrid(QMargins(-1, -1, -1, -1))
+    , rowPositionCache(qMakePair(0, 0))
+    , columnPositionCache(qMakePair(0, 0))
+    , rowHeightCache_unused(QVector<qreal>(100, kNullValue))
+    , columnWidthCache_unused(QVector<qreal>(100, kNullValue))
+    , inViewportMoved(false)
 {
 }
 
@@ -396,7 +351,7 @@ qreal QQuickTableViewPrivate::rowPos(int row) const
 
 qreal QQuickTableViewPrivate::rowHeight(int row) const
 {
-    int rowHeight = rowHeightCache[row];
+    int rowHeight = rowHeightCache_unused[row];
     if (rowHeight != kNullValue)
         return rowHeight;
 
@@ -505,7 +460,7 @@ qreal QQuickTableViewPrivate::columnPos(int column) const
 
 qreal QQuickTableViewPrivate::columnWidth(int column) const
 {
-    int columnWidth = columnWidthCache[column];
+    int columnWidth = columnWidthCache_unused[column];
     if (columnWidth != kNullValue)
         return columnWidth;
 
@@ -726,14 +681,14 @@ void QQuickTableViewPrivate::createTableItems(int fromColumn, int toColumn, int 
                 // Since the height of the current row has not yet been cached, we cache
                 // it now based on the first item we encountered for this row.
                 cachedRowHeight = item->item->size().height();
-                rowHeightCache[row] = cachedRowHeight;
+                rowHeightCache_unused[row] = cachedRowHeight;
             }
 
             if (cachedColumnWidth == kNullValue) {
                 // Since the width of the current column has not yet been cached, we cache
                 // it now based on the first item we encountered for this column.
                 cachedColumnWidth = item->item->size().width();
-                columnWidthCache[col] = cachedColumnWidth;
+                columnWidthCache_unused[col] = cachedColumnWidth;
             }
 
             item->setPosition(cellPosition(row, col), true);
@@ -963,6 +918,9 @@ bool QQuickTableViewPrivate::handleStateReadyToStart()
 
 bool QQuickTableViewPrivate::handleStateLoadingTopLeftItem()
 {
+    // Check to see if the top left item is ready. If not we just return. Otherwise we continue
+    // by positioning the top left item, and kick off loading border items to the right and below. We
+    // need to to this before loading inner items to determine row heights and columns widths.
     FxTableItemSG *fxTableItem = createTableItem(currentLayoutRequest.topLeftIndex, QQmlIncubator::Asynchronous);
     qCDebug(lcItemViewDelegateLifecycle) << "topLeft" << indexToString(currentLayoutRequest.topLeftIndex) << "loaded?" << bool(fxTableItem);
     if (!fxTableItem)
@@ -980,6 +938,8 @@ bool QQuickTableViewPrivate::handleStateLoadingTopLeftItem()
 
 bool QQuickTableViewPrivate::handleStateLoadingBorderItems()
 {
+    // Continue loading items to the left and below the top
+    // left item until we reach the end of the view.
     bool didProgress = false;
 
     if (!currentLayoutRequest.isDoneLeftRow())
@@ -1050,13 +1010,11 @@ bool QQuickTableViewPrivate::handleStateCalculatingRowAndColumnSizes()
             << "visualRowCount:" << currentLayoutRequest.visualRowCount
             << "visualColumnCount:" << currentLayoutRequest.visualColumnCount;
 
-    for (int row = 0; row < visualRowCount; ++row) {
-        qCDebug(lcItemViewDelegateLifecycle) << "rowWidth:" << visibleTableItem(indexAt(row, 0))->item->width();
-    }
+    for (int row = 0; row < visualRowCount; ++row)
+        setRowHeight(row, visibleTableItem(indexAt(row, 0))->item->height());
 
-    for (int column = 0; column < visualColumnCount; ++column) {
-        qCDebug(lcItemViewDelegateLifecycle) << "columnHeight:" << visibleTableItem(indexAt(0, column))->item->height();
-    }
+    for (int column = 0; column < visualColumnCount; ++column)
+        setColumnWidth(column, visibleTableItem(indexAt(0, column))->item->width());
 
     currentLayoutRequest.moveToNextState();
     return true;
@@ -1098,6 +1056,44 @@ bool QQuickTableViewPrivate::handleDone()
 {
     qCDebug(lcItemViewDelegateLifecycle);
     return false;
+}
+
+void QQuickTableViewPrivate::setColumnWidth(int column, qreal width)
+{
+    Q_ASSERT(column >= 0 && column < columns);
+    columnWidthCache.insert(column, width);
+}
+
+void QQuickTableViewPrivate::clearColumnWidth(int column)
+{
+    Q_ASSERT(column >= 0 && column < columns);
+    columnWidthCache.remove(column);
+}
+
+qreal QQuickTableViewPrivate::columnWidth(int column)
+{
+    Q_ASSERT(column >= 0 && column < columns);
+    Q_ASSERT(columnWidthCache.contains(column));
+    return columnWidthCache.value(column);
+}
+
+void QQuickTableViewPrivate::setRowHeight(int row, qreal height)
+{
+    Q_ASSERT(row >= 0 && row < rows);
+    rowHeightCache.insert(row, height);
+}
+
+void QQuickTableViewPrivate::clearRowHeight(int row)
+{
+    Q_ASSERT(row >= 0 && row < rows);
+    rowHeightCache.remove(row);
+}
+
+qreal QQuickTableViewPrivate::rowHeight(int row)
+{
+    Q_ASSERT(row >= 0 && row < rows);
+    Q_ASSERT(rowHeightCache.contains(row));
+    return rowHeightCache.value(row);
 }
 
 void QQuickTableViewPrivate::fillTable()

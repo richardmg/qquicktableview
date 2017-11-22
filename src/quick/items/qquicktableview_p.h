@@ -59,8 +59,70 @@ QT_REQUIRE_CONFIG(quick_tableview);
 
 QT_BEGIN_NAMESPACE
 
+static const int kNullValue = -1;
+
 class QQuickTableViewAttached;
 class QQuickTableViewPrivate;
+
+class GridLayoutRequest
+{
+    Q_GADGET
+
+public:
+    enum LayoutState {
+        NoState = 0,
+        ReadyToStart,
+        LoadingTopLeftItem,
+        LoadingBorderItems,
+        CalculatingRowAndColumnSizes,
+        LoadingInnerItems,
+        CheckingForPendingRequests,
+        Done
+    };
+    Q_ENUM(LayoutState)
+
+    GridLayoutRequest(const QRectF &visibleContentRect)
+        : state(NoState)
+        , visibleContentRect(visibleContentRect)
+        , pendingVisibleContentRect(QRectF())
+        , topLeftIndex(kNullValue)
+        , nextTopColumnIndex(kNullValue)
+        , nextLeftRowIndex(kNullValue)
+        , nextInnerIndex(kNullValue)
+        , visualRowCount(kNullValue)
+        , visualColumnCount(kNullValue)
+    {}
+
+    LayoutState state;
+    QRectF visibleContentRect;
+    QRectF pendingVisibleContentRect;
+    int topLeftIndex;
+    int nextTopColumnIndex;
+    int nextLeftRowIndex;
+    int nextInnerIndex;
+    int visualRowCount;
+    int visualColumnCount;
+
+    bool hasStartedButIsNotDone()
+    {
+        return state > ReadyToStart && state < Done;
+    }
+
+    bool isDoneLeftRow() {
+        return nextLeftRowIndex == kNullValue;
+    }
+
+    bool isDoneTopColumn() {
+        return nextTopColumnIndex == kNullValue;
+    }
+
+    void moveToNextState()
+    {
+        state = LayoutState(state + 1);
+        qCDebug(lcItemViewDelegateLifecycle) << state;
+    }
+};
+
 
 class Q_AUTOTEST_EXPORT QQuickTableView : public QQuickAbstractItemView
 {
