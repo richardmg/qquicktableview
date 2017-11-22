@@ -71,8 +71,7 @@ class GridLayoutRequest
 public:
     enum LayoutState {
         NoState = 0,
-        Start,
-        LoadingTopLeftItem,
+        WaitingForTopLeftItem,
         LoadingEdgeItems,
         LoadingInnerItems,
         CheckingForPendingRequests,
@@ -91,6 +90,8 @@ public:
         , nextInnerIndex(kNullValue)
         , visualRowCount(kNullValue)
         , visualColumnCount(kNullValue)
+        , expectedInnerItemCount(0)
+        , loadedInnerItemCount(0)
     {}
 
     LayoutState state;
@@ -103,6 +104,8 @@ public:
     int nextInnerIndex;
     int visualRowCount;
     int visualColumnCount;
+    int expectedInnerItemCount;
+    int loadedInnerItemCount;
 
     bool hasStartedButIsNotDone()
     {

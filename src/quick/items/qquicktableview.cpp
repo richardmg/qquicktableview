@@ -125,7 +125,6 @@ protected:
     QPointF prevContentPos;
     QSizeF prevViewSize;
     GridLayoutRequest currentLayoutRequest;
-    bool createdItemSyncBlocker;
 
     QMargins prevGrid;
     mutable QPair<int, qreal> rowPositionCache;
@@ -141,7 +140,10 @@ protected:
     void updateViewportContentWidth();
     void updateViewportContentHeight();
 
+    void requestTableItemAsync(int index);
+    FxTableItemSG *getTableItem(int index);
     FxTableItemSG *createTableItem(int index, QQmlIncubator::IncubationMode mode);
+
     void createTableItems(int fromColumn, int toColumn, int fromRow, int toRow);
     void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
     bool removeItemsOutsideView(const QMargins &previousGrid, const QMargins &currentGrid);
@@ -154,8 +156,8 @@ protected:
     void showTableItem(FxTableItemSG *fxViewItem);
     void determineNextInnerTableItem(FxTableItemSG *fxViewItem);
 
-    void continueCurrentLayoutRequest();
-    bool handleStateLoadingTopLeftItem();
+    void continueCurrentLayoutRequest(int index);
+    void topLeftItemReceived(FxTableItemSG *fxTableItem);
     bool handleStateLoadingEdgeItems();
     bool handleStateLoadingEdgeColumnItems();
     bool handleStateLoadingEdgeRowItems();
@@ -197,7 +199,6 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , prevContentPos(QPointF(0, 0))
     , prevViewSize(QSizeF(0, 0))
     , currentLayoutRequest(QRect())
-    , createdItemSyncBlocker(false)
     , prevGrid(QMargins(-1, -1, -1, -1))
     , rowPositionCache(qMakePair(0, 0))
     , columnPositionCache(qMakePair(0, 0))
@@ -583,7 +584,7 @@ void QQuickTableView::createdItem(int index, QObject* object)
     Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
 
     if (d->currentLayoutRequest.hasStartedButIsNotDone())
-        d->continueCurrentLayoutRequest();
+        d->continueCurrentLayoutRequest(index);
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -632,6 +633,8 @@ FxTableItemSG *QQuickTableViewPrivate::createTableItem(int index, QQmlIncubator:
 
     FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(index, loadAsync));
 
+    if (item)
+
     if (!item) {
         // Item is not done incubating, or there is an error situation
         return nullptr;
@@ -644,6 +647,32 @@ FxTableItemSG *QQuickTableViewPrivate::createTableItem(int index, QQmlIncubator:
         releaseItem(item);
         return nullptr;
     }
+
+    return item;
+}
+
+void QQuickTableViewPrivate::requestTableItemAsync(int index)
+{
+    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(index, true));
+
+    if (item) {
+        // This can happen if the item was cached by the model from before. But we
+        // really don't want to check for this case everywhere, so we create an
+        // async callback anyway.
+        QEvent *event = new QTableItemCreatedEvent();
+        qApp->postEvent(q_func(), event);
+    }
+}
+
+FxTableItemSG *QQuickTableViewPrivate::getTableItem(int index)
+{
+    // This function must be called whenever we receive an
+    // item async to ensure that we ref-count the item.
+    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(index, false));
+
+    // The item was requested sync, so it should be ready!
+    Q_ASSERT(item);
+    Q_ASSERT(item->item);
 
     return item;
 }
@@ -864,73 +893,48 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     qCDebug(lcItemViewDelegateLifecycle) << "Creating new layout request:" << visibleContentRect;
 
     currentLayoutRequest = GridLayoutRequest(visibleContentRect);
-    currentLayoutRequest.state = GridLayoutRequest::Start;
-    continueCurrentLayoutRequest();
+    currentLayoutRequest.state = GridLayoutRequest::WaitingForTopLeftItem;
+    currentLayoutRequest.topLeftIndex = indexAt(0, 0);
+    requestTableItemAsync(currentLayoutRequest.topLeftIndex);
 
     // return false? or override caller?
     return true;
 }
 
-void QQuickTableViewPrivate::continueCurrentLayoutRequest()
+void QQuickTableViewPrivate::continueCurrentLayoutRequest(int index)
 {
-    // Items will be created by the model as we continue with the layout request. The
-    // model will first check if items are already in the cache, and if not, create them
-    // async or sync depending on the incubation flags. For items that are created async, we'll
-    // get callbacks once they're done incubated, which will lead to this function being called
-    // again. We can then continue where we left off. But since we also get callbacks for items
-    // that are incubated sync, we need a blocker to avoid recursion.
-    if (createdItemSyncBlocker)
-        return;
-    QBoolBlocker ignoreCreatedItemCallback(createdItemSyncBlocker);
+    FxTableItemSG *fxTableItem = getTableItem(index);
 
-    qCDebug(lcItemViewDelegateLifecycle) << "Enter";
-
-    bool moreToDo = true;
-
-    while (moreToDo) {
-        switch (currentLayoutRequest.state) {
-        case GridLayoutRequest::Start:
-            currentLayoutRequest.moveToNextState();
-        case GridLayoutRequest::LoadingTopLeftItem:
-            moreToDo = handleStateLoadingTopLeftItem();
-            break;
-        case GridLayoutRequest::LoadingEdgeItems:
-            moreToDo = handleStateLoadingEdgeItems();
-            break;
-        case GridLayoutRequest::LoadingInnerItems:
-            moreToDo = handleStateLoadingInnerItems();
-            break;
-        case GridLayoutRequest::CheckingForPendingRequests:
-            moreToDo = handleCheckingForPendingRequests();
-            break;
-        case GridLayoutRequest::Done:
-            moreToDo = handleDone();
-        case GridLayoutRequest::NoState:
-            moreToDo = false;
-            break;
-        default:
-            Q_UNREACHABLE();
-            break;
-        }
+    switch (currentLayoutRequest.state) {
+    case GridLayoutRequest::WaitingForTopLeftItem:
+        topLeftItemReceived(fxTableItem);
+        break;
+    case GridLayoutRequest::LoadingEdgeItems:
+        moreToDo = handleStateLoadingEdgeItems();
+        break;
+    case GridLayoutRequest::LoadingInnerItems:
+        moreToDo = handleStateLoadingInnerItems();
+        break;
+    case GridLayoutRequest::CheckingForPendingRequests:
+        moreToDo = handleCheckingForPendingRequests();
+        break;
+    case GridLayoutRequest::Done:
+        moreToDo = handleDone();
+    case GridLayoutRequest::NoState:
+        moreToDo = false;
+        break;
+    default:
+        Q_UNREACHABLE();
+        break;
     }
-
-    qCDebug(lcItemViewDelegateLifecycle) << "Leave";
 }
 
-bool QQuickTableViewPrivate::handleStateLoadingTopLeftItem()
+void QQuickTableViewPrivate::topLeftItemReceived(FxTableItemSG *fxTableItem)
 {
-    if (currentLayoutRequest.initState()) {
-        // Figure out which item should be top-left
-        currentLayoutRequest.topLeftIndex = indexAt(0, 0);
-    }
-
-    // Check to see if the top left item is ready. If not we just return. Otherwise we continue
-    // by positioning the top left item, and kick off loading border items to the right and below. We
-    // need to to this before loading inner items to determine row heights and columns widths.
-    FxTableItemSG *fxTableItem = createTableItem(currentLayoutRequest.topLeftIndex, QQmlIncubator::Asynchronous);
-    qCDebug(lcItemViewDelegateLifecycle) << "loading" << indexToString(currentLayoutRequest.topLeftIndex) << "ready?" << bool(fxTableItem);
-    if (!fxTableItem)
-        return false;
+    // This callback should only happen once
+    Q_ASSERT(currentLayoutRequest.initState());
+    Q_ASSERT(fxTableItem->index == currentLayoutRequest.topLeftIndex);
+    qCDebug(lcItemViewDelegateLifecycle) << "received" << indexToString(fxTableItem->index);
 
     fxTableItem->setPosition(QPointF(0, 0));
     showTableItem(fxTableItem);
@@ -938,6 +942,8 @@ bool QQuickTableViewPrivate::handleStateLoadingTopLeftItem()
     currentLayoutRequest.moveToNextState();
     return true;
 }
+
+void
 
 bool QQuickTableViewPrivate::handleStateLoadingEdgeItems()
 {
@@ -1011,6 +1017,12 @@ bool QQuickTableViewPrivate::handleStateLoadingEdgeRowItems()
 
 bool QQuickTableViewPrivate::handleStateLoadingInnerItems()
 {
+    if (currentLayoutRequest.initState()) {
+        int rowCount = currentLayoutRequest.visualRowCount;
+        int columnCount = currentLayoutRequest.visualColumnCount;
+        currentLayoutRequest.expectedInnerItemCount = (rowCount - 1) * (columnCount - 1);
+    }
+
     for (int y = 0; y < currentLayoutRequest.visualRowCount; ++y) {
         for (int x = 0;x < currentLayoutRequest.visualColumnCount; ++x) {
             int topLeftRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
