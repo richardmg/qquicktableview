@@ -93,7 +93,7 @@ Window {
                     text: model.display ? model.display : ""
                 }
 
-                Component.onCompleted: wait(500)
+                Component.onCompleted: wait(200)
             }
         }
 

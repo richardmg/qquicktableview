@@ -151,10 +151,8 @@ protected:
     void fillTable();
 
     FxViewItem *visibleTableItem(int modelIndex) const;
-    void layoutTableItemTopLeft(FxTableItemSG *fxViewItem);
-    void layoutTableItemInColumn(FxTableItemSG *fxViewItem);
-    void layoutTableItemInRow(FxTableItemSG *fxViewItem);
-    void layoutTableItem(FxTableItemSG *fxViewItem);
+    qreal calculateTablePositionY(FxTableItemSG *fxViewItem);
+    qreal calculateTablePositionX(FxTableItemSG *fxViewItem);
     void showTableItem(FxTableItemSG *fxViewItem);
     void determineNextInnerTableItem(FxTableItemSG *fxViewItem);
 
@@ -180,6 +178,9 @@ protected:
     void setRowHeight(int row, qreal height);
     void clearRowHeight(int row);
     qreal rowHeight(int row);
+
+    FxViewItem *itemLeftOf(FxTableItemSG *fxViewItem);
+    FxViewItem *itemAbove(FxTableItemSG *fxViewItem);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -731,66 +732,42 @@ void QQuickTableViewPrivate::showTableItem(FxTableItemSG *fxViewItem)
     QQuickItemPrivate::get(fxViewItem->item)->setCulled(false);
 }
 
-void QQuickTableViewPrivate::layoutTableItemTopLeft(FxTableItemSG *fxViewItem)
-{
-    QPointF itemPos = QPointF(0, 0);
-    fxViewItem->item->setPosition(itemPos);
-    qCDebug(lcItemViewDelegateLifecycle) << indexToString(fxViewItem->index) << itemPos;
-}
-
-void QQuickTableViewPrivate::layoutTableItemInColumn(FxTableItemSG *fxViewItem)
-{
-    int index = fxViewItem->index;
-    int column = columnAtIndex(index);
-    int rowAbove = rowAtIndex(index) - 1;
-    int indexAbove = indexAt(rowAbove, column);
-
-    FxViewItem *fxViewItemAbove = visibleTableItem(indexAbove);
-    Q_ASSERT(fxViewItemAbove);
-
-    QQuickItem *itemAbove = fxViewItemAbove->item;
-    QRectF itemAboveRect = QRectF(itemAbove->position(), itemAbove->size());
-    QPointF itemPos = itemAboveRect.bottomLeft() + QPointF(0, rowSpacing);
-
-    fxViewItem->item->setPosition(itemPos);
-    qCDebug(lcItemViewDelegateLifecycle) << indexToString(fxViewItem->index) << itemPos;
-}
-
-void QQuickTableViewPrivate::layoutTableItemInRow(FxTableItemSG *fxViewItem)
+FxViewItem *QQuickTableViewPrivate::itemLeftOf(FxTableItemSG *fxViewItem)
 {
     int index = fxViewItem->index;
     int row = rowAtIndex(index);
     int columnOnTheLeft = columnAtIndex(index) - 1;
     int indexOnTheLeft = indexAt(row, columnOnTheLeft);
-
-    FxViewItem *fxViewItemOnTheLeft = visibleTableItem(indexOnTheLeft);
-    Q_ASSERT(fxViewItemOnTheLeft);
-
-    QQuickItem *itemOnTheLeft = fxViewItemOnTheLeft->item;
-    QRectF itemOnTheLeftRect = QRectF(itemOnTheLeft->position(), itemOnTheLeft->size());
-    QPointF itemPos = itemOnTheLeftRect.topRight() + QPointF(columnSpacing, 0);
-
-    fxViewItem->item->setPosition(itemPos);
-    qCDebug(lcItemViewDelegateLifecycle) << indexToString(fxViewItem->index) << itemPos;
+    return visibleTableItem(indexOnTheLeft);
 }
 
-void QQuickTableViewPrivate::layoutTableItem(FxTableItemSG *fxViewItem)
+FxViewItem *QQuickTableViewPrivate::itemAbove(FxTableItemSG *fxViewItem)
 {
     int index = fxViewItem->index;
     int column = columnAtIndex(index);
-    int row = rowAtIndex(index);
-    int topLeftRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
-    int topLeftColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
+    int rowAbove = rowAtIndex(index) - 1;
+    int indexAbove = indexAt(rowAbove, column);
+    return visibleTableItem(indexAbove);
+}
 
-    // THIS WHOLE FUNCTION WILL PROBABLY GO AWAY ONCE WE HAVE LOADED THE BORDER ITEMS
+qreal QQuickTableViewPrivate::calculateTablePositionX(FxTableItemSG *fxViewItem)
+{
+    // Calculate the table position of fxViewItem based on the position of the item to
+    // the left. This assumes that the item to the left is already positioned correctly.
+    FxViewItem *fxViewItemOnTheLeft = itemLeftOf(fxViewItem);
+    Q_ASSERT(fxViewItemOnTheLeft);
+    QQuickItem *itemOnTheLeft = fxViewItemOnTheLeft->item;
+    return itemOnTheLeft->position().x() + itemOnTheLeft->size().width() + columnSpacing;
+}
 
-    // The top left item needs to be loaded before we can layout inner items
-    Q_ASSERT(row != topLeftRow && column != topLeftColumn);
-
-    if (column == topLeftColumn)
-        layoutTableItemInColumn(fxViewItem);
-    else
-        layoutTableItemInRow(fxViewItem);
+qreal QQuickTableViewPrivate::calculateTablePositionY(FxTableItemSG *fxViewItem)
+{
+    // Calculate the table position of fxViewItem based on the position of the item above.
+    // This assumes that the item above is already positioned correctly.
+    FxViewItem *fxViewItemOnTop = itemAbove(fxViewItem);
+    Q_ASSERT(fxViewItemOnTop);
+    QQuickItem *itemOnTop = fxViewItemOnTop->item;
+    return itemOnTop->position().y() + itemOnTop->size().height() + rowSpacing;
 }
 
 bool QQuickTableViewPrivate::canHaveMoreRowsBelow(FxTableItemSG *fxViewItem)
@@ -926,7 +903,7 @@ bool QQuickTableViewPrivate::handleStateLoadingTopLeftItem()
     if (!fxTableItem)
         return false;
 
-    layoutTableItemTopLeft(fxTableItem);
+    fxTableItem->setPosition(QPointF(0, 0));
     showTableItem(fxTableItem);
 
     currentLayoutRequest.nextTopColumnIndex = indexAt(0, 1);
@@ -966,7 +943,7 @@ bool QQuickTableViewPrivate::handleStateLoadingBorderItemsTopColumn()
     if (!fxTableItem)
         return false;
 
-    layoutTableItemInRow(fxTableItem);
+    fxTableItem->setPosition(QPointF(calculateTablePositionX(fxTableItem), 0));
     showTableItem(fxTableItem);
 
     if (canHaveMoreColumnsAfter(fxTableItem)) {
@@ -987,7 +964,7 @@ bool QQuickTableViewPrivate::handleStateLoadingBorderItemsLeftRow()
     if (!fxTableItem)
         return false;
 
-    layoutTableItemInColumn(fxTableItem);
+    fxTableItem->setPosition(QPointF(0, calculateTablePositionY(fxTableItem)));
     showTableItem(fxTableItem);
 
     if (canHaveMoreRowsBelow(fxTableItem)) {
@@ -1022,24 +999,35 @@ bool QQuickTableViewPrivate::handleStateCalculatingRowAndColumnSizes()
 
 bool QQuickTableViewPrivate::handleStateLoadingInnerItems()
 {
-    currentLayoutRequest.moveToNextState();
-    return true;
+    for (int y = 0; y < currentLayoutRequest.visualRowCount; ++y) {
+        for (int x = 0;x < currentLayoutRequest.visualColumnCount; ++x) {
+            int topLeftRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
+            int topLeftColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
+            int index = indexAt(topLeftRow + 1, topLeftColumn + 1);
+            FxTableItemSG *fxTableItem = createTableItem(index, QQmlIncubator::Asynchronous);
+            qCDebug(lcItemViewDelegateLifecycle) << "next inner" << indexToString(index) << "loaded?" << bool(fxTableItem);
+            if (!fxTableItem)
+                return false;
 
-//    // Todo: ask for all inner items at the same time. Layout according to stored column width / row height
-//    FxTableItemSG *fxTableItem = createTableItem(currentLayoutRequest.nextInnerIndex, QQmlIncubator::Asynchronous);
-//    qCDebug(lcItemViewDelegateLifecycle) << "next inner" << indexToString(currentLayoutRequest.nextInnerIndex) << "loaded?" << bool(fxTableItem);
-//    if (!fxTableItem)
-//        return false;
+            qreal posX = calculateTablePositionX(fxTableItem);
+            qreal posY = calculateTablePositionY(fxTableItem);
+            fxTableItem->setPosition(QPointF(posX, posY));
+            showTableItem(fxTableItem);
 
-//    layoutTableItem(fxTableItem);
-//    showTableItem(fxTableItem);
-//    determineNextInnerTableItem(fxTableItem);
+            currentLayoutRequest.moveToNextState();
+            return true;
+        }
+    }
 
-//    return true;
+    return false;
 }
 
 bool QQuickTableViewPrivate::handleCheckingForPendingRequests()
 {
+    // While we were processing the current layoutRequest, the table view might
+    // have been scrolled to a different place than currentLayoutRequest.visibleContentRect.
+    // If so, currentLayoutRequest.pendingVisibleContentRect will contain this
+    // rect, and since we're now done with currentLayoutRequest, we continue with the pending one.
     qCDebug(lcItemViewDelegateLifecycle);
 
     if (currentLayoutRequest.pendingVisibleContentRect.isValid()) {
