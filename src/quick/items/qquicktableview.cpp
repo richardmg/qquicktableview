@@ -151,18 +151,14 @@ protected:
     void fillTable();
 
     FxViewItem *visibleTableItem(int modelIndex) const;
-    qreal calculateTablePositionY(FxTableItemSG *fxViewItem);
-    qreal calculateTablePositionX(FxTableItemSG *fxViewItem);
     void showTableItem(FxTableItemSG *fxViewItem);
     void determineNextInnerTableItem(FxTableItemSG *fxViewItem);
 
     void continueCurrentLayoutRequest();
-    bool handleStateReadyToStart();
     bool handleStateLoadingTopLeftItem();
-    bool handleStateLoadingBorderItems();
-    bool handleStateLoadingBorderItemsTopColumn();
-    bool handleStateLoadingBorderItemsLeftRow();
-    bool handleStateCalculatingRowAndColumnSizes();
+    bool handleStateLoadingEdgeItems();
+    bool handleStateLoadingEdgeColumnItems();
+    bool handleStateLoadingEdgeRowItems();
     bool handleStateLoadingInnerItems();
     bool handleCheckingForPendingRequests();
     bool handleDone();
@@ -180,7 +176,14 @@ protected:
     qreal rowHeight(int row);
 
     FxViewItem *itemLeftOf(FxTableItemSG *fxViewItem);
-    FxViewItem *itemAbove(FxTableItemSG *fxViewItem);
+    FxViewItem *itemOnTopOf(FxTableItemSG *fxViewItem);
+    FxViewItem *itemOnEdgeRow(FxTableItemSG *fxViewItem);
+    FxViewItem *itemOnEdgeColumn(FxTableItemSG *fxViewItem);
+
+    qreal calculateEdgeColumnTablePositionY(FxTableItemSG *fxViewItem);
+    qreal calculateEdgeRowTablePositionX(FxTableItemSG *fxViewItem);
+    qreal calculateInnerTablePositionY(FxTableItemSG *fxViewItem);
+    qreal calculateInnerTablePositionX(FxTableItemSG *fxViewItem);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -741,7 +744,7 @@ FxViewItem *QQuickTableViewPrivate::itemLeftOf(FxTableItemSG *fxViewItem)
     return visibleTableItem(indexOnTheLeft);
 }
 
-FxViewItem *QQuickTableViewPrivate::itemAbove(FxTableItemSG *fxViewItem)
+FxViewItem *QQuickTableViewPrivate::itemOnTopOf(FxTableItemSG *fxViewItem)
 {
     int index = fxViewItem->index;
     int column = columnAtIndex(index);
@@ -750,9 +753,27 @@ FxViewItem *QQuickTableViewPrivate::itemAbove(FxTableItemSG *fxViewItem)
     return visibleTableItem(indexAbove);
 }
 
-qreal QQuickTableViewPrivate::calculateTablePositionX(FxTableItemSG *fxViewItem)
+FxViewItem *QQuickTableViewPrivate::itemOnEdgeRow(FxTableItemSG *fxViewItem)
 {
-    // Calculate the table position of fxViewItem based on the position of the item to
+    int index = fxViewItem->index;
+    int column = columnAtIndex(index);
+    int edgeRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
+    int edgeRowIndex = indexAt(edgeRow, column);
+    return visibleTableItem(edgeRowIndex);
+}
+
+FxViewItem *QQuickTableViewPrivate::itemOnEdgeColumn(FxTableItemSG *fxViewItem)
+{
+    int index = fxViewItem->index;
+    int row = rowAtIndex(index);
+    int edgeColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
+    int edgeColumnIndex = indexAt(row, edgeColumn);
+    return visibleTableItem(edgeColumnIndex);
+}
+
+qreal QQuickTableViewPrivate::calculateEdgeRowTablePositionX(FxTableItemSG *fxViewItem)
+{
+    // Calculate the table position x of fxViewItem based on the position of the item to
     // the left. This assumes that the item to the left is already positioned correctly.
     FxViewItem *fxViewItemOnTheLeft = itemLeftOf(fxViewItem);
     Q_ASSERT(fxViewItemOnTheLeft);
@@ -760,14 +781,32 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(FxTableItemSG *fxViewItem)
     return itemOnTheLeft->position().x() + itemOnTheLeft->size().width() + columnSpacing;
 }
 
-qreal QQuickTableViewPrivate::calculateTablePositionY(FxTableItemSG *fxViewItem)
+qreal QQuickTableViewPrivate::calculateEdgeColumnTablePositionY(FxTableItemSG *fxViewItem)
 {
-    // Calculate the table position of fxViewItem based on the position of the item above.
+    // Calculate the table position y of fxViewItem based on the position of the item above.
     // This assumes that the item above is already positioned correctly.
-    FxViewItem *fxViewItemOnTop = itemAbove(fxViewItem);
+    FxViewItem *fxViewItemOnTop = itemOnTopOf(fxViewItem);
     Q_ASSERT(fxViewItemOnTop);
     QQuickItem *itemOnTop = fxViewItemOnTop->item;
     return itemOnTop->position().y() + itemOnTop->size().height() + rowSpacing;
+}
+
+qreal QQuickTableViewPrivate::calculateInnerTablePositionX(FxTableItemSG *fxViewItem)
+{
+    // Calculate the table position x of fxViewItem based on the position of the item
+    // at the edge column. This assumes that the item at the edge is already positioned correctly.
+    FxViewItem *fxViewItemEdge = itemOnEdgeRow(fxViewItem);
+    Q_ASSERT(fxViewItemEdge);
+    return fxViewItemEdge->item->position().x();
+}
+
+qreal QQuickTableViewPrivate::calculateInnerTablePositionY(FxTableItemSG *fxViewItem)
+{
+    // Calculate the table position y of fxViewItem based on the position of the item
+    // at the edge row. This assumes that the item at the edge is already positioned correctly.
+    FxViewItem *fxViewItemEdge = itemOnEdgeColumn(fxViewItem);
+    Q_ASSERT(fxViewItemEdge);
+    return fxViewItemEdge->item->position().y();
 }
 
 bool QQuickTableViewPrivate::canHaveMoreRowsBelow(FxTableItemSG *fxViewItem)
@@ -825,7 +864,7 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     qCDebug(lcItemViewDelegateLifecycle) << "Creating new layout request:" << visibleContentRect;
 
     currentLayoutRequest = GridLayoutRequest(visibleContentRect);
-    currentLayoutRequest.state = GridLayoutRequest::ReadyToStart;
+    currentLayoutRequest.state = GridLayoutRequest::Start;
     continueCurrentLayoutRequest();
 
     // return false? or override caller?
@@ -850,17 +889,13 @@ void QQuickTableViewPrivate::continueCurrentLayoutRequest()
 
     while (moreToDo) {
         switch (currentLayoutRequest.state) {
-        case GridLayoutRequest::ReadyToStart:
-            moreToDo = handleStateReadyToStart();
-            break;
+        case GridLayoutRequest::Start:
+            currentLayoutRequest.moveToNextState();
         case GridLayoutRequest::LoadingTopLeftItem:
             moreToDo = handleStateLoadingTopLeftItem();
             break;
-        case GridLayoutRequest::LoadingBorderItems:
-            moreToDo = handleStateLoadingBorderItems();
-            break;
-        case GridLayoutRequest::CalculatingRowAndColumnSizes:
-            moreToDo = handleStateCalculatingRowAndColumnSizes();
+        case GridLayoutRequest::LoadingEdgeItems:
+            moreToDo = handleStateLoadingEdgeItems();
             break;
         case GridLayoutRequest::LoadingInnerItems:
             moreToDo = handleStateLoadingInnerItems();
@@ -882,118 +917,95 @@ void QQuickTableViewPrivate::continueCurrentLayoutRequest()
     qCDebug(lcItemViewDelegateLifecycle) << "Leave";
 }
 
-bool QQuickTableViewPrivate::handleStateReadyToStart()
-{
-    // The first state is all about figuring out which cell to start loading.
-    // This will be the top-left anchor that we can layout the rest of the items from.
-    currentLayoutRequest.topLeftIndex = indexAt(0, 0);
-    qCDebug(lcItemViewDelegateLifecycle) << "top-left:" << indexToString(currentLayoutRequest.topLeftIndex);
-
-    currentLayoutRequest.moveToNextState();
-    return true;
-}
-
 bool QQuickTableViewPrivate::handleStateLoadingTopLeftItem()
 {
+    if (currentLayoutRequest.initState()) {
+        // Figure out which item should be top-left
+        currentLayoutRequest.topLeftIndex = indexAt(0, 0);
+    }
+
     // Check to see if the top left item is ready. If not we just return. Otherwise we continue
     // by positioning the top left item, and kick off loading border items to the right and below. We
     // need to to this before loading inner items to determine row heights and columns widths.
     FxTableItemSG *fxTableItem = createTableItem(currentLayoutRequest.topLeftIndex, QQmlIncubator::Asynchronous);
-    qCDebug(lcItemViewDelegateLifecycle) << "topLeft" << indexToString(currentLayoutRequest.topLeftIndex) << "loaded?" << bool(fxTableItem);
+    qCDebug(lcItemViewDelegateLifecycle) << "loading" << indexToString(currentLayoutRequest.topLeftIndex) << "ready?" << bool(fxTableItem);
     if (!fxTableItem)
         return false;
 
     fxTableItem->setPosition(QPointF(0, 0));
     showTableItem(fxTableItem);
 
-    currentLayoutRequest.nextTopColumnIndex = indexAt(0, 1);
-    currentLayoutRequest.nextLeftRowIndex = indexAt(1, 0);
-
     currentLayoutRequest.moveToNextState();
     return true;
 }
 
-bool QQuickTableViewPrivate::handleStateLoadingBorderItems()
+bool QQuickTableViewPrivate::handleStateLoadingEdgeItems()
 {
-    // Continue loading items to the left and below the top
-    // left item until we reach the end of the view.
+    // Continue loading items directly to the left of, and
+    // below, the top left item until we reach the ends of the view.
     bool didProgress = false;
 
-    if (!currentLayoutRequest.isDoneLeftRow())
-        didProgress |= handleStateLoadingBorderItemsLeftRow();
+    if (currentLayoutRequest.initState()) {
+        int topLeftRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
+        int topLeftColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
+        currentLayoutRequest.nextEdgeRowIndex = indexAt(topLeftRow + 1, 0);
+        currentLayoutRequest.nextEdgeColumnIndex = indexAt(0, topLeftColumn + 1);
+    }
 
-    if (!currentLayoutRequest.isDoneTopColumn())
-        didProgress |= handleStateLoadingBorderItemsTopColumn();
+    if (!currentLayoutRequest.isDoneLoadingEdgeRowItems())
+        didProgress |= handleStateLoadingEdgeRowItems();
+
+    if (!currentLayoutRequest.isDoneLoadingEdgeColumnItems())
+        didProgress |= handleStateLoadingEdgeColumnItems();
 
     if (!didProgress)
         return false;
 
-    if (currentLayoutRequest.isDoneLeftRow() && currentLayoutRequest.isDoneTopColumn()) {
-        currentLayoutRequest.nextInnerIndex = indexAt(1, 1);
+    if (currentLayoutRequest.isDoneLoadingEdgeRowItems() && currentLayoutRequest.isDoneLoadingEdgeColumnItems())
         currentLayoutRequest.moveToNextState();
-    }
 
     return true;
 }
 
-bool QQuickTableViewPrivate::handleStateLoadingBorderItemsTopColumn()
+bool QQuickTableViewPrivate::handleStateLoadingEdgeColumnItems()
 {
-    FxTableItemSG *fxTableItem = createTableItem(currentLayoutRequest.nextTopColumnIndex, QQmlIncubator::Asynchronous);
-    qCDebug(lcItemViewDelegateLifecycle) << "next top" << indexToString(currentLayoutRequest.nextTopColumnIndex) << "loaded?" << bool(fxTableItem);
+    FxTableItemSG *fxTableItem = createTableItem(currentLayoutRequest.nextEdgeColumnIndex, QQmlIncubator::Asynchronous);
+    qCDebug(lcItemViewDelegateLifecycle) << "loading" << indexToString(currentLayoutRequest.nextEdgeColumnIndex) << "ready?" << bool(fxTableItem);
     if (!fxTableItem)
         return false;
 
-    fxTableItem->setPosition(QPointF(calculateTablePositionX(fxTableItem), 0));
+    fxTableItem->setPosition(QPointF(calculateEdgeRowTablePositionX(fxTableItem), 0));
     showTableItem(fxTableItem);
 
     if (canHaveMoreColumnsAfter(fxTableItem)) {
         int column = columnAtIndex(fxTableItem->index);
-        currentLayoutRequest.nextTopColumnIndex = indexAt(0, column + 1);
+        currentLayoutRequest.nextEdgeColumnIndex = indexAt(0, column + 1);
     } else {
-        currentLayoutRequest.visualColumnCount = columnAtIndex(currentLayoutRequest.nextTopColumnIndex + 1);
-        currentLayoutRequest.nextTopColumnIndex = kNullValue;
+        currentLayoutRequest.visualColumnCount = columnAtIndex(currentLayoutRequest.nextEdgeColumnIndex + 1);
+        currentLayoutRequest.nextEdgeColumnIndex = kNullValue;
     }
 
     return true;
 }
 
-bool QQuickTableViewPrivate::handleStateLoadingBorderItemsLeftRow()
+bool QQuickTableViewPrivate::handleStateLoadingEdgeRowItems()
 {
-    FxTableItemSG *fxTableItem = createTableItem(currentLayoutRequest.nextLeftRowIndex, QQmlIncubator::Asynchronous);
-    qCDebug(lcItemViewDelegateLifecycle) << "next left" << indexToString(currentLayoutRequest.nextLeftRowIndex) << "loaded?" << bool(fxTableItem);
+    FxTableItemSG *fxTableItem = createTableItem(currentLayoutRequest.nextEdgeRowIndex, QQmlIncubator::Asynchronous);
+    qCDebug(lcItemViewDelegateLifecycle) << "loading" << indexToString(currentLayoutRequest.nextEdgeRowIndex) << "ready?" << bool(fxTableItem);
     if (!fxTableItem)
         return false;
 
-    fxTableItem->setPosition(QPointF(0, calculateTablePositionY(fxTableItem)));
+    fxTableItem->setPosition(QPointF(0, calculateEdgeColumnTablePositionY(fxTableItem)));
     showTableItem(fxTableItem);
 
     if (canHaveMoreRowsBelow(fxTableItem)) {
         int row = rowAtIndex(fxTableItem->index);
-        currentLayoutRequest.nextLeftRowIndex = indexAt(row + 1, 0);
+        currentLayoutRequest.nextEdgeRowIndex = indexAt(row + 1, 0);
     } else {
-        currentLayoutRequest.visualRowCount = rowAtIndex(currentLayoutRequest.nextLeftRowIndex) + 1;
-        currentLayoutRequest.nextLeftRowIndex = kNullValue;
+        currentLayoutRequest.visualRowCount = rowAtIndex(currentLayoutRequest.nextEdgeRowIndex) + 1;
+        currentLayoutRequest.nextEdgeRowIndex = kNullValue;
     }
 
-    return true;
-}
-
-bool QQuickTableViewPrivate::handleStateCalculatingRowAndColumnSizes()
-{
-    int visualRowCount = currentLayoutRequest.visualRowCount;
-    int visualColumnCount = currentLayoutRequest.visualColumnCount;
-
-    qCDebug(lcItemViewDelegateLifecycle)
-            << "visualRowCount:" << currentLayoutRequest.visualRowCount
-            << "visualColumnCount:" << currentLayoutRequest.visualColumnCount;
-
-    for (int row = 0; row < visualRowCount; ++row)
-        setRowHeight(row, visibleTableItem(indexAt(row, 0))->item->height());
-
-    for (int column = 0; column < visualColumnCount; ++column)
-        setColumnWidth(column, visibleTableItem(indexAt(0, column))->item->width());
-
-    currentLayoutRequest.moveToNextState();
     return true;
 }
 
@@ -1005,12 +1017,12 @@ bool QQuickTableViewPrivate::handleStateLoadingInnerItems()
             int topLeftColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
             int index = indexAt(topLeftRow + 1, topLeftColumn + 1);
             FxTableItemSG *fxTableItem = createTableItem(index, QQmlIncubator::Asynchronous);
-            qCDebug(lcItemViewDelegateLifecycle) << "next inner" << indexToString(index) << "loaded?" << bool(fxTableItem);
+            qCDebug(lcItemViewDelegateLifecycle) << "loading" << indexToString(index) << "ready?" << bool(fxTableItem);
             if (!fxTableItem)
                 return false;
 
-            qreal posX = calculateTablePositionX(fxTableItem);
-            qreal posY = calculateTablePositionY(fxTableItem);
+            qreal posX = calculateInnerTablePositionX(fxTableItem);
+            qreal posY = calculateInnerTablePositionY(fxTableItem);
             fxTableItem->setPosition(QPointF(posX, posY));
             showTableItem(fxTableItem);
 

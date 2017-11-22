@@ -71,10 +71,9 @@ class GridLayoutRequest
 public:
     enum LayoutState {
         NoState = 0,
-        ReadyToStart,
+        Start,
         LoadingTopLeftItem,
-        LoadingBorderItems,
-        CalculatingRowAndColumnSizes,
+        LoadingEdgeItems,
         LoadingInnerItems,
         CheckingForPendingRequests,
         Done
@@ -83,42 +82,52 @@ public:
 
     GridLayoutRequest(const QRectF &visibleContentRect)
         : state(NoState)
+        , m_initState(true)
         , visibleContentRect(visibleContentRect)
         , pendingVisibleContentRect(QRectF())
         , topLeftIndex(kNullValue)
-        , nextTopColumnIndex(kNullValue)
-        , nextLeftRowIndex(kNullValue)
+        , nextEdgeColumnIndex(kNullValue)
+        , nextEdgeRowIndex(kNullValue)
         , nextInnerIndex(kNullValue)
         , visualRowCount(kNullValue)
         , visualColumnCount(kNullValue)
     {}
 
     LayoutState state;
+    bool m_initState;
     QRectF visibleContentRect;
     QRectF pendingVisibleContentRect;
     int topLeftIndex;
-    int nextTopColumnIndex;
-    int nextLeftRowIndex;
+    int nextEdgeColumnIndex;
+    int nextEdgeRowIndex;
     int nextInnerIndex;
     int visualRowCount;
     int visualColumnCount;
 
     bool hasStartedButIsNotDone()
     {
-        return state > ReadyToStart && state < Done;
+        return state >= Start && state < Done;
     }
 
-    bool isDoneLeftRow() {
-        return nextLeftRowIndex == kNullValue;
+    bool isDoneLoadingEdgeRowItems() {
+        return nextEdgeRowIndex == kNullValue;
     }
 
-    bool isDoneTopColumn() {
-        return nextTopColumnIndex == kNullValue;
+    bool isDoneLoadingEdgeColumnItems() {
+        return nextEdgeColumnIndex == kNullValue;
+    }
+
+    bool initState()
+    {
+        bool init = m_initState;
+        m_initState = false;
+        return init;
     }
 
     void moveToNextState()
     {
         state = LayoutState(state + 1);
+        m_initState = true;
         qCDebug(lcItemViewDelegateLifecycle) << state;
     }
 };
