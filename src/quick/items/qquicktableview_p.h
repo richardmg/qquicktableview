@@ -71,67 +71,38 @@ class GridLayoutRequest
 public:
     enum LayoutState {
         NoState = 0,
-        WaitingForTopLeftItem,
+        LoadingTopLeftItem,
         LoadingEdgeItems,
         LoadingInnerItems,
-        CheckingForPendingRequests,
         Done
     };
     Q_ENUM(LayoutState)
 
     GridLayoutRequest(const QRectF &visibleContentRect)
         : state(NoState)
-        , m_initState(true)
         , visibleContentRect(visibleContentRect)
         , pendingVisibleContentRect(QRectF())
         , topLeftIndex(kNullValue)
-        , nextEdgeColumnIndex(kNullValue)
-        , nextEdgeRowIndex(kNullValue)
-        , nextInnerIndex(kNullValue)
+        , requestedEdgeColumnIndex(kNullValue)
+        , requestedEdgeRowIndex(kNullValue)
+        , requestedInnerItemCount(0)
         , visualRowCount(kNullValue)
         , visualColumnCount(kNullValue)
-        , expectedInnerItemCount(0)
-        , loadedInnerItemCount(0)
     {}
 
     LayoutState state;
-    bool m_initState;
     QRectF visibleContentRect;
     QRectF pendingVisibleContentRect;
     int topLeftIndex;
-    int nextEdgeColumnIndex;
-    int nextEdgeRowIndex;
-    int nextInnerIndex;
+    int requestedEdgeColumnIndex;
+    int requestedEdgeRowIndex;
+    int requestedInnerItemCount;
     int visualRowCount;
     int visualColumnCount;
-    int expectedInnerItemCount;
-    int loadedInnerItemCount;
 
-    bool hasStartedButIsNotDone()
+    bool isActive()
     {
-        return state >= Start && state < Done;
-    }
-
-    bool isDoneLoadingEdgeRowItems() {
-        return nextEdgeRowIndex == kNullValue;
-    }
-
-    bool isDoneLoadingEdgeColumnItems() {
-        return nextEdgeColumnIndex == kNullValue;
-    }
-
-    bool initState()
-    {
-        bool init = m_initState;
-        m_initState = false;
-        return init;
-    }
-
-    void moveToNextState()
-    {
-        state = LayoutState(state + 1);
-        m_initState = true;
-        qCDebug(lcItemViewDelegateLifecycle) << state;
+        return state > NoState && state < Done;
     }
 };
 
@@ -170,6 +141,8 @@ public:
 
     Orientation orientation() const;
     void setOrientation(Orientation orientation);
+
+    bool event(QEvent *e) override;
 
     Q_INVOKABLE qreal columnWidth(int column);
     Q_INVOKABLE qreal rowHeight(int row);
