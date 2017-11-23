@@ -127,6 +127,7 @@ protected:
     GridLayoutRequest currentLayoutRequest;
     QEvent::Type eventTypeDeliverTableItems;
     QVector<int> deliverTableItemsIndexList;
+    bool blockCreatedItemsSyncCallback;
 
     QMargins prevGrid;
     mutable QPair<int, qreal> rowPositionCache;
@@ -143,7 +144,7 @@ protected:
     void updateViewportContentHeight();
 
     void requestTableItemAsync(int index);
-    void deliverTableItems();
+    void deliverPostedTableItems();
     FxTableItemSG *getTableItem(int index);
     FxTableItemSG *createTableItem(int index, QQmlIncubator::IncubationMode mode);
 
@@ -200,6 +201,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , currentLayoutRequest(QRect())
     , eventTypeDeliverTableItems(static_cast<QEvent::Type>(QEvent::registerEventType()))
     , deliverTableItemsIndexList(QVector<int>())
+    , blockCreatedItemsSyncCallback(false)
     , prevGrid(QMargins(-1, -1, -1, -1))
     , rowPositionCache(qMakePair(0, 0))
     , columnPositionCache(qMakePair(0, 0))
@@ -580,10 +582,19 @@ void QQuickTableView::createdItem(int index, QObject* object)
         d->requestedIndex = -1;
     }
 
-    Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
+    if (!d->currentLayoutRequest.isActive())
+        return;
 
-    if (d->currentLayoutRequest.isActive())
-        d->itemReceived(index);
+    if (d->blockCreatedItemsSyncCallback) {
+        // Items that are created synchronously will still need to
+        // be delivered async later, to funnel all event creation through
+        // the same async layout logic.
+        return;
+    }
+
+    Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
+    qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
+    d->itemReceived(index);
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -655,6 +666,7 @@ void QQuickTableViewPrivate::requestTableItemAsync(int index)
     // TODO: check if item is already available before creating an FxTableItemSG
     // so we don't have to release it below in case it exists.
 
+    QBoolBlocker guard(blockCreatedItemsSyncCallback);
     FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(index, true));
 
     if (item) {
@@ -663,7 +675,7 @@ void QQuickTableViewPrivate::requestTableItemAsync(int index)
         // To avoid sending multiple events for different items, we take care to only
         // schedule one event, and instead queue the indices and process them
         // all in one go once we receive the event.
-        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded!";
+        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded!" << deliverTableItemsIndexList.count();
         bool alreadyWaitingForPendingEvent = !deliverTableItemsIndexList.isEmpty();
         deliverTableItemsIndexList.append(index);
 
@@ -677,12 +689,27 @@ void QQuickTableViewPrivate::requestTableItemAsync(int index)
     }
 }
 
-void QQuickTableViewPrivate::deliverTableItems()
+void QQuickTableViewPrivate::deliverPostedTableItems()
 {
-    qCDebug(lcItemViewDelegateLifecycle) << "index count:" << deliverTableItemsIndexList.count();
-    for (int index : deliverTableItemsIndexList)
+    qCDebug(lcItemViewDelegateLifecycle) << "initial count:" << deliverTableItemsIndexList.count();
+
+    // When we deliver items, the receivers will typically ask for
+    // not only the item we deliver, but also subsequent items in
+    // the layout. To avoid recursion, we need to block.
+    QBoolBlocker guard(blockCreatedItemsSyncCallback);
+
+    // Note that as we deliver items from this function, new items
+    // might be appended to the list, which means that we might end
+    // up delivering more items than what we got before we started.
+    for (int i = 0; i < deliverTableItemsIndexList.count(); ++i) {
+        const int index = deliverTableItemsIndexList[i];
+        qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
         itemReceived(index);
+    }
+
     deliverTableItemsIndexList.clear();
+
+    qCDebug(lcItemViewDelegateLifecycle) << "done delivering items!";
 }
 
 FxTableItemSG *QQuickTableViewPrivate::getTableItem(int index)
@@ -1289,7 +1316,7 @@ bool QQuickTableView::event(QEvent *e)
     Q_D(QQuickTableView);
 
     if (e->type() == d->eventTypeDeliverTableItems) {
-        d->deliverTableItems();
+        d->deliverPostedTableItems();
         return true;
     }
 
