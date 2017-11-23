@@ -862,13 +862,17 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
         return false;
 
     if (currentLayoutRequest.isActive()) {
-        if (visibleContentRect != currentLayoutRequest.visibleContentRect)
+        if (visibleContentRect == currentLayoutRequest.visibleContentRect) {
+            qCDebug(lcItemViewDelegateLifecycle) << "clearing pending content rect";
+            currentLayoutRequest.pendingVisibleContentRect = QRectF();
+        } else {
+            qCDebug(lcItemViewDelegateLifecycle) << "assigning pending content rect" << visibleContentRect;
             currentLayoutRequest.pendingVisibleContentRect = visibleContentRect;
+        }
         return false;
     }
 
-    qCDebug(lcItemViewDelegateLifecycle) << "Creating new layout request:" << visibleContentRect;
-
+    qCDebug(lcItemViewDelegateLifecycle) << "creating new layout request:" << visibleContentRect;
     currentLayoutRequest = GridLayoutRequest(visibleContentRect);
     enterStateRequestTopLeftItem();
 
