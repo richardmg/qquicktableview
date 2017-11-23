@@ -128,6 +128,7 @@ protected:
     QEvent::Type eventTypeDeliverTableItems;
     QVector<int> deliverTableItemsIndexList;
     bool blockCreatedItemsSyncCallback;
+    bool forceSynchronousMode;
 
     QMargins prevGrid;
     mutable QPair<int, qreal> rowPositionCache;
@@ -202,6 +203,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , eventTypeDeliverTableItems(static_cast<QEvent::Type>(QEvent::registerEventType()))
     , deliverTableItemsIndexList(QVector<int>())
     , blockCreatedItemsSyncCallback(false)
+    , forceSynchronousMode(false)
     , prevGrid(QMargins(-1, -1, -1, -1))
     , rowPositionCache(qMakePair(0, 0))
     , columnPositionCache(qMakePair(0, 0))
@@ -667,7 +669,7 @@ void QQuickTableViewPrivate::requestTableItemAsync(int index)
     // so we don't have to release it below in case it exists.
 
     QBoolBlocker guard(blockCreatedItemsSyncCallback);
-    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(index, true));
+    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(index, !forceSynchronousMode));
 
     if (item) {
         // This can happen if the item was cached by the model from before. But we really don't
@@ -902,6 +904,9 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     qCDebug(lcItemViewDelegateLifecycle) << "creating new layout request:" << visibleContentRect;
     currentLayoutRequest = GridLayoutRequest(visibleContentRect);
     enterStateRequestTopLeftItem();
+
+    if (forceSynchronousMode)
+        deliverPostedTableItems();
 
     // return false? or override caller?
     return true;
