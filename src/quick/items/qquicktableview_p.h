@@ -70,16 +70,20 @@ class GridLayoutRequest
 
 public:
     enum LayoutState {
-        NoState = 0,
+        Idle,
+        LoadingSelectedItem,
         LoadingTopLeftItem,
         LoadingEdgeItems,
         LoadingInnerItems,
-        Done
+        RefillingLeftItems,
+        RefillingRightItems,
+        RefillingTopItems,
+        RefillingBottomItems
     };
     Q_ENUM(LayoutState)
 
     GridLayoutRequest(const QRectF &visibleContentRect)
-        : state(NoState)
+        : state(Idle)
         , visibleContentRect(visibleContentRect)
         , pendingVisibleContentRect(QRectF())
         , topLeftIndex(kNullValue)
@@ -99,11 +103,6 @@ public:
     int requestedInnerItemCount;
     int visualRowCount;
     int visualColumnCount;
-
-    bool isActive()
-    {
-        return state > NoState && state < Done;
-    }
 };
 
 

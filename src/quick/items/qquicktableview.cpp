@@ -584,8 +584,7 @@ void QQuickTableView::createdItem(int index, QObject* object)
         d->requestedIndex = -1;
     }
 
-    if (!d->currentLayoutRequest.isActive())
-        return;
+    Q_ASSERT(d->currentLayoutRequest.state != GridLayoutRequest::Idle);
 
     if (d->blockCreatedItemsSyncCallback) {
         // Items that are created synchronously will still need to
@@ -890,7 +889,9 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     if (!visibleContentRect.isValid())
         return false;
 
-    if (currentLayoutRequest.isActive()) {
+    if (currentLayoutRequest.state != GridLayoutRequest::Idle) {
+        // We are currently working on something else. Bookkeep the request and leave.
+
         if (visibleContentRect == currentLayoutRequest.visibleContentRect) {
             qCDebug(lcItemViewDelegateLifecycle) << "clearing pending content rect";
             currentLayoutRequest.pendingVisibleContentRect = QRectF();
@@ -901,9 +902,12 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
         return false;
     }
 
-    qCDebug(lcItemViewDelegateLifecycle) << "creating new layout request:" << visibleContentRect;
-    currentLayoutRequest = GridLayoutRequest(visibleContentRect);
-    enterStateRequestTopLeftItem();
+    if (visibleItems.isEmpty()) {
+        // Do a complete refill from scratch
+        qCDebug(lcItemViewDelegateLifecycle) << "creating new layout request:" << visibleContentRect;
+        currentLayoutRequest = GridLayoutRequest(visibleContentRect);
+        enterStateRequestTopLeftItem();
+    }
 
     if (forceSynchronousMode)
         deliverPostedTableItems();
@@ -1017,7 +1021,7 @@ void QQuickTableViewPrivate::innerItemReceived(FxTableItemSG *fxTableItem)
     showTableItem(fxTableItem);
 
     if (--currentLayoutRequest.requestedInnerItemCount == 0) {
-        currentLayoutRequest.state = GridLayoutRequest::Done;
+        currentLayoutRequest.state = GridLayoutRequest::Idle;
         qCDebug(lcItemViewDelegateLifecycle) << "all inner items received!";
         checkForPendingRequests();
     }
@@ -1035,7 +1039,7 @@ void QQuickTableViewPrivate::checkForPendingRequests()
         qCDebug(lcItemViewDelegateLifecycle) << "continue with request:" << currentLayoutRequest.visibleContentRect;
         enterStateRequestTopLeftItem();
     } else {
-        currentLayoutRequest.state = GridLayoutRequest::Done;
+        currentLayoutRequest.state = GridLayoutRequest::Idle;
         qCDebug(lcItemViewDelegateLifecycle) << "done!";
     }
 }
@@ -1357,8 +1361,12 @@ void QQuickTableView::componentComplete()
             delegateModel->setRows(d->rows);
         if (d->columns > 0)
             delegateModel->setColumns(d->columns);
+        static_cast<QQmlDelegateModel *>(d->model.data())->componentComplete();
     }
-    QQuickAbstractItemView::componentComplete();
+
+    // NB: deliberatly skipping QQuickAbstractItemView, since it does so
+    // many wierd that I don't need or understand. That code is messy...
+    QQuickFlickable::componentComplete();
 }
 
 QT_END_NAMESPACE
