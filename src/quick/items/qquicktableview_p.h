@@ -87,8 +87,11 @@ public:
         , visibleContentRect(visibleContentRect)
         , pendingVisibleContentRect(QRectF())
         , topLeftIndex(kNullValue)
-        , requestedEdgeColumnIndex(kNullValue)
-        , requestedEdgeRowIndex(kNullValue)
+        , topRightIndex(kNullValue)
+        , bottomLeftIndex(kNullValue)
+        , bottomRightIndex(kNullValue)
+        , requestedTopEdgeIndex(kNullValue)
+        , requestedLeftEdgeIndex(kNullValue)
         , requestedInnerItemCount(0)
         , visualRowCount(kNullValue)
         , visualColumnCount(kNullValue)
@@ -97,10 +100,16 @@ public:
     LayoutState state;
     QRectF visibleContentRect;
     QRectF pendingVisibleContentRect;
+
     int topLeftIndex;
-    int requestedEdgeColumnIndex;
-    int requestedEdgeRowIndex;
+    int topRightIndex;
+    int bottomLeftIndex;
+    int bottomRightIndex;
+
+    int requestedTopEdgeIndex;
+    int requestedLeftEdgeIndex;
     int requestedInnerItemCount;
+
     int visualRowCount;
     int visualColumnCount;
 };
