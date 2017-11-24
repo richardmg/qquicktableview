@@ -569,7 +569,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
         return;
     d->inViewportMoved = true;
 
-    d->refillOrLayout();
+    d->addRemoveVisibleItems();
 
     d->inViewportMoved = false;
 }
