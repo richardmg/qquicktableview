@@ -62,8 +62,8 @@ Window {
                 // Setting columns and rows is not really needed, since the model contains the info.
                 // But it should probably be the opposite, so that we always use columns and rows?
                 // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
-                columns: 20
-                rows: 20
+                columns: 50
+                rows: 50
 
                 columnSpacing: 1
                 rowSpacing: 1

@@ -157,13 +157,14 @@ protected:
     qreal getCachedColumnWidth(int col);
     void fillTable();
 
-    FxViewItem *visibleTableItem(int modelIndex) const;
+    FxTableItemSG *visibleTableItem(int modelIndex) const;
     void showTableItem(FxTableItemSG *fxViewItem);
 
     void itemReceived(int index);
     void topLeftItemReceived(FxTableItemSG *fxTableItem);
     void edgeItemReceived(FxTableItemSG *fxTableItem);
     void innerItemReceived(FxTableItemSG *fxTableItem);
+    void rightRefillItemReceived(FxTableItemSG *fxTableItem);
 
     void checkForPendingRequests();
 
@@ -185,8 +186,8 @@ protected:
     void enterStateRequestEdgeItems();
     void enterStateRequestInnerItems();
 
-    void bookkeepRequest(const QRectF visibleContentRect);
-    void addVisibleItems(const QRectF visibleContentRect);
+    void bookkeepRequest(const QRectF viewportRect);
+    void addVisibleItems(const QRectF viewportRect);
     void calculateTableGridMetrics();
     void requestNextLeftEdgeItem(FxTableItemSG *fxTableItem);
     void requestNextTopEdgeItem(FxTableItemSG *fxTableItem);
@@ -744,7 +745,7 @@ void QQuickTableViewPrivate::releaseItems(int fromColumn, int toColumn, int from
     }
 }
 
-FxViewItem *QQuickTableViewPrivate::visibleTableItem(int modelIndex) const
+FxTableItemSG *QQuickTableViewPrivate::visibleTableItem(int modelIndex) const
 {
     // TODO: this is an overload of visibleItems, since the other version
     // does some wierd things with the index. Fix that up later. And change
@@ -752,7 +753,7 @@ FxViewItem *QQuickTableViewPrivate::visibleTableItem(int modelIndex) const
     for (int i = 0; i < visibleItems.count(); ++i) {
         FxViewItem *item = visibleItems.at(i);
         if (item->index == modelIndex)
-            return item;
+            return static_cast<FxTableItemSG *>(item);
     }
     return 0;
 }
@@ -846,7 +847,7 @@ bool QQuickTableViewPrivate::canHaveMoreItemsBelow(FxTableItemSG *fxViewItem)
 
     QQuickItem *tableItemItem = fxViewItem->item;
     QRectF itemRect = QRectF(tableItemItem->position(), tableItemItem->size());
-    return itemRect.bottomRight().y() < currentLayoutRequest.visibleContentRect.bottomRight().y();
+    return itemRect.bottomRight().y() < currentLayoutRequest.viewportRect.bottomRight().y();
 }
 
 bool QQuickTableViewPrivate::canHaveMoreItemsRightOf(FxTableItemSG *fxViewItem)
@@ -857,17 +858,17 @@ bool QQuickTableViewPrivate::canHaveMoreItemsRightOf(FxTableItemSG *fxViewItem)
 
     QQuickItem *tableItemItem = fxViewItem->item;
     QRectF itemRect = QRectF(tableItemItem->position(), tableItemItem->size());
-    return itemRect.bottomRight().x() < currentLayoutRequest.visibleContentRect.bottomRight().x();
+    return itemRect.bottomRight().x() < currentLayoutRequest.viewportRect.bottomRight().x();
 }
 
-void QQuickTableViewPrivate::bookkeepRequest(const QRectF visibleContentRect)
+void QQuickTableViewPrivate::bookkeepRequest(const QRectF viewportRect)
 {
-    if (visibleContentRect == currentLayoutRequest.visibleContentRect) {
+    if (viewportRect == currentLayoutRequest.viewportRect) {
         qCDebug(lcItemViewDelegateLifecycle) << "clearing pending content rect";
-        currentLayoutRequest.pendingVisibleContentRect = QRectF();
+        currentLayoutRequest.pendingViewportRect = QRectF();
     } else {
-        qCDebug(lcItemViewDelegateLifecycle) << "assigning pending content rect" << visibleContentRect;
-        currentLayoutRequest.pendingVisibleContentRect = visibleContentRect;
+        qCDebug(lcItemViewDelegateLifecycle) << "assigning pending content rect" << viewportRect;
+        currentLayoutRequest.pendingViewportRect = viewportRect;
     }
 }
 
@@ -904,32 +905,52 @@ void QQuickTableViewPrivate::calculateTableGridMetrics()
     int topLeftRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
     int topLeftColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
 
-    currentLayoutRequest.visualRowCount = rowCount;
-    currentLayoutRequest.visualColumnCount = columnCount;
-    currentLayoutRequest.topRightIndex = indexAt(topLeftRow + rowCount - 1, topLeftColumn);
-    currentLayoutRequest.bottomLeftIndex = indexAt(topLeftRow, topLeftColumn + columnCount - 1);
+    currentLayoutRequest.topRightIndex = indexAt(topLeftRow, topLeftColumn + columnCount - 1);
+    currentLayoutRequest.bottomLeftIndex = indexAt(topLeftRow + rowCount - 1, topLeftColumn);
     currentLayoutRequest.bottomRightIndex = indexAt(topLeftRow + rowCount - 1, topLeftColumn + columnCount - 1);
 
+    qCDebug(lcItemViewDelegateLifecycle) << "row count" << rowCount << "column count:" << columnCount;
     qCDebug(lcItemViewDelegateLifecycle) << "top left:" << indexToString(currentLayoutRequest.topLeftIndex);
     qCDebug(lcItemViewDelegateLifecycle) << "bottom left:" << indexToString(currentLayoutRequest.bottomLeftIndex);
     qCDebug(lcItemViewDelegateLifecycle) << "top right:" << indexToString(currentLayoutRequest.topRightIndex);
     qCDebug(lcItemViewDelegateLifecycle) << "bottom right:" << indexToString(currentLayoutRequest.bottomRightIndex);
 }
 
-void QQuickTableViewPrivate::addVisibleItems(const QRectF visibleContentRect)
+void QQuickTableViewPrivate::addVisibleItems(const QRectF viewportRect)
 {
     if (visibleItems.isEmpty()) {
         // Do a complete refill from scratch
-        qCDebug(lcItemViewDelegateLifecycle) << "create table from scratch" << visibleContentRect;
-        currentLayoutRequest = GridLayoutRequest(visibleContentRect);
+        qCDebug(lcItemViewDelegateLifecycle) << "create table from scratch" << viewportRect;
+        currentLayoutRequest = GridLayoutRequest(viewportRect);
         enterStateRequestTopLeftItem();
     } else {
         // Refill items around the already visible table items
-        qCDebug(lcItemViewDelegateLifecycle) << "refill from" << currentLayoutRequest.visibleContentRect << "to" << visibleContentRect;
 
-        if (canHaveMoreItemsRightOf(0)) {
+        currentLayoutRequest.viewportRect = viewportRect;
 
+        FxTableItemSG *topRightItem = visibleTableItem(currentLayoutRequest.topRightIndex);
+        FxTableItemSG *bottomLeftItem = visibleTableItem(currentLayoutRequest.bottomLeftIndex);
+
+        if (canHaveMoreItemsRightOf(topRightItem)) {
+            currentLayoutRequest.state = GridLayoutRequest::RefillingRightItems;
+            currentLayoutRequest.requestedItemCount = currentLayoutRequest.visualRowCount;
+
+            int topRightIndex = topRightItem->index;
+            int newColumn = columnAtIndex(topRightIndex) + 1;
+            qCDebug(lcItemViewDelegateLifecycle) << "refill, load right column:" << newColumn;
+
+            for (int i = 0; i < currentLayoutRequest.visualRowCount; i++) {
+                int index = indexAt(rowAtIndex(topRightIndex) + i, newColumn);
+                requestTableItemAsync(index);
+            }
         }
+
+        if (canHaveMoreItemsBelow(bottomLeftItem)) {
+            currentLayoutRequest.state = GridLayoutRequest::RefillingBottomItems;
+            // Should I do this at the same time? I anyway have to check for this here, in case
+            // we end up not adding any items on the right.
+        }
+
     }
 }
 
@@ -937,17 +958,17 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     Q_Q(QQuickTableView);
 
-    QRectF visibleContentRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
-    if (!visibleContentRect.isValid())
+    QRectF viewportRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
+    if (!viewportRect.isValid())
         return false;
 
     if (currentLayoutRequest.state != GridLayoutRequest::Idle) {
         // We are currently working on something else. Bookkeep the request and leave.
-        bookkeepRequest(visibleContentRect);
+        bookkeepRequest(viewportRect);
         return false;
     }
 
-    addVisibleItems(visibleContentRect);
+    addVisibleItems(viewportRect);
 
     if (forceSynchronousMode)
         deliverPostedTableItems();
@@ -969,6 +990,9 @@ void QQuickTableViewPrivate::itemReceived(int index)
         break;
     case GridLayoutRequest::LoadingInnerItems:
         innerItemReceived(fxTableItem);
+        break;
+    case GridLayoutRequest::RefillingRightItems:
+        rightRefillItemReceived(fxTableItem);
         break;
     default:
         Q_UNREACHABLE();
@@ -1052,7 +1076,7 @@ void QQuickTableViewPrivate::enterStateRequestInnerItems()
 
     for (int y = 1; y < currentLayoutRequest.visualRowCount; ++y) {
         for (int x = 1; x < currentLayoutRequest.visualColumnCount; ++x) {
-            currentLayoutRequest.requestedInnerItemCount++;
+            currentLayoutRequest.requestedItemCount++;
             int index = indexAt(topLeftRow + y, topLeftColumn + x);
             requestTableItemAsync(index);
         }
@@ -1067,23 +1091,45 @@ void QQuickTableViewPrivate::innerItemReceived(FxTableItemSG *fxTableItem)
     fxTableItem->setPosition(QPointF(posX, posY));
     showTableItem(fxTableItem);
 
-    if (--currentLayoutRequest.requestedInnerItemCount == 0) {
+    if (--currentLayoutRequest.requestedItemCount == 0) {
         currentLayoutRequest.state = GridLayoutRequest::Idle;
         qCDebug(lcItemViewDelegateLifecycle) << "all inner items received!";
         checkForPendingRequests();
     }
 }
 
+void QQuickTableViewPrivate::rightRefillItemReceived(FxTableItemSG *fxTableItem)
+{
+    qCDebug(lcItemViewDelegateLifecycle) << indexToString(fxTableItem->index);
+
+    // need to check here if the item is the first. if so, it decides column width
+    // perhaps follow same strategy as on init, load the corners first, then
+    // continue refilling inner items?
+
+    fxTableItem->setPosition(QPointF(calculateTopEdgeTablePositionX(fxTableItem), 0));
+    showTableItem(fxTableItem);
+
+    if (--currentLayoutRequest.requestedItemCount == 0) {
+        currentLayoutRequest.state = GridLayoutRequest::Idle;
+        qCDebug(lcItemViewDelegateLifecycle) << "all right refill items received!";
+
+        // update topRightIndex/bottomRightIndex
+
+        // add row items
+//        checkForPendingRequests();
+    }
+}
+
 void QQuickTableViewPrivate::checkForPendingRequests()
 {
     // While we were processing the current layoutRequest, the table view might
-    // have been scrolled to a different place than currentLayoutRequest.visibleContentRect.
-    // If so, currentLayoutRequest.pendingVisibleContentRect will contain this
+    // have been scrolled to a different place than currentLayoutRequest.viewportRect.
+    // If so, currentLayoutRequest.pendingViewportRect will contain this
     // rect, and since we're now done with currentLayoutRequest, we continue with the pending one.
     qCDebug(lcItemViewDelegateLifecycle);
-    if (currentLayoutRequest.pendingVisibleContentRect.isValid()) {
-        currentLayoutRequest = GridLayoutRequest(currentLayoutRequest.pendingVisibleContentRect);
-        qCDebug(lcItemViewDelegateLifecycle) << "continue with request:" << currentLayoutRequest.visibleContentRect;
+    if (currentLayoutRequest.pendingViewportRect.isValid()) {
+        currentLayoutRequest = GridLayoutRequest(currentLayoutRequest.pendingViewportRect);
+        qCDebug(lcItemViewDelegateLifecycle) << "continue with request:" << currentLayoutRequest.viewportRect;
         enterStateRequestTopLeftItem();
     } else {
         currentLayoutRequest.state = GridLayoutRequest::Idle;
@@ -1151,7 +1197,7 @@ void QQuickTableViewPrivate::fillTable()
     // number of items in the model, which can be thousands...
     itemCount = model->count();
 
-    QRectF r = currentLayoutRequest.visibleContentRect;
+    QRectF r = currentLayoutRequest.viewportRect;
 
     // Get grid corners. This informations needs to be known before we can
     // do any useful layouting.

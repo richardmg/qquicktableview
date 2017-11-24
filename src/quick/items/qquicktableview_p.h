@@ -82,24 +82,24 @@ public:
     };
     Q_ENUM(LayoutState)
 
-    GridLayoutRequest(const QRectF &visibleContentRect)
+    GridLayoutRequest(const QRectF &viewportRect)
         : state(Idle)
-        , visibleContentRect(visibleContentRect)
-        , pendingVisibleContentRect(QRectF())
+        , viewportRect(viewportRect)
+        , pendingViewportRect(QRectF())
         , topLeftIndex(kNullValue)
         , topRightIndex(kNullValue)
         , bottomLeftIndex(kNullValue)
         , bottomRightIndex(kNullValue)
         , requestedTopEdgeIndex(kNullValue)
         , requestedLeftEdgeIndex(kNullValue)
-        , requestedInnerItemCount(0)
+        , requestedItemCount(0)
         , visualRowCount(kNullValue)
         , visualColumnCount(kNullValue)
     {}
 
     LayoutState state;
-    QRectF visibleContentRect;
-    QRectF pendingVisibleContentRect;
+    QRectF viewportRect;
+    QRectF pendingViewportRect;
 
     int topLeftIndex;
     int topRightIndex;
@@ -108,7 +108,7 @@ public:
 
     int requestedTopEdgeIndex;
     int requestedLeftEdgeIndex;
-    int requestedInnerItemCount;
+    int requestedItemCount;
 
     int visualRowCount;
     int visualColumnCount;
