@@ -64,57 +64,6 @@ static const int kNullValue = -1;
 class QQuickTableViewAttached;
 class QQuickTableViewPrivate;
 
-class GridLayoutRequest
-{
-    Q_GADGET
-
-public:
-    enum LayoutState {
-        Idle,
-        LoadingSelectedItem,
-        LoadingTopLeftItem,
-        LoadingEdgeItems,
-        LoadingInnerItems,
-        RefillingLeftItems,
-        RefillingRightItems,
-        RefillingTopItems,
-        RefillingBottomItems
-    };
-    Q_ENUM(LayoutState)
-
-    GridLayoutRequest(const QRectF &viewportRect)
-        : state(Idle)
-        , viewportRect(viewportRect)
-        , pendingViewportRect(QRectF())
-        , topLeftIndex(kNullValue)
-        , topRightIndex(kNullValue)
-        , bottomLeftIndex(kNullValue)
-        , bottomRightIndex(kNullValue)
-        , requestedTopEdgeIndex(kNullValue)
-        , requestedLeftEdgeIndex(kNullValue)
-        , requestedItemCount(0)
-        , visualRowCount(kNullValue)
-        , visualColumnCount(kNullValue)
-    {}
-
-    LayoutState state;
-    QRectF viewportRect;
-    QRectF pendingViewportRect;
-
-    int topLeftIndex;
-    int topRightIndex;
-    int bottomLeftIndex;
-    int bottomRightIndex;
-
-    int requestedTopEdgeIndex;
-    int requestedLeftEdgeIndex;
-    int requestedItemCount;
-
-    int visualRowCount;
-    int visualColumnCount;
-};
-
-
 class Q_AUTOTEST_EXPORT QQuickTableView : public QQuickAbstractItemView
 {
     Q_OBJECT
