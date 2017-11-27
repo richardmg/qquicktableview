@@ -97,13 +97,7 @@ public:
     enum LayoutState {
         Idle,
         LoadingSelectedItem,
-        LoadingInnerItems,
         LoadingTableRequest,
-        LoadingColumnItems,
-        RefillingLeftItems,
-        RefillingRightItems,
-        RefillingTopItems,
-        RefillingBottomItems
     };
 
     GridLayoutRequest(const QRectF &viewportRect)
@@ -226,10 +220,6 @@ protected:
     FxTableItemSG *visibleTableItem(int modelIndex) const;
     void showTableItem(FxTableItemSG *fxViewItem);
 
-    void itemReceived(int index);
-    void innerItemReceived(FxTableItemSG *fxTableItem);
-    void rightRefillItemReceived(FxTableItemSG *fxTableItem);
-
     void checkForPendingRequests();
 
     QString indexToString(int index);
@@ -241,10 +231,6 @@ protected:
     FxViewItem *itemOnTopEdgeOf(FxTableItemSG *fxViewItem);
     FxViewItem *itemOnLeftEdgeOf(FxTableItemSG *fxViewItem);
 
-    qreal calculateLeftEdgeTablePositionY(FxTableItemSG *fxViewItem);
-    qreal calculateTopEdgeTablePositionX(FxTableItemSG *fxViewItem);
-    qreal calculateInnerTablePositionY(FxTableItemSG *fxViewItem);
-    qreal calculateInnerTablePositionX(FxTableItemSG *fxViewItem);
     qreal calculateTablePositionX(FxTableItemSG *fxViewItem);
     qreal calculateTablePositionY(FxTableItemSG *fxViewItem);
 
@@ -253,7 +239,7 @@ protected:
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
     void dequeueCurrentLoadRequest();
     void executeNextLoadRequest();
-    void tableRequestItemReceived(FxTableItemSG *fxTableItem);
+    void tableItemLoaded(int index);
 
     void bookkeepRequest(const QRectF viewportRect);
     void addVisibleItems(const QRectF viewportRect);
@@ -669,7 +655,7 @@ void QQuickTableView::createdItem(int index, QObject* object)
 
     Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
     qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
-    d->itemReceived(index);
+    d->tableItemLoaded(index);
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -779,7 +765,7 @@ void QQuickTableViewPrivate::deliverPostedTableItems()
     for (int i = 0; i < deliverTableItemsIndexList.count(); ++i) {
         const int index = deliverTableItemsIndexList[i];
         qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
-        itemReceived(index);
+        tableItemLoaded(index);
     }
 
     deliverTableItemsIndexList.clear();
@@ -869,44 +855,6 @@ FxViewItem *QQuickTableViewPrivate::itemOnLeftEdgeOf(FxTableItemSG *fxViewItem)
     int edgeColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
     int edgeColumnIndex = indexAt(row, edgeColumn);
     return visibleTableItem(edgeColumnIndex);
-}
-
-qreal QQuickTableViewPrivate::calculateTopEdgeTablePositionX(FxTableItemSG *fxViewItem)
-{
-    // Calculate the table position x of fxViewItem based on the position of the item to
-    // the left. This assumes that the item to the left is already positioned correctly.
-    FxViewItem *fxViewItemOnTheLeft = itemLeftOf(fxViewItem);
-    Q_ASSERT(fxViewItemOnTheLeft);
-    QQuickItem *itemOnTheLeft = fxViewItemOnTheLeft->item;
-    return itemOnTheLeft->position().x() + itemOnTheLeft->size().width() + columnSpacing;
-}
-
-qreal QQuickTableViewPrivate::calculateLeftEdgeTablePositionY(FxTableItemSG *fxViewItem)
-{
-    // Calculate the table position y of fxViewItem based on the position of the item above.
-    // This assumes that the item above is already positioned correctly.
-    FxViewItem *fxViewItemOnTop = itemOnTopOf(fxViewItem);
-    Q_ASSERT(fxViewItemOnTop);
-    QQuickItem *itemOnTop = fxViewItemOnTop->item;
-    return itemOnTop->position().y() + itemOnTop->size().height() + rowSpacing;
-}
-
-qreal QQuickTableViewPrivate::calculateInnerTablePositionX(FxTableItemSG *fxViewItem)
-{
-    // Calculate the table position x of fxViewItem based on the position of the item
-    // at the edge column. This assumes that the item at the edge is already positioned correctly.
-    FxViewItem *fxViewItemEdge = itemOnTopEdgeOf(fxViewItem);
-    Q_ASSERT(fxViewItemEdge);
-    return fxViewItemEdge->item->position().x();
-}
-
-qreal QQuickTableViewPrivate::calculateInnerTablePositionY(FxTableItemSG *fxViewItem)
-{
-    // Calculate the table position y of fxViewItem based on the position of the item
-    // at the edge row. This assumes that the item at the edge is already positioned correctly.
-    FxViewItem *fxViewItemEdge = itemOnLeftEdgeOf(fxViewItem);
-    Q_ASSERT(fxViewItemEdge);
-    return fxViewItemEdge->item->position().y();
 }
 
 qreal QQuickTableViewPrivate::calculateTablePositionX(FxTableItemSG *fxViewItem)
@@ -1074,8 +1022,8 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
         int columns = currentLayoutRequest.topRightColumn - topLeftColumn + 1;
         qCDebug(lcItemViewDelegateLifecycle) << "rows/columns:" << rows << columns;
 
-        for (int y = 1; y < rows; ++y) {
-            for (int x = 1; x < columns; ++x) {
+        for (int y = request.startRow; y < rows; ++y) {
+            for (int x = request.startColumn; x < columns; ++x) {
                 currentLayoutRequest.requestedItemCount++;
                 int index = indexAt(topLeftRow + y, topLeftColumn + x);
                 requestTableItemAsync(index);
@@ -1191,36 +1139,16 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     return true;
 }
 
-void QQuickTableViewPrivate::itemReceived(int index)
+void QQuickTableViewPrivate::tableItemLoaded(int index)
 {
+    qCDebug(lcItemViewDelegateLifecycle) << indexToString(index);
+
     FxTableItemSG *fxTableItem = getTableItem(index);
-
-    switch (currentLayoutRequest.state) {
-    case GridLayoutRequest::LoadingInnerItems:
-        innerItemReceived(fxTableItem);
-        break;
-    case GridLayoutRequest::LoadingTableRequest:
-        tableRequestItemReceived(fxTableItem);
-        break;
-    case GridLayoutRequest::RefillingRightItems:
-        rightRefillItemReceived(fxTableItem);
-        break;
-    default:
-        Q_UNREACHABLE();
-        break;
-    }
-}
-
-void QQuickTableViewPrivate::tableRequestItemReceived(FxTableItemSG *fxTableItem)
-{
-    qCDebug(lcItemViewDelegateLifecycle) << indexToString(fxTableItem->index);
-
     int x = calculateTablePositionX(fxTableItem);
     int y = calculateTablePositionY(fxTableItem);
     fxTableItem->setPosition(QPointF(x, y));
     showTableItem(fxTableItem);
 
-    int index = fxTableItem->index;
     int row = rowAtIndex(index);
     int column = columnAtIndex(index);
 
@@ -1259,43 +1187,6 @@ void QQuickTableViewPrivate::tableRequestItemReceived(FxTableItemSG *fxTableItem
             dequeueCurrentLoadRequest();
             executeNextLoadRequest();
         }
-    }
-}
-
-void QQuickTableViewPrivate::innerItemReceived(FxTableItemSG *fxTableItem)
-{
-    qCDebug(lcItemViewDelegateLifecycle) << indexToString(fxTableItem->index);
-    qreal posX = calculateInnerTablePositionX(fxTableItem);
-    qreal posY = calculateInnerTablePositionY(fxTableItem);
-    fxTableItem->setPosition(QPointF(posX, posY));
-    showTableItem(fxTableItem);
-
-    if (--currentLayoutRequest.requestedItemCount == 0) {
-        currentLayoutRequest.state = GridLayoutRequest::Idle;
-        qCDebug(lcItemViewDelegateLifecycle) << "all inner items received!";
-        checkForPendingRequests();
-    }
-}
-
-void QQuickTableViewPrivate::rightRefillItemReceived(FxTableItemSG *fxTableItem)
-{
-    qCDebug(lcItemViewDelegateLifecycle) << indexToString(fxTableItem->index);
-
-    // need to check here if the item is the first. if so, it decides column width
-    // perhaps follow same strategy as on init, load the corners first, then
-    // continue refilling inner items?
-
-    fxTableItem->setPosition(QPointF(calculateTopEdgeTablePositionX(fxTableItem), 0));
-    showTableItem(fxTableItem);
-
-    if (--currentLayoutRequest.requestedItemCount == 0) {
-        currentLayoutRequest.state = GridLayoutRequest::Idle;
-        qCDebug(lcItemViewDelegateLifecycle) << "all right refill items received!";
-
-        // update topRightIndex/bottomRightIndex
-
-        // add row items
-//        checkForPendingRequests();
     }
 }
 
