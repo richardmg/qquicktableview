@@ -1088,31 +1088,33 @@ void QQuickTableViewPrivate::addVisibleItems(const QRectF viewportRect)
     } else {
         // Refill items around the already visible table items
 
-//        currentLayoutRequest.viewportRect = viewportRect;
+        currentLayoutRequest.viewportRect = viewportRect;
 
-//        FxTableItemSG *topRightItem = visibleTableItem(currentLayoutRequest.topRightIndex);
-//        FxTableItemSG *bottomLeftItem = visibleTableItem(currentLayoutRequest.bottomLeftIndex);
+        FxTableItemSG *topRightItem = visibleTableItem(indexAt(rowAtIndex(currentLayoutRequest.topLeftIndex), currentLayoutRequest.topRightColumn));
+        FxTableItemSG *bottomLeftItem = visibleTableItem(indexAt(currentLayoutRequest.bottomLeftRow, columnAtIndex(currentLayoutRequest.topLeftIndex)));
 
-//        if (canHaveMoreItemsRightOf(topRightItem)) {
-//            currentLayoutRequest.state = GridLayoutRequest::RefillingRightItems;
-//            currentLayoutRequest.requestedItemCount = currentLayoutRequest.visualRowCount;
+        if (canHaveMoreItemsRightOf(topRightItem)) {
+            // todo: figure out how many columns I need to load
+            // And, no need to load all items one by one
+            TableSectionLoadRequest columnRequest;
+            columnRequest.startRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
+            columnRequest.startColumn = currentLayoutRequest.topRightColumn + 1;
+            columnRequest.fillDirection = Qt::BottomEdge;
+            columnRequest.loadMode = TableSectionLoadRequest::LoadOneByOne;
+            enqueueLoadRequest(columnRequest);
+        }
 
-//            int topRightIndex = topRightItem->index;
-//            int newColumn = columnAtIndex(topRightIndex) + 1;
-//            qCDebug(lcItemViewDelegateLifecycle) << "refill, load right column:" << newColumn;
+        if (canHaveMoreItemsBelow(bottomLeftItem)) {
+            TableSectionLoadRequest rowrequest;
+            rowrequest.startRow = currentLayoutRequest.bottomLeftRow + 1;
+            rowrequest.startColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
+            rowrequest.fillDirection = Qt::RightEdge;
+            rowrequest.loadMode = TableSectionLoadRequest::LoadOneByOne;
+            enqueueLoadRequest(rowrequest);
+        }
 
-//            for (int i = 0; i < currentLayoutRequest.visualRowCount; i++) {
-//                int index = indexAt(rowAtIndex(topRightIndex) + i, newColumn);
-//                requestTableItemAsync(index);
-//            }
-//        }
-
-//        if (canHaveMoreItemsBelow(bottomLeftItem)) {
-//            currentLayoutRequest.state = GridLayoutRequest::RefillingBottomItems;
-//            // Should I do this at the same time? I anyway have to check for this here, in case
-//            // we end up not adding any items on the right.
-//        }
-
+        if (!loadRequests.isEmpty())
+            executeNextLoadRequest();
     }
 }
 
