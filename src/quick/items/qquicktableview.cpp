@@ -233,7 +233,7 @@ protected:
     void dequeueCurrentLoadRequest();
     void executeNextLoadRequest();
     void continueExecutingCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
-    void requestNextItemInCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
+    bool requestNextItemInCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
     void tableItemLoaded(int index);
 
     void bookkeepRequest(const QRectF viewportRect);
@@ -940,11 +940,13 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
         int index = indexAt(request.startRow, request.startColumn);
         requestTableItemAsync(index);
     } else {
+        // Note: TableSectionLoadRequest::LoadInParallel will load as
+        // many items as will fit inside visual rows and columns, so
+        // this information needs to be correct at this point.
         int topLeftRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
         int topLeftColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
         int rows = currentLayoutRequest.bottomLeftRow - topLeftRow + 1;
         int columns = currentLayoutRequest.topRightColumn - topLeftColumn + 1;
-        qCDebug(lcItemViewDelegateLifecycle) << "rows/columns:" << rows << columns;
 
         for (int y = request.startRow; y < rows; ++y) {
             for (int x = request.startColumn; x < columns; ++x) {
@@ -1005,22 +1007,24 @@ void QQuickTableViewPrivate::tableItemLoaded(int index)
 void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableItemSG *receivedTableItem)
 {
     const TableSectionLoadRequest request = loadRequests.head();
+    bool allRequestedItemsLoaded = false;
 
-    if (request.loadMode == TableSectionLoadRequest::LoadOneByOne) {
-        requestNextItemInCurrentLoadRequest(receivedTableItem);
-    } else {
-        const bool allRequestedItemsLoaded = --currentLayoutRequest.requestedItemCount == 0;
-        if (allRequestedItemsLoaded) {
-            dequeueCurrentLoadRequest();
-            executeNextLoadRequest();
-        }
+    if (request.loadMode == TableSectionLoadRequest::LoadOneByOne)
+        allRequestedItemsLoaded = requestNextItemInCurrentLoadRequest(receivedTableItem);
+    else
+        allRequestedItemsLoaded = --currentLayoutRequest.requestedItemCount == 0;
+
+    if (allRequestedItemsLoaded) {
+        dequeueCurrentLoadRequest();
+        executeNextLoadRequest();
     }
 }
 
-void QQuickTableViewPrivate::requestNextItemInCurrentLoadRequest(const FxTableItemSG *receivedTableItem)
+bool QQuickTableViewPrivate::requestNextItemInCurrentLoadRequest(const FxTableItemSG *receivedTableItem)
 {
     // Continue loading the next adjacent item according to fill direction
     const TableSectionLoadRequest request = loadRequests.head();
+    bool allRequestedItemsLoaded = true;
 
     int row = rowAtIndex(receivedTableItem->index);
     int column = columnAtIndex(receivedTableItem->index);
@@ -1028,25 +1032,21 @@ void QQuickTableViewPrivate::requestNextItemInCurrentLoadRequest(const FxTableIt
     switch (request.fillDirection) {
     case Qt::RightEdge:
         if (canHaveMoreItemsRightOf(receivedTableItem)) {
-            int index = indexAt(row, column + 1);
-            requestTableItemAsync(index);
-        } else {
-            dequeueCurrentLoadRequest();
-            executeNextLoadRequest();
+            allRequestedItemsLoaded = false;
+            requestTableItemAsync(indexAt(row, column + 1));
         }
         break;
     case Qt::BottomEdge:
         if (canHaveMoreItemsBelow(receivedTableItem)) {
-            int index = indexAt(row + 1, column);
-            requestTableItemAsync(index);
-        } else {
-            dequeueCurrentLoadRequest();
-            executeNextLoadRequest();
+            allRequestedItemsLoaded = false;
+            requestTableItemAsync(indexAt(row + 1, column));
         }
         break;
     default:
         Q_UNREACHABLE();
     }
+
+    return allRequestedItemsLoaded;
 }
 
 void QQuickTableViewPrivate::reloadTable(const QRectF &viewportRect)
