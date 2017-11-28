@@ -1108,7 +1108,6 @@ void QQuickTableViewPrivate::refillItemsAlongEdge(const QPoint &startCell, const
 {
     TableSectionLoadRequest edgeItemRequest;
     edgeItemRequest.startCell = startCell;
-    edgeItemRequest.fillDirection = fillDirection;
     enqueueLoadRequest(edgeItemRequest);
 
     TableSectionLoadRequest trailingItemsRequest;
