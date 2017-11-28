@@ -77,6 +77,7 @@ public:
     QPoint startCell = QPoint(0, 0);
     QPoint fillDirection = QPoint(0, 0);
     LoadMode loadMode = LoadOneByOne;
+    bool done = false;
 
     bool onlyOneItemRequested() const { return fillDirection.isNull(); }
 };
@@ -88,6 +89,7 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     dbg << "start:" << request.startCell;
     dbg << " direction:" << request.fillDirection;
     dbg << " mode:" << request.loadMode;
+    dbg << " done:" << request.done;
     dbg << ')';
     return dbg;
 }
@@ -104,7 +106,6 @@ public:
     GridLayoutRequest(const QRectF &viewportRect)
         : state(Idle)
         , viewportRect(viewportRect)
-        , pendingViewportRect(QRectF())
         , topLeftIndex(kNullValue)
         , bottomLeftRow(kNullValue)
         , topRightColumn(kNullValue)
@@ -113,7 +114,6 @@ public:
 
     LayoutState state;
     QRectF viewportRect;
-    QRectF pendingViewportRect;
 
     int topLeftIndex;
     int bottomLeftRow;
@@ -211,8 +211,6 @@ protected:
     FxTableItemSG *visibleTableItem(int modelIndex) const;
     void showTableItem(FxTableItemSG *fxViewItem);
 
-    void checkForPendingRequests();
-
     bool canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPoint &direction) const;
     FxViewItem *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
     FxViewItem *tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const;
@@ -232,7 +230,6 @@ protected:
     void continueExecutingCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
     void tableItemLoaded(int index);
 
-    void bookkeepRequest(const QRectF viewportRect);
     void updateTableMetrics(int addedIndex, int removedIndex);
 
     QString indexToString(int index);
@@ -879,17 +876,6 @@ void QQuickTableViewPrivate::positionTableItem(FxTableItemSG *fxTableItem)
     fxTableItem->setPosition(QPointF(x, y));
 }
 
-void QQuickTableViewPrivate::bookkeepRequest(const QRectF viewportRect)
-{
-    if (viewportRect == currentLayoutRequest.viewportRect) {
-        qCDebug(lcItemViewDelegateLifecycle) << "clearing pending content rect";
-        currentLayoutRequest.pendingViewportRect = QRectF();
-    } else {
-        qCDebug(lcItemViewDelegateLifecycle) << "assigning pending content rect" << viewportRect;
-        currentLayoutRequest.pendingViewportRect = viewportRect;
-    }
-}
-
 void QQuickTableViewPrivate::updateTableMetrics(int addedIndex, int removedIndex)
 {
     int row = rowAtIndex(addedIndex);
@@ -948,6 +934,16 @@ void QQuickTableViewPrivate::tableItemLoaded(int index)
     showTableItem(receivedTableItem);
     updateTableMetrics(index, kNullValue);
     continueExecutingCurrentLoadRequest(receivedTableItem);
+
+    if (loadRequests.head().done) {
+        dequeueCurrentLoadRequest();
+        if (loadRequests.isEmpty()) {
+            currentLayoutRequest.state = GridLayoutRequest::Idle;
+            addRemoveVisibleItems();
+        } else {
+            executeNextLoadRequest();
+        }
+    }
 }
 
 void QQuickTableViewPrivate::enqueueLoadRequest(const TableSectionLoadRequest &request)
@@ -964,12 +960,6 @@ void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
 
 void QQuickTableViewPrivate::executeNextLoadRequest()
 {
-    if (loadRequests.isEmpty()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "no more pending load requests";
-        currentLayoutRequest.state = GridLayoutRequest::Idle;
-        return;
-    }
-
     currentLayoutRequest.state = GridLayoutRequest::LoadingTableRequest;
     const TableSectionLoadRequest request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle) << request;
@@ -1003,29 +993,26 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
 
 void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableItemSG *receivedTableItem)
 {
-    const TableSectionLoadRequest request = loadRequests.head();
+    TableSectionLoadRequest request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle()) << request;
-    bool allRequestedItemsLoaded = request.onlyOneItemRequested();
 
-    if (!allRequestedItemsLoaded) {
-        switch (request.loadMode) {
-        case TableSectionLoadRequest::LoadOneByOne: {
-            allRequestedItemsLoaded = !canHaveMoreItemsInDirection(receivedTableItem, request.fillDirection);
-            if (!allRequestedItemsLoaded) {
-                const QPoint nextCell = cellCoordAt(receivedTableItem->index) + request.fillDirection;
-                requestTableItemAsync(indexAt(nextCell));
-            }
-            break; }
-        case TableSectionLoadRequest::LoadInParallel:
-            // All items have already been requested. Just count them in.
-            allRequestedItemsLoaded = --currentLayoutRequest.requestedItemCount == 0;
-            break;
-        }
+    if (request.onlyOneItemRequested()) {
+        request.done = true;
+        return;
     }
 
-    if (allRequestedItemsLoaded) {
-        dequeueCurrentLoadRequest();
-        executeNextLoadRequest();
+    switch (request.loadMode) {
+    case TableSectionLoadRequest::LoadOneByOne: {
+        request.done = !canHaveMoreItemsInDirection(receivedTableItem, request.fillDirection);
+        if (!request.done) {
+            const QPoint nextCell = cellCoordAt(receivedTableItem->index) + request.fillDirection;
+            requestTableItemAsync(indexAt(nextCell));
+        }
+        break; }
+    case TableSectionLoadRequest::LoadInParallel:
+        // All items have already been requested. Just count them in.
+        request.done = --currentLayoutRequest.requestedItemCount == 0;
+        break;
     }
 }
 
@@ -1033,6 +1020,7 @@ void QQuickTableViewPrivate::reloadTable(const QRectF &viewportRect)
 {
     qCDebug(lcItemViewDelegateLifecycle());
 
+    // todo: cancel pending requested items!
     releaseVisibleItems();
 
     currentLayoutRequest = GridLayoutRequest(viewportRect);
@@ -1098,6 +1086,8 @@ void QQuickTableViewPrivate::refillItemsAlongEdges(const QRectF viewportRect)
 
     if (!loadRequests.isEmpty())
         executeNextLoadRequest();
+    else
+        currentLayoutRequest.state = GridLayoutRequest::Idle;
 }
 
 void QQuickTableViewPrivate::refillItemsAlongEdge(const QPoint &startCell, const QPoint &fillDirection)
@@ -1117,15 +1107,12 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     Q_Q(QQuickTableView);
 
+    if (currentLayoutRequest.state != GridLayoutRequest::Idle)
+        return false;
+
     QRectF viewportRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
     if (!viewportRect.isValid())
         return false;
-
-    if (currentLayoutRequest.state != GridLayoutRequest::Idle) {
-        // We are currently working on something else. Bookkeep the request and leave.
-        bookkeepRequest(viewportRect);
-        return false;
-    }
 
     if (visibleItems.isEmpty()) {
         // Do a complete refill from scratch
@@ -1139,25 +1126,8 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     if (forceSynchronousMode)
         deliverPostedTableItemRequests();
 
-    // return false? or override caller?
+    // return false? or override caller? Or check load queue?
     return true;
-}
-
-void QQuickTableViewPrivate::checkForPendingRequests()
-{
-    // While we were processing the current layoutRequest, the table view might
-    // have been scrolled to a different place than currentLayoutRequest.viewportRect.
-    // If so, currentLayoutRequest.pendingViewportRect will contain this
-    // rect, and since we're now done with currentLayoutRequest, we continue with the pending one.
-    qCDebug(lcItemViewDelegateLifecycle);
-    if (currentLayoutRequest.pendingViewportRect.isValid()) {
-        currentLayoutRequest = GridLayoutRequest(currentLayoutRequest.pendingViewportRect);
-        qCDebug(lcItemViewDelegateLifecycle) << "should continue with request..." << currentLayoutRequest.viewportRect;
-//        reloadTable();
-    } else {
-        currentLayoutRequest.state = GridLayoutRequest::Idle;
-        qCDebug(lcItemViewDelegateLifecycle) << "done!";
-    }
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
