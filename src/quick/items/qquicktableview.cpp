@@ -100,7 +100,7 @@ public:
     enum LayoutState {
         Idle,
         LoadingSelectedItem,
-        LoadingTableRequest,
+        ProcessingLoadRequest,
     };
 
     GridLayoutRequest(const QRectF &viewportRect)
@@ -228,6 +228,7 @@ protected:
     void dequeueCurrentLoadRequest();
     void executeNextLoadRequest();
     void continueExecutingCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
+    void checkLoadRequestStatus();
     void tableItemLoaded(int index);
 
     void updateTableMetrics(int addedIndex, int removedIndex);
@@ -934,14 +935,23 @@ void QQuickTableViewPrivate::tableItemLoaded(int index)
     showTableItem(receivedTableItem);
     updateTableMetrics(index, kNullValue);
     continueExecutingCurrentLoadRequest(receivedTableItem);
-    if (loadRequests.head().done) {
-        dequeueCurrentLoadRequest();
-        if (loadRequests.isEmpty()) {
-            currentLayoutRequest.state = GridLayoutRequest::Idle;
-            addRemoveVisibleItems();
-        } else {
-            executeNextLoadRequest();
-        }
+    checkLoadRequestStatus();
+}
+
+void QQuickTableViewPrivate::checkLoadRequestStatus()
+{
+    if (!loadRequests.head().done)
+        return;
+
+    dequeueCurrentLoadRequest();
+
+    if (loadRequests.isEmpty()) {
+        // Nothing more todo. Check if the view port moved while we
+        // were processing load requests, and if so, start all over.
+        currentLayoutRequest.state = GridLayoutRequest::Idle;
+        addRemoveVisibleItems();
+    } else {
+        executeNextLoadRequest();
     }
 }
 
@@ -959,7 +969,7 @@ void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
 
 void QQuickTableViewPrivate::executeNextLoadRequest()
 {
-    currentLayoutRequest.state = GridLayoutRequest::LoadingTableRequest;
+    currentLayoutRequest.state = GridLayoutRequest::ProcessingLoadRequest;
     const TableSectionLoadRequest &request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle) << request;
 
@@ -1045,8 +1055,6 @@ void QQuickTableViewPrivate::reloadTable(const QRectF &viewportRect)
     requestInnerItems.fillDirection = QPoint(1, 1);
     requestInnerItems.loadMode = TableSectionLoadRequest::LoadInParallel;
     enqueueLoadRequest(requestInnerItems);
-
-    executeNextLoadRequest();
 }
 
 void QQuickTableViewPrivate::removeItemsAlongEdges(const QRectF viewportRect)
@@ -1082,11 +1090,6 @@ void QQuickTableViewPrivate::refillItemsAlongEdges(const QRectF viewportRect)
         QPoint startCell = cellCoordAt(bottomLeftItem->index) + down;
         refillItemsAlongEdge(startCell, right);
     }
-
-    if (!loadRequests.isEmpty())
-        executeNextLoadRequest();
-    else
-        currentLayoutRequest.state = GridLayoutRequest::Idle;
 }
 
 void QQuickTableViewPrivate::refillItemsAlongEdge(const QPoint &startCell, const QPoint &fillDirection)
@@ -1121,6 +1124,9 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
         removeItemsAlongEdges(viewportRect);
         refillItemsAlongEdges(viewportRect);
     }
+
+    if (!loadRequests.isEmpty())
+        executeNextLoadRequest();
 
     if (forceSynchronousMode)
         deliverPostedTableItemRequests();
