@@ -825,18 +825,18 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fx
 qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTableItem) const
 {
     // Calculate the table position x of fxViewItem based on the position of the item on
-    // the top edge, or otherwise the item directly to the left. This assumes that at at
-    // least the item to the left has already been loaded. If the top edge item has been
-    // loaded, we use that instead, as it allows us to load multiple inner row/column items in one go.
+    // the horizontal edge, or otherwise the item directly next to it. This assumes that at
+    // least the item next to it has already been loaded. If the edge item has been
+    // loaded, we use that as reference instead, as it allows us to load several items in parallel.
 
     if (fxTableItem->index == currentLayoutRequest.topLeftIndex) {
         // Special case: the top left item has pos 0, 0 for now
         return 0;
     }
 
-    bool isTopEdgeItem = rowAtIndex(fxTableItem->index) == rowAtIndex(currentLayoutRequest.topLeftIndex);
+    bool isEdgeItem = rowAtIndex(fxTableItem->index) == rowAtIndex(currentLayoutRequest.topLeftIndex);
 
-    if (isTopEdgeItem) {
+    if (isEdgeItem) {
         FxViewItem *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(-1, 0));
         Q_ASSERT(fxViewAnchorItem);
         QQuickItem *anchorItem = fxViewAnchorItem->item;
@@ -852,18 +852,18 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTab
 qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTableItem) const
 {
     // Calculate the table position y of fxViewItem based on the position of the item on
-    // the left edge, or otherwise the item directly on top. This assumes that at at
-    // least the item on top has already been loaded. If the left edge item has been
-    // loaded, we use that instead, as it allows us to load multiple inner row/column items in one go.
+    // the vertical edge, or otherwise the item directly next to it. This assumes that at
+    // least the item next to it has already been loaded. If the edge item has been
+    // loaded, we use that as reference instead, as it allows us to load several items in parallel.
 
     if (fxTableItem->index == currentLayoutRequest.topLeftIndex) {
         // Special case: the top left item has pos 0, 0 for now
         return 0;
     }
 
-    bool isLeftEdgeItem = columnAtIndex(fxTableItem->index) == columnAtIndex(currentLayoutRequest.topLeftIndex);
+    bool isEdgeItem = columnAtIndex(fxTableItem->index) == columnAtIndex(currentLayoutRequest.topLeftIndex);
 
-    if (isLeftEdgeItem) {
+    if (isEdgeItem) {
         FxViewItem *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(0, -1));
         Q_ASSERT(fxViewAnchorItem);
         QQuickItem *anchorItem = fxViewAnchorItem->item;
