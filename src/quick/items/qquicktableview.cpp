@@ -78,7 +78,7 @@ public:
     QPoint fillDirection = QPoint(0, 0);
     LoadMode loadMode = LoadOneByOne;
 
-    bool onlyOneItemRequested() { return fillDirection.isNull(); }
+    bool onlyOneItemRequested() const { return fillDirection.isNull(); }
 };
 
 QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
@@ -142,6 +142,8 @@ public:
     int columnAtIndex(int index) const;
     int columnAtPos(qreal x) const;
     int indexAt(int row, int column) const;
+    int indexAt(const QPoint &cellCoord) const;
+    QPoint cellCoordAt(int index) const;
     FxViewItem *visibleItemAt(int row, int column) const;
 
     qreal rowPos(int row) const;
@@ -215,18 +217,18 @@ protected:
 
     void checkForPendingRequests();
 
-    bool canHaveMoreItemsInDirection(const FxTableItemSG *tableItem, const QPointF &direction) const;
-
+    bool canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPointF &direction) const;
     FxViewItem *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
-    FxViewItem *tableEdgeItem(const FxTableItemSG *fxViewItem, Qt::Orientation orientation) const;
+    FxViewItem *tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const;
 
-    qreal calculateTablePositionX(const FxTableItemSG *fxViewItem) const;
-    qreal calculateTablePositionY(const FxTableItemSG *fxViewItem) const;
+    qreal calculateTablePositionX(const FxTableItemSG *fxTableItem) const;
+    qreal calculateTablePositionY(const FxTableItemSG *fxTableItem) const;
     void positionTableItem(FxTableItemSG *fxTableItem);
 
     void reloadTable(const QRectF &viewportRect);
     void removeItemsAlongEdges(const QRectF viewportRect);
     void refillItemsAlongEdges(const QRectF viewportRect);
+    void refillItemsAlongEdge(const QPoint &startCell, const QPoint &fillDirection);
 
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
     void dequeueCurrentLoadRequest();
@@ -303,6 +305,16 @@ int QQuickTableViewPrivate::columnAtIndex(int index) const
     if (index < 0 || columns <= 0)
         return -1;
     return index % columns;
+}
+
+int QQuickTableViewPrivate::indexAt(const QPoint& cellCoord) const
+{
+    return indexAt(cellCoord.x(), cellCoord.y());
+}
+
+QPoint QQuickTableViewPrivate::cellCoordAt(int index) const
+{
+    return QPoint(columnAtIndex(index), rowAtIndex(index));
 }
 
 int QQuickTableViewPrivate::indexAt(int row, int column) const
@@ -763,9 +775,9 @@ FxViewItem *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewItem, 
     return visibleTableItem(indexAt(row, column));
 }
 
-FxViewItem *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxViewItem, Qt::Orientation orientation) const
+FxViewItem *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const
 {
-    int index = fxViewItem->index;
+    int index = fxTableItem->index;
 
     if (orientation == Qt::Horizontal) {
         int row = rowAtIndex(index);
@@ -778,11 +790,11 @@ FxViewItem *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxViewIte
     }
 }
 
-bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *tableItem, const QPointF &direction) const
+bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPointF &direction) const
 {
-    int row = rowAtIndex(fxViewItem->index);
-    int column = columnAtIndex(fxViewItem->index);
-    QQuickItem *tableItemItem = fxViewItem->item;
+    int row = rowAtIndex(fxTableItem->index);
+    int column = columnAtIndex(fxTableItem->index);
+    QQuickItem *tableItemItem = fxTableItem->item;
     QRectF itemRect = QRectF(tableItemItem->position(), tableItemItem->size());
     const QRectF viewportRect = currentLayoutRequest.viewportRect;
 
@@ -809,54 +821,54 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *ta
     return false;
 }
 
-qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxViewItem) const
+qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTableItem) const
 {
     // Calculate the table position x of fxViewItem based on the position of the item on
     // the top edge, or otherwise the item directly to the left. This assumes that at at
     // least the item to the left has already been loaded. If the top edge item has been
     // loaded, we use that instead, as it allows us to load multiple inner row/column items in one go.
 
-    if (fxViewItem->index == currentLayoutRequest.topLeftIndex) {
+    if (fxTableItem->index == currentLayoutRequest.topLeftIndex) {
         // Special case: the top left item has pos 0, 0 for now
         return 0;
     }
 
-    bool isTopEdgeItem = rowAtIndex(fxViewItem->index) == rowAtIndex(currentLayoutRequest.topLeftIndex);
+    bool isTopEdgeItem = rowAtIndex(fxTableItem->index) == rowAtIndex(currentLayoutRequest.topLeftIndex);
 
     if (isTopEdgeItem) {
-        FxViewItem *fxViewAnchorItem = itemNextTo(fxViewItem, QPoint(-1, 0));
+        FxViewItem *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(-1, 0));
         Q_ASSERT(fxViewAnchorItem);
         QQuickItem *anchorItem = fxViewAnchorItem->item;
         return anchorItem->position().x() + anchorItem->size().width() + columnSpacing;
     } else {
-        FxViewItem *fxViewAnchorItem = tableEdgeItem(fxViewItem, Qt::Vertical);
+        FxViewItem *fxViewAnchorItem = tableEdgeItem(fxTableItem, Qt::Vertical);
         Q_ASSERT(fxViewAnchorItem);
         QQuickItem *anchorItem = fxViewAnchorItem->item;
         return anchorItem->position().x();
     }
 }
 
-qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxViewItem) const
+qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTableItem) const
 {
     // Calculate the table position y of fxViewItem based on the position of the item on
     // the left edge, or otherwise the item directly on top. This assumes that at at
     // least the item on top has already been loaded. If the left edge item has been
     // loaded, we use that instead, as it allows us to load multiple inner row/column items in one go.
 
-    if (fxViewItem->index == currentLayoutRequest.topLeftIndex) {
+    if (fxTableItem->index == currentLayoutRequest.topLeftIndex) {
         // Special case: the top left item has pos 0, 0 for now
         return 0;
     }
 
-    bool isLeftEdgeItem = columnAtIndex(fxViewItem->index) == columnAtIndex(currentLayoutRequest.topLeftIndex);
+    bool isLeftEdgeItem = columnAtIndex(fxTableItem->index) == columnAtIndex(currentLayoutRequest.topLeftIndex);
 
     if (isLeftEdgeItem) {
-        FxViewItem *fxViewAnchorItem = itemNextTo(fxViewItem, QPoint(0, -1));
+        FxViewItem *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(0, -1));
         Q_ASSERT(fxViewAnchorItem);
         QQuickItem *anchorItem = fxViewAnchorItem->item;
         return anchorItem->position().y() + anchorItem->size().height() + rowSpacing;
     } else {
-        FxViewItem *fxViewAnchorItem = tableEdgeItem(fxViewItem, Qt::Horizontal);
+        FxViewItem *fxViewAnchorItem = tableEdgeItem(fxTableItem, Qt::Horizontal);
         Q_ASSERT(fxViewAnchorItem);
         QQuickItem *anchorItem = fxViewAnchorItem->item;
         return anchorItem->position().y();
@@ -966,10 +978,9 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
     qCDebug(lcItemViewDelegateLifecycle) << request;
 
     switch (request.loadMode) {
-    case TableSectionLoadRequest::LoadOneByOne: {
-        int startIndex = indexAt(request.startRow, request.startColumn);
-        requestTableItemAsync(startIndex);
-        break; }
+    case TableSectionLoadRequest::LoadOneByOne:
+        requestTableItemAsync(indexAt(request.startCell));
+        break;
     case TableSectionLoadRequest::LoadInParallel: {
         // Note: TableSectionLoadRequest::LoadInParallel will load as
         // many items as will fit inside visual rows and columns, so
@@ -979,8 +990,8 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
         int rows = currentLayoutRequest.bottomLeftRow - topLeftRow + 1;
         int columns = currentLayoutRequest.topRightColumn - topLeftColumn + 1;
 
-        for (int y = request.startRow; y < rows; ++y) {
-            for (int x = request.startColumn; x < columns; ++x) {
+        for (int y = request.startCell.y(); y < rows; ++y) {
+            for (int x = request.startCell.x(); x < columns; ++x) {
                 currentLayoutRequest.requestedItemCount++;
                 int index = indexAt(topLeftRow + y, topLeftColumn + x);
                 requestTableItemAsync(index);
@@ -1001,8 +1012,10 @@ void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableIt
         switch (request.loadMode) {
         case TableSectionLoadRequest::LoadOneByOne: {
             allRequestedItemsLoaded = canHaveMoreItemsInDirection(receivedTableItem, request.fillDirection);
-            if (!allRequestedItemsLoaded)
-                requestTableItemAsync(indexAt(row, column + 1));
+            if (!allRequestedItemsLoaded) {
+                const QPoint nextCell = cellCoordAt(receivedTableItem->index) + request.fillDirection;
+                requestTableItemAsync(indexAt(nextCell));
+            }
             break; }
         case TableSectionLoadRequest::LoadInParallel:
             allRequestedItemsLoaded = --currentLayoutRequest.requestedItemCount == 0;
@@ -1031,22 +1044,19 @@ void QQuickTableViewPrivate::reloadTable(const QRectF &viewportRect)
     int topLeftColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
 
     TableSectionLoadRequest requestEdgeRow;
-    requestEdgeRow.startRow = topLeftRow;
-    requestEdgeRow.startColumn = topLeftColumn;
+    requestEdgeRow.startCell = QPoint(topLeftColumn, topLeftRow);
     requestEdgeRow.fillDirection = QPoint(1, 0);
     requestEdgeRow.loadMode = TableSectionLoadRequest::LoadOneByOne;
     enqueueLoadRequest(requestEdgeRow);
 
     TableSectionLoadRequest requestEdgeColumn;
-    requestEdgeColumn.startRow = topLeftRow + 1;
-    requestEdgeColumn.startColumn = topLeftColumn;
+    requestEdgeRow.startCell = QPoint(topLeftColumn, topLeftRow + 1);
     requestEdgeColumn.fillDirection = QPoint(0, 1);
     requestEdgeColumn.loadMode = TableSectionLoadRequest::LoadOneByOne;
     enqueueLoadRequest(requestEdgeColumn);
 
     TableSectionLoadRequest requestInnerItems;
-    requestInnerItems.startRow = topLeftRow + 1;
-    requestInnerItems.startColumn = topLeftColumn + 1;
+    requestEdgeRow.startCell = QPoint(topLeftColumn + 1, topLeftRow + 1);
     requestInnerItems.fillDirection = QPoint(1, 1);
     requestInnerItems.loadMode = TableSectionLoadRequest::LoadInParallel;
     enqueueLoadRequest(requestInnerItems);
@@ -1056,7 +1066,7 @@ void QQuickTableViewPrivate::reloadTable(const QRectF &viewportRect)
 
 void QQuickTableViewPrivate::removeItemsAlongEdges(const QRectF viewportRect)
 {
-
+    Q_UNIMPLEMENTED();
 }
 
 void QQuickTableViewPrivate::refillItemsAlongEdges(const QRectF viewportRect)
@@ -1067,57 +1077,44 @@ void QQuickTableViewPrivate::refillItemsAlongEdges(const QRectF viewportRect)
     FxTableItemSG *topRightItem = visibleTableItem(indexAt(topLeftRow, currentLayoutRequest.topRightColumn));
     FxTableItemSG *bottomLeftItem = visibleTableItem(indexAt(currentLayoutRequest.bottomLeftRow, topLeftColumn));
 
-    if (canHaveMoreItemsRightOf(topRightItem)) {
-        // todo: figure out how many columns I need to load
-        // And, no need to load all items one by one
-        TableSectionLoadRequest columnRequestEdgeItem;
-        columnRequestEdgeItem.startRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
-        columnRequestEdgeItem.startColumn = currentLayoutRequest.topRightColumn + 1;
-        columnRequestEdgeItem.loadMode = TableSectionLoadRequest::LoadOneItemOnly;
-        enqueueLoadRequest(columnRequestEdgeItem);
+    const QPoint left = QPoint(-1, 0);
+    const QPoint right = QPoint(1, 0);
+    const QPoint up = QPoint(0, -1);
+    const QPoint down = QPoint(0, 1);
 
-        TableSectionLoadRequest columnRequest;
-        columnRequest.startRow = rowAtIndex(currentLayoutRequest.topLeftIndex + 1);
-        columnRequest.startColumn = currentLayoutRequest.topRightColumn + 1;
-        columnRequest.fillDirection = QPoint(0, 1);
-        columnRequest.loadMode = TableSectionLoadRequest::LoadInParallel;
-        enqueueLoadRequest(columnRequest);
+    if (canHaveMoreItemsInDirection(bottomLeftItem, left)) {
+        QPoint startCell = cellCoordAt(bottomLeftItem->index) + left;
+        refillItemsAlongEdge(startCell, up);
+    } else if (canHaveMoreItemsInDirection(topRightItem, right)) {
+        QPoint startCell = cellCoordAt(topRightItem->index) + right;
+        refillItemsAlongEdge(startCell, down);
     }
 
-    if (canHaveMoreItemsBelow(bottomLeftItem)) {
-        TableSectionLoadRequest rowRequestEdgeItem;
-        rowRequestEdgeItem.startRow = currentLayoutRequest.bottomLeftRow + 1;
-        rowRequestEdgeItem.startColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
-        rowRequestEdgeItem.loadMode = TableSectionLoadRequest::LoadOneItemOnly;
-        enqueueLoadRequest(rowRequestEdgeItem);
-
-        TableSectionLoadRequest rowRequest;
-        rowRequest.startRow = currentLayoutRequest.bottomLeftRow + 1;
-        rowRequest.startColumn = columnAtIndex(currentLayoutRequest.topLeftIndex + 1);
-        rowRequest.fillDirection = QPoint(1, 0);
-        rowRequest.loadMode = TableSectionLoadRequest::LoadInParallel;
-        enqueueLoadRequest(rowRequest);
+    if (canHaveMoreItemsInDirection(topRightItem, up)) {
+        QPoint startCell = cellCoordAt(topRightItem->index) + up;
+        refillItemsAlongEdge(startCell, left);
+    } else if (canHaveMoreItemsInDirection(bottomLeftItem, down)) {
+        QPoint startCell = cellCoordAt(bottomLeftItem->index) + down;
+        refillItemsAlongEdge(startCell, right);
     }
 
     if (!loadRequests.isEmpty())
         executeNextLoadRequest();
 }
 
-//void QQuickTableViewPrivate::refillItemsAlongEdge(int startRow, int startColumn, Qt::Edge fillDirection)
-//{
-//    TableSectionLoadRequest edgeItemRequest;
-//    edgeItemRequest.startRow = startRow;
-//    edgeItemRequest.startColumn = startColumn;
-//    edgeItemRequest.fillDirection = fillDirection;
-//    enqueueLoadRequest(edgeItemRequest);
+void QQuickTableViewPrivate::refillItemsAlongEdge(const QPoint &startCell, const QPoint &fillDirection)
+{
+    TableSectionLoadRequest edgeItemRequest;
+    edgeItemRequest.startCell = startCell;
+    edgeItemRequest.fillDirection = fillDirection;
+    enqueueLoadRequest(edgeItemRequest);
 
-//    TableSectionLoadRequest trailingItemsRequest;
-//    trailingItemsRequest.startRow = startRow;
-//    trailingItemsRequest.startColumn = startColumn;
-//    trailingItemsRequest.fillDirection = fillDirection;
-//    trailingItemsRequest.loadMode = TableSectionLoadRequest::LoadInParallel;
-//    enqueueLoadRequest(trailingItemsRequest);
-//}
+    TableSectionLoadRequest trailingItemsRequest;
+    trailingItemsRequest.startCell = startCell + fillDirection;
+    trailingItemsRequest.fillDirection = fillDirection;
+    trailingItemsRequest.loadMode = TableSectionLoadRequest::LoadInParallel;
+    enqueueLoadRequest(trailingItemsRequest);
+}
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
