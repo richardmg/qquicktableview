@@ -217,7 +217,7 @@ protected:
 
     void checkForPendingRequests();
 
-    bool canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPointF &direction) const;
+    bool canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPoint &direction) const;
     FxViewItem *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
     FxViewItem *tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const;
 
@@ -309,7 +309,8 @@ int QQuickTableViewPrivate::columnAtIndex(int index) const
 
 int QQuickTableViewPrivate::indexAt(const QPoint& cellCoord) const
 {
-    return indexAt(cellCoord.x(), cellCoord.y());
+    // NB: indexAt expects row first, which is y
+    return indexAt(cellCoord.y(), cellCoord.x());
 }
 
 QPoint QQuickTableViewPrivate::cellCoordAt(int index) const
@@ -790,7 +791,7 @@ FxViewItem *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxTableIt
     }
 }
 
-bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPointF &direction) const
+bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPoint &direction) const
 {
     int row = rowAtIndex(fxTableItem->index);
     int column = columnAtIndex(fxTableItem->index);
@@ -1006,12 +1007,13 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
 void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableItemSG *receivedTableItem)
 {
     const TableSectionLoadRequest request = loadRequests.head();
+    qCDebug(lcItemViewDelegateLifecycle()) << request;
     bool allRequestedItemsLoaded = request.onlyOneItemRequested();
 
     if (!allRequestedItemsLoaded) {
         switch (request.loadMode) {
         case TableSectionLoadRequest::LoadOneByOne: {
-            allRequestedItemsLoaded = canHaveMoreItemsInDirection(receivedTableItem, request.fillDirection);
+            allRequestedItemsLoaded = !canHaveMoreItemsInDirection(receivedTableItem, request.fillDirection);
             if (!allRequestedItemsLoaded) {
                 const QPoint nextCell = cellCoordAt(receivedTableItem->index) + request.fillDirection;
                 requestTableItemAsync(indexAt(nextCell));
@@ -1050,13 +1052,13 @@ void QQuickTableViewPrivate::reloadTable(const QRectF &viewportRect)
     enqueueLoadRequest(requestEdgeRow);
 
     TableSectionLoadRequest requestEdgeColumn;
-    requestEdgeRow.startCell = QPoint(topLeftColumn, topLeftRow + 1);
+    requestEdgeColumn.startCell = QPoint(topLeftColumn, topLeftRow + 1);
     requestEdgeColumn.fillDirection = QPoint(0, 1);
     requestEdgeColumn.loadMode = TableSectionLoadRequest::LoadOneByOne;
     enqueueLoadRequest(requestEdgeColumn);
 
     TableSectionLoadRequest requestInnerItems;
-    requestEdgeRow.startCell = QPoint(topLeftColumn + 1, topLeftRow + 1);
+    requestInnerItems.startCell = QPoint(topLeftColumn + 1, topLeftRow + 1);
     requestInnerItems.fillDirection = QPoint(1, 1);
     requestInnerItems.loadMode = TableSectionLoadRequest::LoadInParallel;
     enqueueLoadRequest(requestInnerItems);
