@@ -183,8 +183,8 @@ protected:
     QPointF prevContentPos;
     QSizeF prevViewSize;
     GridLayoutRequest currentLayoutRequest;
-    QEvent::Type eventTypeDeliverRequestedTableItems;
-    QVector<int> deliverTableItemsIndexList;
+    QEvent::Type eventTypeDeliverPostedTableItems;
+    QVector<int> postedTableItems;
     bool blockCreatedItemsSyncCallback;
     bool forceSynchronousMode;
     QQueue<TableSectionLoadRequest> loadRequests;
@@ -204,7 +204,7 @@ protected:
     void updateViewportContentHeight();
 
     void requestTableItemAsync(int index);
-    void deliverPostedTableItemRequests();
+    void deliverPostedTableItems();
     FxTableItemSG *getTableItem(int index);
     void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
 
@@ -222,7 +222,7 @@ protected:
     void reloadTable(const QRectF &viewportRect);
     void removeItemsAlongEdges(const QRectF viewportRect);
     void refillItemsAlongEdges(const QRectF viewportRect);
-    void refillItemsAlongEdge(const QPoint &startCell, const QPoint &fillDirection);
+    void refillItemsInDirection(const QPoint &startCell, const QPoint &fillDirection);
 
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
     void dequeueCurrentLoadRequest();
@@ -247,8 +247,8 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , prevContentPos(QPointF(0, 0))
     , prevViewSize(QSizeF(0, 0))
     , currentLayoutRequest(QRect())
-    , eventTypeDeliverRequestedTableItems(static_cast<QEvent::Type>(QEvent::registerEventType()))
-    , deliverTableItemsIndexList(QVector<int>())
+    , eventTypeDeliverPostedTableItems(static_cast<QEvent::Type>(QEvent::registerEventType()))
+    , postedTableItems(QVector<int>())
     , blockCreatedItemsSyncCallback(false)
     , forceSynchronousMode(false)
     , loadRequests(QQueue<TableSectionLoadRequest>())
@@ -677,13 +677,13 @@ void QQuickTableViewPrivate::requestTableItemAsync(int index)
         // To avoid sending multiple events for different items, we take care to only
         // schedule one event, and instead queue the indices and process them
         // all in one go once we receive the event.
-        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded!" << deliverTableItemsIndexList.count();
-        bool alreadyWaitingForPendingEvent = !deliverTableItemsIndexList.isEmpty();
-        deliverTableItemsIndexList.append(index);
+        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded:" << indexToString(index);
+        bool alreadyWaitingForPendingEvent = !postedTableItems.isEmpty();
+        postedTableItems.append(index);
 
         if (!alreadyWaitingForPendingEvent) {
-            qCDebug(lcItemViewDelegateLifecycle) << "posting eventTypeDeliverTableItems";
-            QEvent *event = new QEvent(eventTypeDeliverRequestedTableItems);
+            qCDebug(lcItemViewDelegateLifecycle) << "posting eventTypeDeliverPostedTableItems";
+            QEvent *event = new QEvent(eventTypeDeliverPostedTableItems);
             qApp->postEvent(q_func(), event);
         }
 
@@ -691,9 +691,9 @@ void QQuickTableViewPrivate::requestTableItemAsync(int index)
     }
 }
 
-void QQuickTableViewPrivate::deliverPostedTableItemRequests()
+void QQuickTableViewPrivate::deliverPostedTableItems()
 {
-    qCDebug(lcItemViewDelegateLifecycle) << "initial count:" << deliverTableItemsIndexList.count();
+    qCDebug(lcItemViewDelegateLifecycle) << "initial count:" << postedTableItems.count();
 
     // When we deliver items, the receivers will typically ask for
     // not only the item we deliver, but also subsequent items in
@@ -701,15 +701,15 @@ void QQuickTableViewPrivate::deliverPostedTableItemRequests()
     QBoolBlocker guard(blockCreatedItemsSyncCallback);
 
     // Note that as we deliver items from this function, new items
-    // might be appended to the list, which means that we might end
-    // up delivering more items than what we got before we started.
-    for (int i = 0; i < deliverTableItemsIndexList.count(); ++i) {
-        const int index = deliverTableItemsIndexList[i];
+    // might be appended to the list, which means that we can end
+    // up delivering more items than what we had when we started.
+    for (int i = 0; i < postedTableItems.count(); ++i) {
+        const int index = postedTableItems[i];
         qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
         tableItemLoaded(index);
     }
 
-    deliverTableItemsIndexList.clear();
+    postedTableItems.clear();
 
     qCDebug(lcItemViewDelegateLifecycle) << "done delivering items!";
 }
@@ -907,7 +907,7 @@ void QQuickTableView::createdItem(int index, QObject* object)
     Q_D(QQuickTableView);
 
     if (index == d->requestedIndex) {
-        // This is needed by the model. Essientially the same as GridLayoutRequest::waitingForIndex.
+        // This is needed by the model.
         // TODO: let model have it's own handler, and refactor requestedIndex out the view?
         d->requestedIndex = -1;
     }
@@ -916,7 +916,7 @@ void QQuickTableView::createdItem(int index, QObject* object)
 
     if (d->blockCreatedItemsSyncCallback) {
         // Items that are created synchronously will still need to
-        // be delivered async later, to funnel all event creation through
+        // be delivered async later, to funnel all item creation through
         // the same async layout logic.
         return;
     }
@@ -945,13 +945,13 @@ void QQuickTableViewPrivate::checkLoadRequestStatus()
 
     dequeueCurrentLoadRequest();
 
-    if (loadRequests.isEmpty()) {
+    if (!loadRequests.isEmpty()) {
+        executeNextLoadRequest();
+    } else {
         // Nothing more todo. Check if the view port moved while we
         // were processing load requests, and if so, start all over.
         currentLayoutRequest.state = GridLayoutRequest::Idle;
         addRemoveVisibleItems();
-    } else {
-        executeNextLoadRequest();
     }
 }
 
@@ -1077,22 +1077,22 @@ void QQuickTableViewPrivate::refillItemsAlongEdges(const QRectF viewportRect)
 
     if (canHaveMoreItemsInDirection(bottomLeftItem, left)) {
         QPoint startCell = cellCoordAt(bottomLeftItem->index) + left;
-        refillItemsAlongEdge(startCell, up);
+        refillItemsInDirection(startCell, up);
     } else if (canHaveMoreItemsInDirection(topRightItem, right)) {
         QPoint startCell = cellCoordAt(topRightItem->index) + right;
-        refillItemsAlongEdge(startCell, down);
+        refillItemsInDirection(startCell, down);
     }
 
     if (canHaveMoreItemsInDirection(topRightItem, up)) {
         QPoint startCell = cellCoordAt(topRightItem->index) + up;
-        refillItemsAlongEdge(startCell, left);
+        refillItemsInDirection(startCell, left);
     } else if (canHaveMoreItemsInDirection(bottomLeftItem, down)) {
         QPoint startCell = cellCoordAt(bottomLeftItem->index) + down;
-        refillItemsAlongEdge(startCell, right);
+        refillItemsInDirection(startCell, right);
     }
 }
 
-void QQuickTableViewPrivate::refillItemsAlongEdge(const QPoint &startCell, const QPoint &fillDirection)
+void QQuickTableViewPrivate::refillItemsInDirection(const QPoint &startCell, const QPoint &fillDirection)
 {
     TableSectionLoadRequest edgeItemRequest;
     edgeItemRequest.startCell = startCell;
@@ -1125,11 +1125,12 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
         refillItemsAlongEdges(viewportRect);
     }
 
-    if (!loadRequests.isEmpty())
+    if (!loadRequests.isEmpty()) {
         executeNextLoadRequest();
 
-    if (forceSynchronousMode)
-        deliverPostedTableItemRequests();
+        if (forceSynchronousMode)
+            deliverPostedTableItems();
+    }
 
     // return false? or override caller? Or check load queue?
     return true;
@@ -1273,8 +1274,8 @@ bool QQuickTableView::event(QEvent *e)
 {
     Q_D(QQuickTableView);
 
-    if (e->type() == d->eventTypeDeliverRequestedTableItems) {
-        d->deliverPostedTableItemRequests();
+    if (e->type() == d->eventTypeDeliverPostedTableItems) {
+        d->deliverPostedTableItems();
         return true;
     }
 
