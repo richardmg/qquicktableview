@@ -108,8 +108,6 @@ public:
         , topLeftIndex(kNullValue)
         , bottomLeftRow(kNullValue)
         , topRightColumn(kNullValue)
-        , requestedTopEdgeIndex(kNullValue)
-        , requestedLeftEdgeIndex(kNullValue)
         , requestedItemCount(0)
     {}
 
@@ -121,8 +119,6 @@ public:
     int bottomLeftRow;
     int topRightColumn;
 
-    int requestedTopEdgeIndex;
-    int requestedLeftEdgeIndex;
     int requestedItemCount;
 };
 
