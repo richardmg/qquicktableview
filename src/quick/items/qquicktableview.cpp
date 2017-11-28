@@ -207,22 +207,13 @@ protected:
     void requestTableItemAsync(int index);
     void deliverPostedTableItemRequests();
     FxTableItemSG *getTableItem(int index);
-    FxTableItemSG *createTableItem(int index, QQmlIncubator::IncubationMode mode);
-
-    void createTableItems(int fromColumn, int toColumn, int fromRow, int toRow);
     void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
-    bool removeItemsOutsideView(const QMargins &previousGrid, const QMargins &currentGrid);
-    bool addItemsInsideView(const QMargins &previousGrid, const QMargins &currentGrid);
-    qreal getCachedRowHeight(int row);
-    qreal getCachedColumnWidth(int col);
-    void fillTable();
 
     FxTableItemSG *visibleTableItem(int modelIndex) const;
     void showTableItem(FxTableItemSG *fxViewItem);
 
     void checkForPendingRequests();
 
-    QString indexToString(int index);
     bool canHaveMoreItemsBelow(FxTableItemSG *fxViewItem);
     bool canHaveMoreItemsRightOf(FxTableItemSG *fxViewItem);
 
@@ -245,6 +236,8 @@ protected:
 
     void bookkeepRequest(const QRectF viewportRect);
     void calculateTableGridMetrics();
+
+    QString indexToString(int index);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -633,30 +626,6 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     d->inViewportMoved = false;
 }
 
-void QQuickTableView::createdItem(int index, QObject* object)
-{
-    Q_D(QQuickTableView);
-
-    if (index == d->requestedIndex) {
-        // This is needed by the model. Essientially the same as GridLayoutRequest::waitingForIndex.
-        // TODO: let model have it's own handler, and refactor requestedIndex out the view?
-        d->requestedIndex = -1;
-    }
-
-    Q_ASSERT(d->currentLayoutRequest.state != GridLayoutRequest::Idle);
-
-    if (d->blockCreatedItemsSyncCallback) {
-        // Items that are created synchronously will still need to
-        // be delivered async later, to funnel all event creation through
-        // the same async layout logic.
-        return;
-    }
-
-    Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
-    qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
-    d->tableItemLoaded(index);
-}
-
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
 {
     return static_cast<Qt::Orientation>(orientation);
@@ -678,45 +647,11 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
     return new FxTableItemSG(item, q, false);
 }
 
-qreal QQuickTableViewPrivate::getCachedRowHeight(int row)
-{
-    return 20;
-}
-
-qreal QQuickTableViewPrivate::getCachedColumnWidth(int col)
-{
-    return 100;
-}
-
 QString QQuickTableViewPrivate::indexToString(int index)
 {
     if (index == kNullValue)
         return QLatin1String("null index");
     return QString::fromLatin1("index: %1 (%2, %3)").arg(index).arg(rowAtIndex(index)).arg(columnAtIndex(index));
-}
-
-FxTableItemSG *QQuickTableViewPrivate::createTableItem(int index, QQmlIncubator::IncubationMode mode)
-{
-    // Todo: change this later. Not sure if we should always load async, or if it makes sense to
-    // load items inside visibleContentView sync. This needs experimentation.
-    bool loadAsync = (mode != QQmlIncubator::Synchronous);
-
-    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(index, loadAsync));
-
-    if (!item) {
-        // Item is not done incubating, or there is an error situation
-        return nullptr;
-    }
-
-    if (!item->item) {
-        qCDebug(lcItemViewDelegateLifecycle)
-                << "failed to create QQuickItem for index/row/col:"
-                << index << rowAtIndex(index) << columnAtIndex(index);
-        releaseItem(item);
-        return nullptr;
-    }
-
-    return item;
 }
 
 void QQuickTableViewPrivate::requestTableItemAsync(int index)
@@ -1026,6 +961,78 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
     }
 }
 
+void QQuickTableView::createdItem(int index, QObject* object)
+{
+    Q_D(QQuickTableView);
+
+    if (index == d->requestedIndex) {
+        // This is needed by the model. Essientially the same as GridLayoutRequest::waitingForIndex.
+        // TODO: let model have it's own handler, and refactor requestedIndex out the view?
+        d->requestedIndex = -1;
+    }
+
+    Q_ASSERT(d->currentLayoutRequest.state != GridLayoutRequest::Idle);
+
+    if (d->blockCreatedItemsSyncCallback) {
+        // Items that are created synchronously will still need to
+        // be delivered async later, to funnel all event creation through
+        // the same async layout logic.
+        return;
+    }
+
+    Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
+    qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
+    d->tableItemLoaded(index);
+}
+
+void QQuickTableViewPrivate::tableItemLoaded(int index)
+{
+    qCDebug(lcItemViewDelegateLifecycle) << indexToString(index);
+
+    FxTableItemSG *fxTableItem = getTableItem(index);
+    positionAndShowTableItem(fxTableItem);
+
+    int row = rowAtIndex(index);
+    int column = columnAtIndex(index);
+
+    // Bookkeep the edge rows/columns we have encountered so far
+    currentLayoutRequest.topRightColumn = qMax(column, currentLayoutRequest.topRightColumn);
+    currentLayoutRequest.bottomLeftRow = qMax(row, currentLayoutRequest.bottomLeftRow);
+
+    const TableSectionLoadRequest request = loadRequests.head();
+
+    if (request.loadMode == TableSectionLoadRequest::LoadOneByOne) {
+        // Continue loading the next adjacent item according to fill direction
+        switch (request.fillDirection) {
+        case Qt::RightEdge:
+            if (canHaveMoreItemsRightOf(fxTableItem)) {
+                int index = indexAt(row, column + 1);
+                requestTableItemAsync(index);
+            } else {
+                dequeueCurrentLoadRequest();
+                executeNextLoadRequest();
+            }
+            break;
+        case Qt::BottomEdge:
+            if (canHaveMoreItemsBelow(fxTableItem)) {
+                int index = indexAt(row + 1, column);
+                requestTableItemAsync(index);
+            } else {
+                dequeueCurrentLoadRequest();
+                executeNextLoadRequest();
+            }
+            break;
+        default:
+            Q_UNREACHABLE();
+        }
+    } else {
+        if (--currentLayoutRequest.requestedItemCount == 0) {
+            dequeueCurrentLoadRequest();
+            executeNextLoadRequest();
+        }
+    }
+}
+
 void QQuickTableViewPrivate::reloadTable(const QRectF &viewportRect)
 {
     qCDebug(lcItemViewDelegateLifecycle());
@@ -1123,54 +1130,6 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     return true;
 }
 
-void QQuickTableViewPrivate::tableItemLoaded(int index)
-{
-    qCDebug(lcItemViewDelegateLifecycle) << indexToString(index);
-
-    FxTableItemSG *fxTableItem = getTableItem(index);
-    positionAndShowTableItem(fxTableItem);
-
-    int row = rowAtIndex(index);
-    int column = columnAtIndex(index);
-
-    // Bookkeep the edge rows/columns we have encountered so far
-    currentLayoutRequest.topRightColumn = qMax(column, currentLayoutRequest.topRightColumn);
-    currentLayoutRequest.bottomLeftRow = qMax(row, currentLayoutRequest.bottomLeftRow);
-
-    const TableSectionLoadRequest request = loadRequests.head();
-
-    if (request.loadMode == TableSectionLoadRequest::LoadOneByOne) {
-        // Continue loading the next adjacent item according to fill direction
-        switch (request.fillDirection) {
-        case Qt::RightEdge:
-            if (canHaveMoreItemsRightOf(fxTableItem)) {
-                int index = indexAt(row, column + 1);
-                requestTableItemAsync(index);
-            } else {
-                dequeueCurrentLoadRequest();
-                executeNextLoadRequest();
-            }
-            break;
-        case Qt::BottomEdge:
-            if (canHaveMoreItemsBelow(fxTableItem)) {
-                int index = indexAt(row + 1, column);
-                requestTableItemAsync(index);
-            } else {
-                dequeueCurrentLoadRequest();
-                executeNextLoadRequest();
-            }
-            break;
-        default:
-            Q_UNREACHABLE();
-        }
-    } else {
-        if (--currentLayoutRequest.requestedItemCount == 0) {
-            dequeueCurrentLoadRequest();
-            executeNextLoadRequest();
-        }
-    }
-}
-
 void QQuickTableViewPrivate::checkForPendingRequests()
 {
     // While we were processing the current layoutRequest, the table view might
@@ -1186,148 +1145,6 @@ void QQuickTableViewPrivate::checkForPendingRequests()
         currentLayoutRequest.state = GridLayoutRequest::Idle;
         qCDebug(lcItemViewDelegateLifecycle) << "done!";
     }
-}
-
-void QQuickTableViewPrivate::createTableItems(int fromColumn, int toColumn, int fromRow, int toRow)
-{
-    // Create and position all items in the table section described by the arguments
-    qCDebug(lcItemViewDelegateLifecycle) << "create items ( x1:"
-                                         << fromColumn << ", x2:" << toColumn << ", y1:"
-                                         << fromRow << ", y2:" << toRow  << ")";
-
-    for (int row = fromRow; row <= toRow; ++row) {
-        qreal cachedRowHeight = getCachedRowHeight(row);
-
-        for (int col = fromColumn; col <= toColumn; ++col) {
-            qreal cachedColumnWidth = getCachedColumnWidth(col);
-
-            FxTableItemSG *item = createTableItem(indexAt(row, col), QQmlIncubator::Synchronous);
-            if (!item) {
-                // TODO: This will happen if item get loaded async.
-                if (cachedRowHeight == kNullValue || cachedColumnWidth == kNullValue) {
-                    // We need this item before we can continue layouting, to decide row/col size
-                }
-                continue;
-            }
-
-            visibleItems.append(item);
-
-            // Problem: cellPosition depends on column width for all columns up to the given column.
-            // And currently, columnWidth() does not use columnWidthCache.
-            // 1. check if the cell/current grid geometry cache is empty for (row, col), and if so, assign item width/height to it here directly.
-            // 2. columnWidth() should first check the explicit column width hash, and if not found, check the grid
-            //		cache, and if not found, create a dummy item to read the size, and put it in the cache.
-            // 3. The cache size should be based on buffer size. And cleared whenever we release a row/column.
-
-           // QRectF cellGeometry = getCellGeometry(item);
-
-            if (cachedRowHeight == kNullValue) {
-                // Since the height of the current row has not yet been cached, we cache
-                // it now based on the first item we encountered for this row.
-                cachedRowHeight = item->item->size().height();
-                rowHeightCache_unused[row] = cachedRowHeight;
-            }
-
-            if (cachedColumnWidth == kNullValue) {
-                // Since the width of the current column has not yet been cached, we cache
-                // it now based on the first item we encountered for this column.
-                cachedColumnWidth = item->item->size().width();
-                columnWidthCache_unused[col] = cachedColumnWidth;
-            }
-
-            item->setPosition(cellPosition(row, col), true);
-            item->setSize(QSizeF(cachedColumnWidth, cachedRowHeight), true);
-        }
-    }
-}
-
-
-void QQuickTableViewPrivate::fillTable()
-{
-    // XXX: why do we update itemCount here? What is it used for? It contains the
-    // number of items in the model, which can be thousands...
-    itemCount = model->count();
-
-    QRectF r = currentLayoutRequest.viewportRect;
-
-    // Get grid corners. This informations needs to be known before we can
-    // do any useful layouting.
-    int x1 = columnAtPos(r.x());
-    int x2 = columnAtPos(r.right());
-    int y1 = rowAtPos(r.y());
-    int y2 = rowAtPos(r.bottom());
-    QMargins currentGrid(x1, y1, x2, y2);
-
-    bool itemsRemoved = removeItemsOutsideView(prevGrid, currentGrid);
-    bool itemsAdded = addItemsInsideView(prevGrid, currentGrid);
-
-    prevGrid = currentGrid;
-
-    if (itemsRemoved || itemsAdded) {
-        qCDebug(lcItemViewDelegateLifecycle) << "visible items count:" << visibleItems.count();
-        //TODO: cannot return true, so issue repaint somehow
-    }
-    //TODO: cannot return true, so issue repaint somehow
-}
-
-bool QQuickTableViewPrivate::removeItemsOutsideView(const QMargins &previousGrid, const QMargins &currentGrid)
-{
-    bool itemsRemoved = false;
-
-    int previousGridTopClamped = qBound(currentGrid.top(), previousGrid.top(), currentGrid.bottom());
-    int previousGridBottomClamped = qBound(currentGrid.top(), previousGrid.bottom(), currentGrid.bottom());
-
-    if (previousGrid.left() < currentGrid.left()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "items pushed out left";
-        releaseItems(previousGrid.left(), currentGrid.left() - 1, previousGridTopClamped, previousGridBottomClamped);
-        itemsRemoved = true;
-    } else if (previousGrid.right() > currentGrid.right()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "items pushed out right";
-        releaseItems(currentGrid.right() + 1, previousGrid.right(), previousGridTopClamped, previousGridBottomClamped);
-        itemsRemoved = true;
-    }
-
-    if (previousGrid.top() < currentGrid.top()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "items pushed out on top";
-        releaseItems(previousGrid.left(), previousGrid.right(), previousGrid.top(), currentGrid.top() - 1);
-        itemsRemoved = true;
-    } else if (previousGrid.bottom()> currentGrid.bottom()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "items pushed out at bottom";
-        releaseItems(previousGrid.left(), previousGrid.right(), currentGrid.bottom() + 1, previousGrid.bottom());
-        itemsRemoved = true;
-    }
-
-    return itemsRemoved;
-}
-
-bool QQuickTableViewPrivate::addItemsInsideView(const QMargins &previousGrid, const QMargins &currentGrid)
-{
-    bool itemsAdded = false;
-
-    int previousGridTopClamped = qBound(currentGrid.top(), previousGrid.top(), currentGrid.bottom());
-    int previousGridBottomClamped = qBound(currentGrid.top(), previousGrid.bottom(), currentGrid.bottom());
-
-    if (currentGrid.left() < previousGrid.left()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "items pushed in left";
-        createTableItems(currentGrid.left(), previousGrid.left() - 1, previousGridTopClamped, previousGridBottomClamped);
-        itemsAdded = true;
-    } else if (currentGrid.right() > previousGrid.right()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "items pushed in right";
-        createTableItems(previousGrid.right() + 1, currentGrid.right(), previousGridTopClamped, previousGridBottomClamped);
-        itemsAdded = true;
-    }
-
-    if (currentGrid.top() < previousGrid.top()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "items pushed in on top";
-        createTableItems(currentGrid.left(), currentGrid.right(), currentGrid.top(), previousGrid.top() - 1);
-        itemsAdded = true;
-    } else if (currentGrid.bottom() > previousGrid.bottom()) {
-        qCDebug(lcItemViewDelegateLifecycle) << "items pushed in at bottom";
-        createTableItems(currentGrid.left(), currentGrid.right(), previousGrid.bottom() + 1, currentGrid.bottom());
-        itemsAdded = true;
-    }
-
-    return itemsAdded;
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
