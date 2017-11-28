@@ -983,9 +983,12 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
         requestTableItemAsync(indexAt(request.startCell));
         break;
     case TableSectionLoadRequest::LoadInParallel: {
-        // Note: TableSectionLoadRequest::LoadInParallel will load as
-        // many items as will fit inside visual rows and columns, so
-        // this information needs to be correct at this point.
+        // Note: TableSectionLoadRequest::LoadInParallel can only work when we
+        // know the column widths and row heights of the items we try to load.
+        // And this information is found by looking at the table edge items. So
+        // those items must be loaded first. And when doing so, we determine
+        // the current table metrics on the way, like visual row count/column
+        // count, which we then use below to figure out the number of items to request.
         int topLeftRow = rowAtIndex(currentLayoutRequest.topLeftIndex);
         int topLeftColumn = columnAtIndex(currentLayoutRequest.topLeftIndex);
         int rows = currentLayoutRequest.bottomLeftRow - topLeftRow + 1;
@@ -999,8 +1002,6 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
             }
         }
         break; }
-    default:
-        Q_UNREACHABLE();
     }
 }
 
@@ -1020,10 +1021,9 @@ void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableIt
             }
             break; }
         case TableSectionLoadRequest::LoadInParallel:
+            // All items have already been requested. Just count them in.
             allRequestedItemsLoaded = --currentLayoutRequest.requestedItemCount == 0;
             break;
-        default:
-            Q_UNREACHABLE();
         }
     }
 
