@@ -159,8 +159,8 @@ public:
     void translateAndTransitionFilledItems() override { }
 
 protected:
-    int rows;
-    int columns;
+    int rowCount;
+    int columnCount;
     QQuickTableView::Orientation orientation;
     qreal rowSpacing;
     qreal columnSpacing;
@@ -208,8 +208,8 @@ protected:
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
-    : rows(-1)
-    , columns(-1)
+    : rowCount(-1)
+    , columnCount(-1)
     , orientation(QQuickTableView::Vertical)
     , rowSpacing(0)
     , columnSpacing(0)
@@ -490,7 +490,7 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fx
     const QRectF viewportRect = currentLayoutRequest.viewportRect;
 
     if (direction.x() == 1) {
-        if (column > columns)
+        if (column > columnCount)
             return false;
         return itemRect.topRight().x() < viewportRect.topRight().x();
     } else if (direction.x() == -1) {
@@ -498,7 +498,7 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fx
             return false;
         return itemRect.topLeft().x() > viewportRect.topLeft().x();
     } else if (direction.y() == 1) {
-        if (row > rows)
+        if (row > rowCount)
             return false;
         return itemRect.bottomLeft().y() < viewportRect.bottomLeft().y();
     } else if (direction.y() == -1) {
@@ -844,16 +844,16 @@ int QQuickTableView::rows() const
     Q_D(const QQuickTableView);
     if (QQmlDelegateModel *delegateModel = qobject_cast<QQmlDelegateModel *>(d->model.data()))
         return delegateModel->rows();
-    return qMax(0, d->rows);
+    return qMax(0, d->rowCount);
 }
 
 void QQuickTableView::setRows(int rows)
 {
     Q_D(QQuickTableView);
-    if (d->rows == rows)
+    if (d->rowCount == rows)
         return;
 
-    d->rows = rows;
+    d->rowCount = rows;
     if (d->componentComplete && d->model && d->ownModel)
         static_cast<QQmlDelegateModel *>(d->model.data())->setRows(rows);
 
@@ -865,10 +865,10 @@ void QQuickTableView::setRows(int rows)
 void QQuickTableView::resetRows()
 {
     Q_D(QQuickTableView);
-    if (d->rows == -1)
+    if (d->rowCount == -1)
         return;
 
-    d->rows = -1;
+    d->rowCount = -1;
     if (d->componentComplete && d->model && d->ownModel)
         static_cast<QQmlDelegateModel *>(d->model.data())->resetRows();
     emit rowsChanged();
@@ -876,16 +876,16 @@ void QQuickTableView::resetRows()
 
 int QQuickTableView::columns() const
 {
-    return d_func()->columns;
+    return d_func()->columnCount;
 }
 
 void QQuickTableView::setColumns(int columns)
 {
     Q_D(QQuickTableView);
-    if (d->columns == columns)
+    if (d->columnCount == columns)
         return;
 
-    d->columns = columns;
+    d->columnCount = columns;
     if (d->componentComplete && d->model && d->ownModel)
         static_cast<QQmlDelegateModel *>(d->model.data())->setColumns(columns);
 
@@ -897,10 +897,10 @@ void QQuickTableView::setColumns(int columns)
 void QQuickTableView::resetColumns()
 {
     Q_D(QQuickTableView);
-    if (d->columns == -1)
+    if (d->columnCount == -1)
         return;
 
-    d->columns = -1;
+    d->columnCount = -1;
     if (d->componentComplete && d->model && d->ownModel)
         static_cast<QQmlDelegateModel *>(d->model.data())->resetColumns();
     emit columnsChanged();
@@ -995,10 +995,10 @@ void QQuickTableView::componentComplete()
     Q_D(QQuickTableView);
     if (d->model && d->ownModel) {
         QQmlDelegateModel *delegateModel = static_cast<QQmlDelegateModel *>(d->model.data());
-        if (d->rows > 0)
-            delegateModel->setRows(d->rows);
-        if (d->columns > 0)
-            delegateModel->setColumns(d->columns);
+        if (d->rowCount > 0)
+            delegateModel->setRows(d->rowCount);
+        if (d->columnCount > 0)
+            delegateModel->setColumns(d->columnCount);
         static_cast<QQmlDelegateModel *>(d->model.data())->componentComplete();
     }
 
