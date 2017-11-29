@@ -101,9 +101,6 @@ public:
 
     bool event(QEvent *e) override;
 
-    Q_INVOKABLE qreal columnWidth(int column);
-    Q_INVOKABLE qreal rowHeight(int row);
-
     static QQuickTableViewAttached *qmlAttachedProperties(QObject *);
 
 Q_SIGNALS:
