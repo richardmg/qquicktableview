@@ -168,8 +168,10 @@ protected:
 
 protected:
     QString indexToString(int index);
+
     void updateViewportContentWidth();
     void updateViewportContentHeight();
+    void updateTableMetrics(int addedIndex, int removedIndex);
 
     void loadTableItemAsync(int index);
     void deliverPostedTableItems();
@@ -201,8 +203,6 @@ protected:
     void continueExecutingCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
     void checkLoadRequestStatus();
     void tableItemLoaded(int index);
-
-    void updateTableMetrics(int addedIndex, int removedIndex);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
