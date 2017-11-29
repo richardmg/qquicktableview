@@ -64,6 +64,11 @@ public:
     {
         moveTo(pos, immediate); // ###
     }
+
+    QRectF rect() const
+    {
+        return QRectF(item->position(), item->size());
+    }
 };
 
 class TableSectionLoadRequest
@@ -172,14 +177,14 @@ protected:
     void showTableItem(FxTableItemSG *fxViewItem);
 
     FxTableItemSG *visibleTableItem(int modelIndex) const;
+    FxTableItemSG *visibleTableItem(const QPoint &cellCoord) const;
     FxTableItemSG *currentTopLeftItem() const;
     FxTableItemSG *currentTopRightItem() const;
     FxTableItemSG *currentBottomLeftItem() const;
+    FxTableItemSG *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
+    FxTableItemSG *tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const;
 
     bool canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPoint &direction) const;
-    FxViewItem *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
-    FxViewItem *tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const;
-
     qreal calculateTablePositionX(const FxTableItemSG *fxTableItem) const;
     qreal calculateTablePositionY(const FxTableItemSG *fxTableItem) const;
     void positionTableItem(FxTableItemSG *fxTableItem);
@@ -465,6 +470,11 @@ FxTableItemSG *QQuickTableViewPrivate::visibleTableItem(int modelIndex) const
     return 0;
 }
 
+FxTableItemSG *QQuickTableViewPrivate::visibleTableItem(const QPoint &cellCoord) const
+{
+    return visibleTableItem(indexAt(cellCoord));
+}
+
 void QQuickTableViewPrivate::showTableItem(FxTableItemSG *fxViewItem)
 {
     // Add the item to the list of visible items, and show it
@@ -472,7 +482,7 @@ void QQuickTableViewPrivate::showTableItem(FxTableItemSG *fxViewItem)
     QQuickItemPrivate::get(fxViewItem->item)->setCulled(false);
 }
 
-FxViewItem *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const
+FxTableItemSG *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const
 {
     int index = fxViewItem->index;
     int row = rowAtIndex(index) + direction.y();
@@ -480,7 +490,7 @@ FxViewItem *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewItem, 
     return visibleTableItem(indexAt(row, column));
 }
 
-FxViewItem *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const
+FxTableItemSG *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const
 {
     int index = fxTableItem->index;
 
@@ -499,8 +509,7 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fx
 {
     int row = rowAtIndex(fxTableItem->index);
     int column = columnAtIndex(fxTableItem->index);
-    QQuickItem *tableItemItem = fxTableItem->item;
-    QRectF itemRect = QRectF(tableItemItem->position(), tableItemItem->size());
+    QRectF itemRect = fxTableItem->rect();
 
     if (direction.x() == 1) {
         if (column > columnCount)
@@ -540,15 +549,13 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTab
     bool isEdgeItem = rowAtIndex(fxTableItem->index) == rowAtIndex(currentTopLeftIndex);
 
     if (isEdgeItem) {
-        FxViewItem *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(-1, 0));
+        FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(-1, 0));
         Q_ASSERT(fxViewAnchorItem);
-        QQuickItem *anchorItem = fxViewAnchorItem->item;
-        return anchorItem->position().x() + anchorItem->size().width() + columnSpacing;
+        return fxViewAnchorItem->rect().right() + columnSpacing;
     } else {
-        FxViewItem *fxViewAnchorItem = tableEdgeItem(fxTableItem, Qt::Vertical);
+        FxTableItemSG *fxViewAnchorItem = tableEdgeItem(fxTableItem, Qt::Vertical);
         Q_ASSERT(fxViewAnchorItem);
-        QQuickItem *anchorItem = fxViewAnchorItem->item;
-        return anchorItem->position().x();
+        return fxViewAnchorItem->rect().x();
     }
 }
 
@@ -567,15 +574,13 @@ qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTab
     bool isEdgeItem = columnAtIndex(fxTableItem->index) == columnAtIndex(currentTopLeftIndex);
 
     if (isEdgeItem) {
-        FxViewItem *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(0, -1));
+        FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(0, -1));
         Q_ASSERT(fxViewAnchorItem);
-        QQuickItem *anchorItem = fxViewAnchorItem->item;
-        return anchorItem->position().y() + anchorItem->size().height() + rowSpacing;
+        return fxViewAnchorItem->rect().bottom() + rowSpacing;
     } else {
-        FxViewItem *fxViewAnchorItem = tableEdgeItem(fxTableItem, Qt::Horizontal);
+        FxTableItemSG *fxViewAnchorItem = tableEdgeItem(fxTableItem, Qt::Horizontal);
         Q_ASSERT(fxViewAnchorItem);
-        QQuickItem *anchorItem = fxViewAnchorItem->item;
-        return anchorItem->position().y();
+        return fxViewAnchorItem->rect().y();
     }
 }
 
@@ -767,9 +772,12 @@ void QQuickTableViewPrivate::loadInitialItems()
 
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
-    FxTableItemSG *topRightItem = currentTopRightItem();
-    FxTableItemSG *bottomLeftItem = currentTopLeftItem();
+    FxTableItemSG *downRightItem = visibleTableItem(cellCoordAt(currentTopLeftIndex) + kDown + kRight);
 
+    if (!canHaveMoreItemsInDirection(downRightItem, kLeft)) {
+        qDebug() << "remove left column";
+
+    }
 }
 
 void QQuickTableViewPrivate::loadScrolledInItems()
