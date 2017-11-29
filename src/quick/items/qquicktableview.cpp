@@ -176,10 +176,10 @@ protected:
     qreal calculateTablePositionY(const FxTableItemSG *fxTableItem) const;
     void positionTableItem(FxTableItemSG *fxTableItem);
 
-    void reloadTable(const QRectF &viewportRect);
-    void refillItemsAlongEdges(const QRectF viewportRect);
+    void reloadTable();
+    void refillItemsAlongEdges();
     void refillItemsInDirection(const QPoint &startCell, const QPoint &fillDirection);
-    void removeItemsAlongEdges(const QRectF viewportRect);
+    void removeItemsAlongEdges();
     void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
 
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
@@ -712,14 +712,13 @@ void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableIt
     }
 }
 
-void QQuickTableViewPrivate::reloadTable(const QRectF &viewportRect)
+void QQuickTableViewPrivate::reloadTable()
 {
     qCDebug(lcItemViewDelegateLifecycle());
 
     // todo: cancel pending requested items!
     releaseVisibleItems();
 
-    currentLayoutRect = viewportRect;
     currentTopLeftIndex = indexAt(0, 0);
 
     int topLeftRow = rowAtIndex(currentTopLeftIndex);
@@ -744,15 +743,13 @@ void QQuickTableViewPrivate::reloadTable(const QRectF &viewportRect)
     enqueueLoadRequest(requestInnerItems);
 }
 
-void QQuickTableViewPrivate::removeItemsAlongEdges(const QRectF viewportRect)
+void QQuickTableViewPrivate::removeItemsAlongEdges()
 {
     Q_UNIMPLEMENTED();
 }
 
-void QQuickTableViewPrivate::refillItemsAlongEdges(const QRectF viewportRect)
+void QQuickTableViewPrivate::refillItemsAlongEdges()
 {
-    currentLayoutRect = viewportRect;
-
     int topLeftRow = rowAtIndex(currentTopLeftIndex);
     int topLeftColumn = columnAtIndex(currentTopLeftIndex);
     FxTableItemSG *topRightItem = visibleTableItem(indexAt(topLeftRow, currentTopRightColumn));
@@ -804,13 +801,15 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     if (!viewportRect.isValid())
         return false;
 
+    currentLayoutRect = viewportRect;
+
     if (visibleItems.isEmpty()) {
         // Do a complete refill from scratch
-        reloadTable(viewportRect);
+        reloadTable();
     } else {
         // Refill items around the already visible table items
-        removeItemsAlongEdges(viewportRect);
-        refillItemsAlongEdges(viewportRect);
+        removeItemsAlongEdges();
+        refillItemsAlongEdges();
     }
 
     if (!loadRequests.isEmpty()) {
