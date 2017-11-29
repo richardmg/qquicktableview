@@ -677,7 +677,7 @@ void QQuickTableViewPrivate::requestTableItemAsync(int index)
         // To avoid sending multiple events for different items, we take care to only
         // schedule one event, and instead queue the indices and process them
         // all in one go once we receive the event.
-        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded:" << indexToString(index);
+        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded, posting it:" << indexToString(index);
         bool alreadyWaitingForPendingEvent = !postedTableItems.isEmpty();
         postedTableItems.append(index);
 
