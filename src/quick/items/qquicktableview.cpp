@@ -156,6 +156,7 @@ protected:
     bool forceSynchronousMode;
     bool inViewportMoved;
 
+protected:
     QString indexToString(int index);
     void updateViewportContentWidth();
     void updateViewportContentHeight();
