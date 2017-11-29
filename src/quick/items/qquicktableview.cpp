@@ -159,7 +159,7 @@ protected:
     constexpr static QPoint kLeft = QPoint(-1, 0);
     constexpr static QPoint kRight = QPoint(1, 0);
     constexpr static QPoint kUp = QPoint(0, -1);
-    constexpr static QPoint kdown = QPoint(0, 1);
+    constexpr static QPoint kDown = QPoint(0, 1);
 
 protected:
     QString indexToString(int index);
@@ -744,24 +744,23 @@ void QQuickTableViewPrivate::loadInitialItems()
 
     currentTopLeftIndex = indexAt(0, 0);
 
-    int topLeftRow = rowAtIndex(currentTopLeftIndex);
-    int topLeftColumn = columnAtIndex(currentTopLeftIndex);
+    QPoint topLeftCoord = cellCoordAt(currentTopLeftIndex);
 
     TableSectionLoadRequest requestEdgeRow;
-    requestEdgeRow.startCell = QPoint(topLeftColumn, topLeftRow);
-    requestEdgeRow.fillDirection = QPoint(1, 0);
+    requestEdgeRow.startCell = topLeftCoord;
+    requestEdgeRow.fillDirection = kRight;
     requestEdgeRow.loadMode = TableSectionLoadRequest::LoadOneByOne;
     enqueueLoadRequest(requestEdgeRow);
 
     TableSectionLoadRequest requestEdgeColumn;
-    requestEdgeColumn.startCell = QPoint(topLeftColumn, topLeftRow + 1);
-    requestEdgeColumn.fillDirection = QPoint(0, 1);
+    requestEdgeColumn.startCell = topLeftCoord + kDown;
+    requestEdgeColumn.fillDirection = kDown;
     requestEdgeColumn.loadMode = TableSectionLoadRequest::LoadOneByOne;
     enqueueLoadRequest(requestEdgeColumn);
 
     TableSectionLoadRequest requestInnerItems;
-    requestInnerItems.startCell = QPoint(topLeftColumn + 1, topLeftRow + 1);
-    requestInnerItems.fillDirection = QPoint(1, 1);
+    requestInnerItems.startCell = topLeftCoord + kRight + kDown;
+    requestInnerItems.fillDirection = kRight + kDown;
     requestInnerItems.loadMode = TableSectionLoadRequest::LoadInParallel;
     enqueueLoadRequest(requestInnerItems);
 }
@@ -783,14 +782,14 @@ void QQuickTableViewPrivate::loadScrolledInItems()
         loadItemsInDirection(startCell, kUp);
     } else if (canHaveMoreItemsInDirection(topRightItem, kRight)) {
         QPoint startCell = cellCoordAt(topRightItem->index) + kRight;
-        loadItemsInDirection(startCell, kdown);
+        loadItemsInDirection(startCell, kDown);
     }
 
     if (canHaveMoreItemsInDirection(topRightItem, kUp)) {
         QPoint startCell = cellCoordAt(topRightItem->index) + kUp;
         loadItemsInDirection(startCell, kLeft);
-    } else if (canHaveMoreItemsInDirection(bottomLeftItem, kdown)) {
-        QPoint startCell = cellCoordAt(bottomLeftItem->index) + kdown;
+    } else if (canHaveMoreItemsInDirection(bottomLeftItem, kDown)) {
+        QPoint startCell = cellCoordAt(bottomLeftItem->index) + kDown;
         loadItemsInDirection(startCell, kRight);
     }
 }
