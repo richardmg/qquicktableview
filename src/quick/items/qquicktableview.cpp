@@ -175,7 +175,7 @@ protected:
 
     void loadTableItemAsync(int index);
     void deliverPostedTableItems();
-    FxTableItemSG *getTableItem(int index);
+    FxTableItemSG *getTableItemFromModel(int index);
     void showTableItem(FxTableItemSG *fxViewItem);
 
     FxTableItemSG *visibleTableItem(int modelIndex) const;
@@ -429,7 +429,7 @@ void QQuickTableViewPrivate::deliverPostedTableItems()
     qCDebug(lcItemViewDelegateLifecycle) << "done delivering items!";
 }
 
-FxTableItemSG *QQuickTableViewPrivate::getTableItem(int index)
+FxTableItemSG *QQuickTableViewPrivate::getTableItemFromModel(int index)
 {
     // This function should be called whenever we receive an
     // item async to ensure that we ref-count the item.
@@ -644,7 +644,7 @@ void QQuickTableViewPrivate::tableItemLoaded(int index)
 {
     qCDebug(lcItemViewDelegateLifecycle) << indexToString(index);
 
-    FxTableItemSG *receivedTableItem = getTableItem(index);
+    FxTableItemSG *receivedTableItem = getTableItemFromModel(index);
     positionTableItem(receivedTableItem);
     showTableItem(receivedTableItem);
     updateTableMetrics(index, kNullValue);
@@ -776,7 +776,9 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
 
     if (!canHaveMoreItemsInDirection(downRightItem, kLeft)) {
         qDebug() << "remove left column";
-
+        // release items
+        // update top-left
+//        releaseItem(item);
     }
 }
 
