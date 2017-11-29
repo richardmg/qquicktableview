@@ -118,7 +118,6 @@ public:
     int topLeftIndex;
     int bottomLeftRow;
     int topRightColumn;
-
     int requestedItemCount;
 };
 
@@ -162,38 +161,24 @@ public:
 protected:
     int rows;
     int columns;
-    int visibleRows;
-    int visibleColumns;
     QQuickTableView::Orientation orientation;
     qreal rowSpacing;
     qreal columnSpacing;
-    QPointF prevContentPos;
-    QSizeF prevViewSize;
     GridLayoutRequest currentLayoutRequest;
+    QQueue<TableSectionLoadRequest> loadRequests;
     QEvent::Type eventTypeDeliverPostedTableItems;
     QVector<int> postedTableItems;
     bool blockCreatedItemsSyncCallback;
     bool forceSynchronousMode;
-    QQueue<TableSectionLoadRequest> loadRequests;
-
-    QMargins prevGrid;
-    mutable QPair<int, qreal> rowPositionCache;
-    mutable QPair<int, qreal> columnPositionCache;
-    QVector<qreal> rowHeightCache_unused;
-    QVector<qreal> columnWidthCache_unused;
-
-    QHash<int, qreal> columnWidthCache;
-    QHash<int, qreal> rowHeightCache;
-
     bool inViewportMoved;
 
+    QString indexToString(int index);
     void updateViewportContentWidth();
     void updateViewportContentHeight();
 
     void requestTableItemAsync(int index);
     void deliverPostedTableItems();
     FxTableItemSG *getTableItem(int index);
-    void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
 
     FxTableItemSG *visibleTableItem(int modelIndex) const;
     void showTableItem(FxTableItemSG *fxViewItem);
@@ -207,9 +192,10 @@ protected:
     void positionTableItem(FxTableItemSG *fxTableItem);
 
     void reloadTable(const QRectF &viewportRect);
-    void removeItemsAlongEdges(const QRectF viewportRect);
     void refillItemsAlongEdges(const QRectF viewportRect);
     void refillItemsInDirection(const QPoint &startCell, const QPoint &fillDirection);
+    void removeItemsAlongEdges(const QRectF viewportRect);
+    void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
 
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
     void dequeueCurrentLoadRequest();
@@ -219,31 +205,20 @@ protected:
     void tableItemLoaded(int index);
 
     void updateTableMetrics(int addedIndex, int removedIndex);
-
-    QString indexToString(int index);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
     : rows(-1)
     , columns(-1)
-    , visibleRows(0)
-    , visibleColumns(0)
     , orientation(QQuickTableView::Vertical)
     , rowSpacing(0)
     , columnSpacing(0)
-    , prevContentPos(QPointF(0, 0))
-    , prevViewSize(QSizeF(0, 0))
     , currentLayoutRequest(QRect())
+    , loadRequests(QQueue<TableSectionLoadRequest>())
     , eventTypeDeliverPostedTableItems(static_cast<QEvent::Type>(QEvent::registerEventType()))
     , postedTableItems(QVector<int>())
     , blockCreatedItemsSyncCallback(false)
     , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
-    , loadRequests(QQueue<TableSectionLoadRequest>())
-    , prevGrid(QMargins(-1, -1, -1, -1))
-    , rowPositionCache(qMakePair(0, 0))
-    , columnPositionCache(qMakePair(0, 0))
-    , rowHeightCache_unused(QVector<qreal>(100, kNullValue))
-    , columnWidthCache_unused(QVector<qreal>(100, kNullValue))
     , inViewportMoved(false)
 {
 }
