@@ -99,8 +99,7 @@ class GridLayoutRequest
 public:
     enum LayoutState {
         Idle,
-        LoadingSelectedItem,
-        ProcessingLoadRequest,
+        ProcessingLoadRequest
     };
 
     GridLayoutRequest(const QRectF &viewportRect)
