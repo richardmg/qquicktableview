@@ -161,7 +161,7 @@ protected:
     void updateViewportContentWidth();
     void updateViewportContentHeight();
 
-    void requestTableItemAsync(int index);
+    void loadTableItemAsync(int index);
     void deliverPostedTableItems();
     FxTableItemSG *getTableItem(int index);
 
@@ -176,10 +176,10 @@ protected:
     qreal calculateTablePositionY(const FxTableItemSG *fxTableItem) const;
     void positionTableItem(FxTableItemSG *fxTableItem);
 
-    void reloadTable();
-    void refillItemsAlongEdges();
-    void refillItemsInDirection(const QPoint &startCell, const QPoint &fillDirection);
-    void removeItemsAlongEdges();
+    void loadInitialItems();
+    void loadScrolledInItems();
+    void loadItemsInDirection(const QPoint &startCell, const QPoint &fillDirection);
+    void unloadScrolledOutItems();
     void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
 
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
@@ -346,7 +346,7 @@ QString QQuickTableViewPrivate::indexToString(int index)
     return QString::fromLatin1("index: %1 (%2, %3)").arg(index).arg(rowAtIndex(index)).arg(columnAtIndex(index));
 }
 
-void QQuickTableViewPrivate::requestTableItemAsync(int index)
+void QQuickTableViewPrivate::loadTableItemAsync(int index)
 {
     qCDebug(lcItemViewDelegateLifecycle) << indexToString(index);
 
@@ -661,7 +661,7 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
 
     switch (request.loadMode) {
     case TableSectionLoadRequest::LoadOneByOne:
-        requestTableItemAsync(indexAt(request.startCell));
+        loadTableItemAsync(indexAt(request.startCell));
         break;
     case TableSectionLoadRequest::LoadInParallel: {
         // Note: TableSectionLoadRequest::LoadInParallel can only work when we
@@ -679,7 +679,7 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
             for (int x = request.startCell.x(); x < columns; ++x) {
                 request.requestedItemCount++;
                 int index = indexAt(topLeftRow + y, topLeftColumn + x);
-                requestTableItemAsync(index);
+                loadTableItemAsync(index);
             }
         }
         break; }
@@ -702,7 +702,7 @@ void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableIt
         request.done = !canHaveMoreItemsInDirection(receivedTableItem, request.fillDirection);
         if (!request.done) {
             const QPoint nextCell = cellCoordAt(receivedTableItem->index) + request.fillDirection;
-            requestTableItemAsync(indexAt(nextCell));
+            loadTableItemAsync(indexAt(nextCell));
         }
         break; }
     case TableSectionLoadRequest::LoadInParallel:
@@ -712,12 +712,10 @@ void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableIt
     }
 }
 
-void QQuickTableViewPrivate::reloadTable()
+void QQuickTableViewPrivate::loadInitialItems()
 {
     qCDebug(lcItemViewDelegateLifecycle());
-
-    // todo: cancel pending requested items!
-    releaseVisibleItems();
+    Q_ASSERT(visibleItems.isEmpty());
 
     currentTopLeftIndex = indexAt(0, 0);
 
@@ -743,12 +741,12 @@ void QQuickTableViewPrivate::reloadTable()
     enqueueLoadRequest(requestInnerItems);
 }
 
-void QQuickTableViewPrivate::removeItemsAlongEdges()
+void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
     Q_UNIMPLEMENTED();
 }
 
-void QQuickTableViewPrivate::refillItemsAlongEdges()
+void QQuickTableViewPrivate::loadScrolledInItems()
 {
     int topLeftRow = rowAtIndex(currentTopLeftIndex);
     int topLeftColumn = columnAtIndex(currentTopLeftIndex);
@@ -762,22 +760,22 @@ void QQuickTableViewPrivate::refillItemsAlongEdges()
 
     if (canHaveMoreItemsInDirection(bottomLeftItem, left)) {
         QPoint startCell = cellCoordAt(bottomLeftItem->index) + left;
-        refillItemsInDirection(startCell, up);
+        loadItemsInDirection(startCell, up);
     } else if (canHaveMoreItemsInDirection(topRightItem, right)) {
         QPoint startCell = cellCoordAt(topRightItem->index) + right;
-        refillItemsInDirection(startCell, down);
+        loadItemsInDirection(startCell, down);
     }
 
     if (canHaveMoreItemsInDirection(topRightItem, up)) {
         QPoint startCell = cellCoordAt(topRightItem->index) + up;
-        refillItemsInDirection(startCell, left);
+        loadItemsInDirection(startCell, left);
     } else if (canHaveMoreItemsInDirection(bottomLeftItem, down)) {
         QPoint startCell = cellCoordAt(bottomLeftItem->index) + down;
-        refillItemsInDirection(startCell, right);
+        loadItemsInDirection(startCell, right);
     }
 }
 
-void QQuickTableViewPrivate::refillItemsInDirection(const QPoint &startCell, const QPoint &fillDirection)
+void QQuickTableViewPrivate::loadItemsInDirection(const QPoint &startCell, const QPoint &fillDirection)
 {
     TableSectionLoadRequest edgeItemRequest;
     edgeItemRequest.startCell = startCell;
@@ -804,12 +802,10 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     currentLayoutRect = viewportRect;
 
     if (visibleItems.isEmpty()) {
-        // Do a complete refill from scratch
-        reloadTable();
+        loadInitialItems();
     } else {
-        // Refill items around the already visible table items
-        removeItemsAlongEdges();
-        refillItemsAlongEdges();
+        unloadScrolledOutItems();
+        loadScrolledInItems();
     }
 
     if (!loadRequests.isEmpty()) {
