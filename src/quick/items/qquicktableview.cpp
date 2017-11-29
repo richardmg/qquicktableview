@@ -673,7 +673,7 @@ void QQuickTableViewPrivate::enqueueLoadRequest(const TableSectionLoadRequest &r
 void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
 {
     const TableSectionLoadRequest request = loadRequests.dequeue();
-    qCDebug(lcItemViewDelegateLifecycle) << request;
+    qCDebug(lcItemViewDelegateLifecycle) << request << "\n";
 }
 
 void QQuickTableViewPrivate::executeNextLoadRequest()
@@ -775,7 +775,7 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
 void QQuickTableViewPrivate::loadScrolledInItems()
 {
     FxTableItemSG *topRightItem = currentTopRightItem();
-    FxTableItemSG *bottomLeftItem = currentTopLeftItem();
+    FxTableItemSG *bottomLeftItem = currentBottomLeftItem();
 
     if (canHaveMoreItemsInDirection(bottomLeftItem, kLeft)) {
         QPoint startCell = cellCoordAt(bottomLeftItem->index) + kLeft;
