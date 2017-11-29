@@ -156,6 +156,11 @@ protected:
     bool forceSynchronousMode;
     bool inViewportMoved;
 
+    constexpr static QPoint kLeft = QPoint(-1, 0);
+    constexpr static QPoint kRight = QPoint(1, 0);
+    constexpr static QPoint kUp = QPoint(0, -1);
+    constexpr static QPoint kdown = QPoint(0, 1);
+
 protected:
     QString indexToString(int index);
     void updateViewportContentWidth();
@@ -164,9 +169,12 @@ protected:
     void loadTableItemAsync(int index);
     void deliverPostedTableItems();
     FxTableItemSG *getTableItem(int index);
+    void showTableItem(FxTableItemSG *fxViewItem);
 
     FxTableItemSG *visibleTableItem(int modelIndex) const;
-    void showTableItem(FxTableItemSG *fxViewItem);
+    FxTableItemSG *currentTopLeftItem() const;
+    FxTableItemSG *currentTopRightItem() const;
+    FxTableItemSG *currentBottomLeftItem() const;
 
     bool canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPoint &direction) const;
     FxViewItem *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
@@ -276,6 +284,23 @@ int QQuickTableViewPrivate::indexAt(int row, int column) const
 FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
 {
     return visibleItem(indexAt(row, column));
+}
+
+FxTableItemSG *QQuickTableViewPrivate::currentTopLeftItem() const
+{
+    return visibleTableItem(currentTopLeftIndex);
+}
+
+FxTableItemSG *QQuickTableViewPrivate::currentTopRightItem() const
+{
+    int topLeftRow = rowAtIndex(currentTopLeftIndex);
+    return visibleTableItem(indexAt(topLeftRow, currentTopRightColumn));
+}
+
+FxTableItemSG *QQuickTableViewPrivate::currentBottomLeftItem() const
+{
+    int topLeftColumn = columnAtIndex(currentTopLeftIndex);
+    return visibleTableItem(indexAt(currentBottomLeftRow, topLeftColumn));
 }
 
 void QQuickTableViewPrivate::updateViewportContentWidth()
@@ -743,35 +768,30 @@ void QQuickTableViewPrivate::loadInitialItems()
 
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
-    Q_UNIMPLEMENTED();
+    FxTableItemSG *topRightItem = currentTopRightItem();
+    FxTableItemSG *bottomLeftItem = currentTopLeftItem();
+
 }
 
 void QQuickTableViewPrivate::loadScrolledInItems()
 {
-    int topLeftRow = rowAtIndex(currentTopLeftIndex);
-    int topLeftColumn = columnAtIndex(currentTopLeftIndex);
-    FxTableItemSG *topRightItem = visibleTableItem(indexAt(topLeftRow, currentTopRightColumn));
-    FxTableItemSG *bottomLeftItem = visibleTableItem(indexAt(currentBottomLeftRow, topLeftColumn));
+    FxTableItemSG *topRightItem = currentTopRightItem();
+    FxTableItemSG *bottomLeftItem = currentTopLeftItem();
 
-    const QPoint left = QPoint(-1, 0);
-    const QPoint right = QPoint(1, 0);
-    const QPoint up = QPoint(0, -1);
-    const QPoint down = QPoint(0, 1);
-
-    if (canHaveMoreItemsInDirection(bottomLeftItem, left)) {
-        QPoint startCell = cellCoordAt(bottomLeftItem->index) + left;
-        loadItemsInDirection(startCell, up);
-    } else if (canHaveMoreItemsInDirection(topRightItem, right)) {
-        QPoint startCell = cellCoordAt(topRightItem->index) + right;
-        loadItemsInDirection(startCell, down);
+    if (canHaveMoreItemsInDirection(bottomLeftItem, kLeft)) {
+        QPoint startCell = cellCoordAt(bottomLeftItem->index) + kLeft;
+        loadItemsInDirection(startCell, kUp);
+    } else if (canHaveMoreItemsInDirection(topRightItem, kRight)) {
+        QPoint startCell = cellCoordAt(topRightItem->index) + kRight;
+        loadItemsInDirection(startCell, kdown);
     }
 
-    if (canHaveMoreItemsInDirection(topRightItem, up)) {
-        QPoint startCell = cellCoordAt(topRightItem->index) + up;
-        loadItemsInDirection(startCell, left);
-    } else if (canHaveMoreItemsInDirection(bottomLeftItem, down)) {
-        QPoint startCell = cellCoordAt(bottomLeftItem->index) + down;
-        loadItemsInDirection(startCell, right);
+    if (canHaveMoreItemsInDirection(topRightItem, kUp)) {
+        QPoint startCell = cellCoordAt(topRightItem->index) + kUp;
+        loadItemsInDirection(startCell, kLeft);
+    } else if (canHaveMoreItemsInDirection(bottomLeftItem, kdown)) {
+        QPoint startCell = cellCoordAt(bottomLeftItem->index) + kdown;
+        loadItemsInDirection(startCell, kRight);
     }
 }
 
