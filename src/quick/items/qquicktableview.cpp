@@ -250,7 +250,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , eventTypeDeliverPostedTableItems(static_cast<QEvent::Type>(QEvent::registerEventType()))
     , postedTableItems(QVector<int>())
     , blockCreatedItemsSyncCallback(false)
-    , forceSynchronousMode(false)
+    , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
     , loadRequests(QQueue<TableSectionLoadRequest>())
     , prevGrid(QMargins(-1, -1, -1, -1))
     , rowPositionCache(qMakePair(0, 0))
@@ -681,7 +681,7 @@ void QQuickTableViewPrivate::requestTableItemAsync(int index)
         bool alreadyWaitingForPendingEvent = !postedTableItems.isEmpty();
         postedTableItems.append(index);
 
-        if (!alreadyWaitingForPendingEvent) {
+        if (!alreadyWaitingForPendingEvent && !forceSynchronousMode) {
             qCDebug(lcItemViewDelegateLifecycle) << "posting eventTypeDeliverPostedTableItems";
             QEvent *event = new QEvent(eventTypeDeliverPostedTableItems);
             qApp->postEvent(q_func(), event);
@@ -1315,7 +1315,7 @@ void QQuickTableView::componentComplete()
     }
 
     // NB: deliberatly skipping QQuickAbstractItemView, since it does so
-    // many wierd that I don't need or understand. That code is messy...
+    // many wierd things that I don't need or understand. That code is messy...
     QQuickFlickable::componentComplete();
 }
 
