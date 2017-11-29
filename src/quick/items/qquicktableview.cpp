@@ -969,6 +969,7 @@ void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
 
 void QQuickTableViewPrivate::executeNextLoadRequest()
 {
+    Q_ASSERT(!loadRequests.isEmpty());
     currentLayoutRequest.state = GridLayoutRequest::ProcessingLoadRequest;
     const TableSectionLoadRequest &request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle) << request;
@@ -1002,6 +1003,7 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
 
 void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableItemSG *receivedTableItem)
 {
+    Q_ASSERT(!loadRequests.isEmpty());
     TableSectionLoadRequest &request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle()) << request;
 
