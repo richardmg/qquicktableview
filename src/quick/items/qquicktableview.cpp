@@ -363,7 +363,7 @@ void QQuickTableViewPrivate::updateViewportContentWidth()
 //    q->setContentWidth(contentWidth);
 
     qCDebug(lcItemViewDelegateLifecycle) << "TODO, change how we update width/height";
-    q->setContentWidth(1000);
+    q->setContentWidth(8000);
 }
 
 void QQuickTableViewPrivate::updateViewportContentHeight()
@@ -375,7 +375,7 @@ void QQuickTableViewPrivate::updateViewportContentHeight()
 //    contentHeight += (rows - 1) * columnSpacing;
 //    q->setContentHeight(contentHeight);
 
-    q->setContentHeight(1000);
+    q->setContentHeight(8000);
 }
 
 void QQuickTableViewPrivate::updateCurrentTableGeometry(int addedIndex)
@@ -819,6 +819,18 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         unloadItems(topRightCell, bottomRightCell);
         setBottomRightIndex(indexAt(cellCoordAt(currentBottomRightIndex) + kLeft));
     }
+
+    if (!canHaveMoreItemsInDirection(innerTopLeftItem, kUp)) {
+        QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
+        QPoint topRightCell = cellCoordAt(currentTopRightIndex());
+        unloadItems(topLeftCell, topRightCell);
+        setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kDown));
+    } else if (!canHaveMoreItemsInDirection(innerBottomRightItem, kDown)) {
+        QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
+        QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
+        unloadItems(bottomLeftCell, bottomRightCell);
+        setBottomRightIndex(indexAt(cellCoordAt(currentBottomRightIndex) + kUp));
+    }
 }
 
 void QQuickTableViewPrivate::loadScrolledInItems()
@@ -839,7 +851,7 @@ void QQuickTableViewPrivate::loadScrolledInItems()
 
     if (canHaveMoreItemsInDirection(topLeftItem, kUp)) {
         QPoint startCell = cellCoordAt(topLeftItem) + kUp;
-        loadRowOrColumn(startCell, kLeft);
+        loadRowOrColumn(startCell, kRight);
     } else if (canHaveMoreItemsInDirection(bottomLeftItem, kDown)) {
         QPoint startCell = cellCoordAt(bottomLeftItem) + kDown;
         loadRowOrColumn(startCell, kRight);
@@ -886,6 +898,8 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 
         if (forceSynchronousMode)
             deliverPostedTableItems();
+
+        qCDebug(lcItemViewDelegateLifecycle()) << "item count:" << visibleItems.count() << "\n";
     }
 
     // return false? or override caller? Or check load queue?
