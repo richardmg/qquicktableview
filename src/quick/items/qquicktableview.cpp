@@ -148,7 +148,7 @@ protected:
 
     bool blockCreatedItemsSyncCallback;
     bool forceSynchronousMode;
-    bool inViewportMoved;
+    bool itemCountChanged;
 
     constexpr static QPoint kLeft = QPoint(-1, 0);
     constexpr static QPoint kRight = QPoint(1, 0);
@@ -186,7 +186,6 @@ protected:
 
     void loadTableItemAsync(int index);
     void deliverPostedTableItems();
-    FxTableItemSG *getTableItemFromModel(int index);
     void showTableItem(FxTableItemSG *fxViewItem);
 
     bool canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPoint &direction) const;
@@ -208,6 +207,7 @@ protected:
     void tableItemLoaded(FxTableItemSG *tableItem);
 
     QString indexToString(int index);
+    void dumpItemCount();
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -225,7 +225,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , postedTableItems(QVector<FxTableItemSG *>())
     , blockCreatedItemsSyncCallback(false)
     , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
-    , inViewportMoved(false)
+    , itemCountChanged(false)
 {
 }
 
@@ -399,14 +399,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     Q_D(QQuickTableView);
     QQuickAbstractItemView::viewportMoved(orient);
 
-    // Recursion can occur due to refill changing the content size.
-    if (d->inViewportMoved)
-        return;
-    d->inViewportMoved = true;
-
     d->addRemoveVisibleItems();
-
-    d->inViewportMoved = false;
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -437,8 +430,18 @@ QString QQuickTableViewPrivate::indexToString(int index)
     return QString::fromLatin1("index: %1 (x:%2, y:%3)").arg(index).arg(columnAtIndex(index)).arg(rowAtIndex(index));
 }
 
+void QQuickTableViewPrivate::dumpItemCount()
+{
+    if (!itemCountChanged)
+        return;
+
+    qCDebug(lcItemViewDelegateLifecycle()) << visibleItems.count();
+    itemCountChanged = false;
+}
+
 void QQuickTableViewPrivate::loadTableItemAsync(int index)
 {
+    itemCountChanged = true;
     qCDebug(lcItemViewDelegateLifecycle) << indexToString(index);
 
     // TODO: check if item is already available before creating an FxTableItemSG
@@ -488,21 +491,9 @@ void QQuickTableViewPrivate::deliverPostedTableItems()
     qCDebug(lcItemViewDelegateLifecycle) << "done delivering items!";
 }
 
-FxTableItemSG *QQuickTableViewPrivate::getTableItemFromModel(int index)
-{
-    // This function should be called whenever we receive an
-    // item async to ensure that we ref-count the item.
-    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(index, false));
-
-    // The item was requested sync, so it should be ready!
-    Q_ASSERT(item);
-    Q_ASSERT(item->item);
-
-    return item;
-}
-
 void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &toCell)
 {
+    itemCountChanged = true;
     qCDebug(lcItemViewDelegateLifecycle) << fromCell << "->" << toCell;
 
     for (int y = fromCell.y(); y <= toCell.y(); ++y) {
@@ -642,7 +633,7 @@ void QQuickTableViewPrivate::positionTableItem(FxTableItemSG *fxTableItem)
     qCDebug(lcItemViewDelegateLifecycle()) << indexToString(fxTableItem->index) << fxTableItem->rect();
 }
 
-void QQuickTableView::createdItem(int index, QObject* object)
+void QQuickTableView::createdItem(int index, QObject*)
 {
     Q_D(QQuickTableView);
 
@@ -661,16 +652,18 @@ void QQuickTableView::createdItem(int index, QObject* object)
         return;
     }
 
-    Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
     qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
+    FxTableItemSG *item = static_cast<FxTableItemSG *>(d->createItem(index, false));
 
-    d->tableItemLoaded(d->getTableItemFromModel(index));
+    Q_ASSERT(item);
+    Q_ASSERT(item->item);
+
+    d->tableItemLoaded(item);
 }
 
 void QQuickTableViewPrivate::tableItemLoaded(FxTableItemSG *tableItem)
 {
     qCDebug(lcItemViewDelegateLifecycle) << indexToString(tableItem->index);
-
     updateCurrentTableGeometry(tableItem->index);
     positionTableItem(tableItem);
     showTableItem(tableItem);
@@ -691,6 +684,7 @@ void QQuickTableViewPrivate::checkLoadRequestStatus()
         // Nothing more todo. Check if the view port moved while we
         // were processing load requests, and if so, start all over.
         currentLayoutState = Idle;
+        dumpItemCount();
         addRemoveVisibleItems();
     }
 }
@@ -896,9 +890,9 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 
         if (forceSynchronousMode)
             deliverPostedTableItems();
-
-        qCDebug(lcItemViewDelegateLifecycle()) << "item count:" << visibleItems.count() << "\n";
     }
+
+    dumpItemCount();
 
     // return false? or override caller? Or check load queue?
     return true;
