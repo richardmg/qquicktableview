@@ -535,7 +535,6 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTab
     // the horizontal edge, or otherwise the item directly next to it. This assumes that at
     // least the item next to it has already been loaded. If the edge item has been
     // loaded, we use that as reference instead, as it allows us to load several items in parallel.
-
     if (fxTableItem->index == currentTopLeftIndex) {
         // Special case: the top left item has pos 0, 0 for now
         return 0;
@@ -544,9 +543,13 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTab
     bool isEdgeItem = rowAtIndex(fxTableItem->index) == rowAtIndex(currentTopLeftIndex);
 
     if (isEdgeItem) {
-        FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(-1, 0));
-        Q_ASSERT(fxViewAnchorItem);
-        return fxViewAnchorItem->rect().right() + columnSpacing;
+        // For edge items we can only find the X position by looking at either the item
+        // adjacent on the left or on the right. Start by checking to the left.
+        if (FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(-1, 0)))
+            return fxViewAnchorItem->rect().right() + columnSpacing;
+        if (FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(1, 0)))
+            return fxViewAnchorItem->rect().left() - columnSpacing - fxViewAnchorItem->rect().width();
+        Q_UNREACHABLE();
     } else {
         FxTableItemSG *fxViewAnchorItem = tableEdgeItem(fxTableItem, Qt::Vertical);
         Q_ASSERT(fxViewAnchorItem);
@@ -560,7 +563,6 @@ qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTab
     // the vertical edge, or otherwise the item directly next to it. This assumes that at
     // least the item next to it has already been loaded. If the edge item has been
     // loaded, we use that as reference instead, as it allows us to load several items in parallel.
-
     if (fxTableItem->index == currentTopLeftIndex) {
         // Special case: the top left item has pos 0, 0 for now
         return 0;
@@ -569,13 +571,17 @@ qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTab
     bool isEdgeItem = columnAtIndex(fxTableItem->index) == columnAtIndex(currentTopLeftIndex);
 
     if (isEdgeItem) {
-        FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(0, -1));
-        Q_ASSERT(fxViewAnchorItem);
-        return fxViewAnchorItem->rect().bottom() + rowSpacing;
+        // For edge items we can find the Y position by looking at either
+        // the item adjacent on top or below. Start by checking on top
+        if (FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(0, -1)))
+            return fxViewAnchorItem->rect().bottom() + rowSpacing;
+        if (FxTableItemSG * fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(0, 1)))
+            return fxViewAnchorItem->rect().top() - rowSpacing - fxTableItem->rect().height();
+        Q_UNREACHABLE();
     } else {
-        FxTableItemSG *fxViewAnchorItem = tableEdgeItem(fxTableItem, Qt::Horizontal);
-        Q_ASSERT(fxViewAnchorItem);
-        return fxViewAnchorItem->rect().y();
+        if (FxTableItemSG *fxViewAnchorItem = tableEdgeItem(fxTableItem, Qt::Horizontal))
+            return fxViewAnchorItem->rect().y();
+        Q_UNREACHABLE();
     }
 }
 
@@ -789,19 +795,20 @@ void QQuickTableViewPrivate::loadScrolledInItems()
 {
     // For each corner item, check if it's more available space on the outside. If so, and
     // if the model has more items, load new rows and columns on the outside of those items.
+    FxTableItemSG *topLeftItem = currentTopLeftItem();
     FxTableItemSG *topRightItem = currentTopRightItem();
     FxTableItemSG *bottomLeftItem = currentBottomLeftItem();
 
-    if (canHaveMoreItemsInDirection(bottomLeftItem, kLeft)) {
-        QPoint startCell = cellCoordAt(bottomLeftItem) + kLeft;
-        loadRowOrColumn(startCell, kUp);
+    if (canHaveMoreItemsInDirection(topLeftItem, kLeft)) {
+        QPoint startCell = cellCoordAt(topLeftItem) + kLeft;
+        loadRowOrColumn(startCell, kDown);
     } else if (canHaveMoreItemsInDirection(topRightItem, kRight)) {
         QPoint startCell = cellCoordAt(topRightItem) + kRight;
         loadRowOrColumn(startCell, kDown);
     }
 
-    if (canHaveMoreItemsInDirection(topRightItem, kUp)) {
-        QPoint startCell = cellCoordAt(topRightItem) + kUp;
+    if (canHaveMoreItemsInDirection(topLeftItem, kUp)) {
+        QPoint startCell = cellCoordAt(topLeftItem) + kUp;
         loadRowOrColumn(startCell, kLeft);
     } else if (canHaveMoreItemsInDirection(bottomLeftItem, kDown)) {
         QPoint startCell = cellCoordAt(bottomLeftItem) + kDown;
