@@ -168,6 +168,8 @@ protected:
     QPoint cellCoordAt(int index) const;
     QPoint cellCoordAt(const FxTableItemSG *tableItem) const;
     int indexAt(const QPoint &cellCoord) const;
+    int currentTopRightIndex() const;
+    int currentBottomLeftIndex() const;
 
     FxTableItemSG *visibleTableItem(int modelIndex) const;
     FxTableItemSG *visibleTableItem(const QPoint &cellCoord) const;
@@ -299,6 +301,20 @@ int QQuickTableViewPrivate::indexAt(const QPoint& cellCoord) const
     return cellCoord.x() + cellCoord.y() * columns;
 }
 
+int QQuickTableViewPrivate::currentTopRightIndex() const
+{
+    int x = columnAtIndex(currentBottomRightIndex);
+    int y = rowAtIndex(currentTopLeftIndex);
+    return indexAt(QPoint(x, y));
+}
+
+int QQuickTableViewPrivate::currentBottomLeftIndex() const
+{
+    int x = columnAtIndex(currentTopLeftIndex);
+    int y = rowAtIndex(currentBottomRightIndex);
+    return indexAt(QPoint(x, y));
+}
+
 FxTableItemSG *QQuickTableViewPrivate::visibleTableItem(int modelIndex) const
 {
     // TODO: this is an overload of visibleItems, since the other version
@@ -324,16 +340,12 @@ FxTableItemSG *QQuickTableViewPrivate::currentTopLeftItem() const
 
 FxTableItemSG *QQuickTableViewPrivate::currentTopRightItem() const
 {
-    int x = columnAtIndex(currentBottomRightIndex);
-    int y = rowAtIndex(currentTopLeftIndex);
-    return visibleTableItem(QPoint(x, y));
+    return visibleTableItem(currentTopRightIndex());
 }
 
 FxTableItemSG *QQuickTableViewPrivate::currentBottomLeftItem() const
 {
-    int x = columnAtIndex(currentTopLeftIndex);
-    int y = rowAtIndex(currentBottomRightIndex);
-    return visibleTableItem(QPoint(x, y));
+    return visibleTableItem(currentBottomLeftIndex());
 }
 
 FxTableItemSG *QQuickTableViewPrivate::currentBottomRightItem() const
@@ -794,12 +806,18 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
     // can't fit more items in the direction towards the corner, it means that the corner item
     // (and the row/column it belongs to) has been scrolled out of view and should be released.
     FxTableItemSG *innerTopLeftItem = visibleTableItem(cellCoordAt(currentTopLeftIndex) + kDown + kRight);
+    FxTableItemSG *innerBottomRightItem = visibleTableItem(cellCoordAt(currentBottomRightIndex) + kUp + kLeft);
 
     if (!canHaveMoreItemsInDirection(innerTopLeftItem, kLeft)) {
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
-        QPoint bottomLeftCell = cellCoordAt(currentBottomLeftItem());
+        QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         unloadItems(topLeftCell, bottomLeftCell);
         setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kRight));
+    } else if (!canHaveMoreItemsInDirection(innerBottomRightItem, kRight)) {
+        QPoint topRightCell = cellCoordAt(currentTopRightIndex());
+        QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
+        unloadItems(topRightCell, bottomRightCell);
+        setBottomRightIndex(indexAt(cellCoordAt(currentBottomRightIndex) + kLeft));
     }
 }
 
