@@ -177,7 +177,6 @@ protected:
 
     void updateViewportContentWidth();
     void updateViewportContentHeight();
-    void updateTableMetrics(int addedIndex, int removedIndex);
 
     void loadTableItemAsync(int index);
     void deliverPostedTableItems();
@@ -202,7 +201,7 @@ protected:
     void checkLoadRequestStatus();
     void tableItemLoaded(int index);
 
-    void moveTopLeftIndexInDirection(const QPoint &direction);
+    void setTopLeftIndex(int newIndex);
     QString indexToString(int index);
 };
 
@@ -543,12 +542,16 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTab
     bool isEdgeItem = rowAtIndex(fxTableItem->index) == rowAtIndex(currentTopLeftIndex);
 
     if (isEdgeItem) {
-        // For edge items we can only find the X position by looking at either the item
-        // adjacent on the left or on the right. Start by checking to the left.
-        if (FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(-1, 0)))
+        // For edge items we can find the X position by looking at any adjacent item (which
+        // means that we need to be aware of the order in which we load items)
+        if (FxTableItemSG * fxViewAnchorItem = itemNextTo(fxTableItem, kLeft))
             return fxViewAnchorItem->rect().right() + columnSpacing;
-        if (FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(1, 0)))
-            return fxViewAnchorItem->rect().left() - columnSpacing - fxViewAnchorItem->rect().width();
+        if (FxTableItemSG * fxViewAnchorItem = itemNextTo(fxTableItem, kRight))
+            return fxViewAnchorItem->rect().left() - columnSpacing < fxTableItem->rect().width();
+        if (FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, kUp))
+            return fxViewAnchorItem->rect().x();
+        if (FxTableItemSG * fxViewAnchorItem = itemNextTo(fxTableItem, kDown))
+            return fxViewAnchorItem->rect().x();
         Q_UNREACHABLE();
     } else {
         FxTableItemSG *fxViewAnchorItem = tableEdgeItem(fxTableItem, Qt::Vertical);
@@ -571,11 +574,15 @@ qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTab
     bool isEdgeItem = columnAtIndex(fxTableItem->index) == columnAtIndex(currentTopLeftIndex);
 
     if (isEdgeItem) {
-        // For edge items we can find the Y position by looking at either
-        // the item adjacent on top or below. Start by checking on top
-        if (FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(0, -1)))
+        // For edge items we can find the Y position by looking at any adjacent item (which
+        // means that we need to be aware of the order in which we load items)
+        if (FxTableItemSG * fxViewAnchorItem = itemNextTo(fxTableItem, kLeft))
+            return fxViewAnchorItem->rect().y();
+        if (FxTableItemSG * fxViewAnchorItem = itemNextTo(fxTableItem, kRight))
+            return fxViewAnchorItem->rect().y();
+        if (FxTableItemSG *fxViewAnchorItem = itemNextTo(fxTableItem, kUp))
             return fxViewAnchorItem->rect().bottom() + rowSpacing;
-        if (FxTableItemSG * fxViewAnchorItem = itemNextTo(fxTableItem, QPoint(0, 1)))
+        if (FxTableItemSG * fxViewAnchorItem = itemNextTo(fxTableItem, kDown))
             return fxViewAnchorItem->rect().top() - rowSpacing - fxTableItem->rect().height();
         Q_UNREACHABLE();
     } else {
@@ -592,35 +599,10 @@ void QQuickTableViewPrivate::positionTableItem(FxTableItemSG *fxTableItem)
     fxTableItem->setPosition(QPointF(x, y));
 }
 
-void QQuickTableViewPrivate::moveTopLeftIndexInDirection(const QPoint &direction)
+void QQuickTableViewPrivate::setTopLeftIndex(int newIndex)
 {
-    currentTopLeftIndex = indexAt(cellCoordAt(currentTopLeftIndex) + direction);
-    qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentTopLeftIndex);
-}
-
-void QQuickTableViewPrivate::updateTableMetrics(int addedIndex, int removedIndex)
-{
-    int row = rowAtIndex(addedIndex);
-    int column = columnAtIndex(addedIndex);
-    currentTopRightX = qMax(column, currentTopRightX);
-    currentBottomLeftY = qMax(row, currentBottomLeftY);
-
-    // When all edge items of the table has been loaded, we have enough
-    // information to calculate column widths and row height etc.
-//    int rowCount = currentLayoutRequest.visualRowCount;
-//    int columnCount = currentLayoutRequest.visualColumnCount;
-//    int topLeftRow = rowAtIndex(currentTopLeftIndex);
-//    int topLeftColumn = columnAtIndex(currentTopLeftIndex);
-
-//    currentLayoutRequest.topRightIndex = indexAt(topLeftRow, topLeftColumn + columnCount - 1);
-//    currentLayoutRequest.bottomLeftIndex = indexAt(topLeftRow + rowCount - 1, topLeftColumn);
-//    currentLayoutRequest.bottomRightIndex = indexAt(topLeftRow + rowCount - 1, topLeftColumn + columnCount - 1);
-
-//    qCDebug(lcItemViewDelegateLifecycle) << "row count" << rowCount << "column count:" << columnCount;
-//    qCDebug(lcItemViewDelegateLifecycle) << "top left:" << indexToString(currentTopLeftIndex);
-//    qCDebug(lcItemViewDelegateLifecycle) << "bottom left:" << indexToString(currentLayoutRequest.bottomLeftIndex);
-//    qCDebug(lcItemViewDelegateLifecycle) << "top right:" << indexToString(currentLayoutRequest.topRightIndex);
-//    qCDebug(lcItemViewDelegateLifecycle) << "bottom right:" << indexToString(currentLayoutRequest.bottomRightIndex);
+    qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentTopLeftIndex) << "->" << indexToString(newIndex);
+    currentTopLeftIndex = newIndex;
 }
 
 void QQuickTableView::createdItem(int index, QObject* object)
@@ -654,7 +636,11 @@ void QQuickTableViewPrivate::tableItemLoaded(int index)
     FxTableItemSG *receivedTableItem = getTableItemFromModel(index);
     positionTableItem(receivedTableItem);
     showTableItem(receivedTableItem);
-    updateTableMetrics(index, kNullValue);
+
+    currentTopRightX = qMax(columnAtIndex(index), currentTopRightX);
+    currentBottomLeftY = qMax(rowAtIndex(index), currentBottomLeftY);
+    if (index < currentTopLeftIndex)
+        setTopLeftIndex(index);
     continueExecuteCurrentLoadRequest(receivedTableItem);
     checkLoadRequestStatus();
 }
@@ -704,13 +690,17 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
         // Note: TableSectionLoadRequest::LoadInParallel can only work when we
         // know the column widths and row heights of the items we try to load.
         // And this information is found by looking at the table edge items. So
-        // those items must be loaded first. And when doing so, we determine
-        // the current table metrics on the way, like visual row count/column
-        // count, which we then use below to figure out the number of items to request.
-        QPoint bottomRightCell(currentTopRightX, currentBottomLeftY);
+        // those items must be loaded first.
+        const QPoint &startCell = request.startCell;
+        const QPoint &direction = request.fillDirection;
+        Q_ASSERT(direction.x() >= 0);
+        Q_ASSERT(direction.y() >= 0);
 
-        for (int y = request.startCell.y(); y <= bottomRightCell.y(); ++y) {
-            for (int x = request.startCell.x(); x <= bottomRightCell.x(); ++x) {
+        int endX = direction.x() == 1 ? currentTopRightX : startCell.x();
+        int endY = direction.y() == 1 ? currentBottomLeftY : startCell.y();
+
+        for (int y = startCell.y(); y <= endY; ++y) {
+            for (int x = startCell.x(); x <= endX; ++x) {
                 request.requestedItemCount++;
                 loadTableItemAsync(indexAt(QPoint(x, y)));
             }
@@ -753,9 +743,8 @@ void QQuickTableViewPrivate::loadInitialItems()
     qCDebug(lcItemViewDelegateLifecycle());
     Q_ASSERT(visibleItems.isEmpty());
 
-    currentTopLeftIndex = indexAt(QPoint(0, 0));
-
-    QPoint topLeftCoord = cellCoordAt(currentTopLeftIndex);
+    QPoint topLeftCoord(0, 0);
+    setTopLeftIndex(indexAt(topLeftCoord));
 
     TableSectionLoadRequest requestEdgeRow;
     requestEdgeRow.startCell = topLeftCoord;
@@ -787,7 +776,7 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftItem());
         unloadItems(topLeftCell, bottomLeftCell);
-        moveTopLeftIndexInDirection(kRight);
+        setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kRight));
     }
 }
 
