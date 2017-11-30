@@ -653,6 +653,9 @@ void QQuickTableView::createdItem(int index, QObject*)
     }
 
     qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
+
+    // It's important to use createItem to get the item, and
+    // not the object argument, since the former will ref-count it.
     FxTableItemSG *item = static_cast<FxTableItemSG *>(d->createItem(index, false));
 
     Q_ASSERT(item);
