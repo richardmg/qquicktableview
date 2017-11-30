@@ -744,6 +744,9 @@ void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableIt
 
 void QQuickTableViewPrivate::loadInitialItems()
 {
+    // Load top row and left column one-by-one first to determine the number
+    // of rows and columns that fit inside the view. Once that is knows, we
+    // can load all the remaining items in parallel.
     qCDebug(lcItemViewDelegateLifecycle());
     Q_ASSERT(visibleItems.isEmpty());
 
@@ -772,6 +775,9 @@ void QQuickTableViewPrivate::loadInitialItems()
 
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
+    // For each corner item, get the item that is inside next to it diagonally. If that item
+    // can't fit more items in the direction towards the corner, it means that the corner item
+    // (and the row/column it belongs to) has been scrolled out of view and should be released.
     FxTableItemSG *downRightItem = visibleTableItem(cellCoordAt(currentTopLeftIndex) + kDown + kRight);
 
     if (!canHaveMoreItemsInDirection(downRightItem, kLeft)) {
@@ -784,6 +790,8 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
 
 void QQuickTableViewPrivate::loadScrolledInItems()
 {
+    // For each corner item, check if it's more available space on the outside. If so, and
+    // if the model has more items, load new rows and columns on the outside of those items.
     FxTableItemSG *topRightItem = currentTopRightItem();
     FxTableItemSG *bottomLeftItem = currentBottomLeftItem();
 
