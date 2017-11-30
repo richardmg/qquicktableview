@@ -112,18 +112,6 @@ public:
 
     QQuickTableViewPrivate();
 
-    bool isRightToLeft() const;
-    bool isBottomToTop() const;
-
-    int rowAtIndex(int index) const;
-    int rowAtPos(qreal y) const;
-    int columnAtIndex(int index) const;
-    int columnAtPos(qreal x) const;
-    int indexAt(int row, int column) const;
-    int indexAt(const QPoint &cellCoord) const;
-    QPoint cellCoordAt(int index) const;
-    FxViewItem *visibleItemAt(int row, int column) const;
-
     bool addRemoveVisibleItems() override;
     void positionViewAtIndex(int index, int mode) override { Q_UNUSED(index); Q_UNUSED(mode); }
     bool applyModelChanges() override { return false; }
@@ -142,11 +130,12 @@ public:
     void translateAndTransitionFilledItems() override { }
 
 protected:
-    LayoutState layoutState;
+    LayoutState currentLayoutState;
     QRectF currentLayoutRect;
+
     int currentTopLeftIndex;
-    int currentTopRightColumn;
-    int currentBottomLeftRow;
+    int currentTopRightX;
+    int currentBottomLeftY;
 
     int rowCount;
     int columnCount;
@@ -167,7 +156,24 @@ protected:
     constexpr static QPoint kDown = QPoint(0, 1);
 
 protected:
-    QString indexToString(int index);
+    bool isRightToLeft() const;
+    bool isBottomToTop() const;
+
+    int rowAtIndex(int index) const;
+    int columnAtIndex(int index) const;
+
+    QPoint cellCoordAt(int index) const;
+    QPoint cellCoordAt(const FxTableItemSG *tableItem) const;
+    int indexAt(const QPoint &cellCoord) const;
+
+    FxTableItemSG *visibleTableItem(int modelIndex) const;
+    FxTableItemSG *visibleTableItem(const QPoint &cellCoord) const;
+    FxTableItemSG *currentTopLeftItem() const;
+    FxTableItemSG *currentTopRightItem() const;
+    FxTableItemSG *currentBottomLeftItem() const;
+    FxTableItemSG *currentBottomRightItem() const;
+    FxTableItemSG *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
+    FxTableItemSG *tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const;
 
     void updateViewportContentWidth();
     void updateViewportContentHeight();
@@ -178,14 +184,6 @@ protected:
     FxTableItemSG *getTableItemFromModel(int index);
     void showTableItem(FxTableItemSG *fxViewItem);
 
-    FxTableItemSG *visibleTableItem(int modelIndex) const;
-    FxTableItemSG *visibleTableItem(const QPoint &cellCoord) const;
-    FxTableItemSG *currentTopLeftItem() const;
-    FxTableItemSG *currentTopRightItem() const;
-    FxTableItemSG *currentBottomLeftItem() const;
-    FxTableItemSG *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
-    FxTableItemSG *tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const;
-
     bool canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPoint &direction) const;
     qreal calculateTablePositionX(const FxTableItemSG *fxTableItem) const;
     qreal calculateTablePositionY(const FxTableItemSG *fxTableItem) const;
@@ -195,7 +193,7 @@ protected:
     void loadScrolledInItems();
     void loadRowOrColumn(const QPoint &startCell, const QPoint &fillDirection);
     void unloadScrolledOutItems();
-    void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
+    void unloadItems(const QPoint &fromCell, const QPoint &toCell);
 
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
     void dequeueCurrentLoadRequest();
@@ -203,14 +201,16 @@ protected:
     void continueExecuteCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
     void checkLoadRequestStatus();
     void tableItemLoaded(int index);
+
+    QString indexToString(int index);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
-    : layoutState(Idle)
+    : currentLayoutState(Idle)
     , currentLayoutRect(QRect())
     , currentTopLeftIndex(kNullValue)
-    , currentTopRightColumn(kNullValue)
-    , currentBottomLeftRow(kNullValue)
+    , currentTopRightX(kNullValue)
+    , currentBottomLeftY(kNullValue)
     , rowCount(-1)
     , columnCount(-1)
     , orientation(QQuickTableView::Vertical)
@@ -265,30 +265,42 @@ int QQuickTableViewPrivate::columnAtIndex(int index) const
     return index % columns;
 }
 
-int QQuickTableViewPrivate::indexAt(const QPoint& cellCoord) const
-{
-    // NB: indexAt expects row first, which is y
-    return indexAt(cellCoord.y(), cellCoord.x());
-}
-
 QPoint QQuickTableViewPrivate::cellCoordAt(int index) const
 {
     return QPoint(columnAtIndex(index), rowAtIndex(index));
 }
 
-int QQuickTableViewPrivate::indexAt(int row, int column) const
+QPoint QQuickTableViewPrivate::cellCoordAt(const FxTableItemSG *tableItem) const
+{
+    return cellCoordAt(tableItem->index);
+}
+
+int QQuickTableViewPrivate::indexAt(const QPoint& cellCoord) const
 {
     Q_Q(const QQuickTableView);
     int rows = q->rows();
     int columns = q->columns();
-    if (row < 0 || row >= rows || column < 0 || column >= columns)
+    if (cellCoord.y() < 0 || cellCoord.y() >= rows || cellCoord.x() < 0 || cellCoord.x() >= columns)
         return -1;
-    return column + row * columns;
+    return cellCoord.x() + cellCoord.y() * columns;
 }
 
-FxViewItem *QQuickTableViewPrivate::visibleItemAt(int row, int column) const
+FxTableItemSG *QQuickTableViewPrivate::visibleTableItem(int modelIndex) const
 {
-    return visibleItem(indexAt(row, column));
+    // TODO: this is an overload of visibleItems, since the other version
+    // does some wierd things with the index. Fix that up later. And change
+    // visibleItems to use hash or map instead of list.
+    for (int i = 0; i < visibleItems.count(); ++i) {
+        FxViewItem *item = visibleItems.at(i);
+        if (item->index == modelIndex)
+            return static_cast<FxTableItemSG *>(item);
+    }
+    return 0;
+}
+
+FxTableItemSG *QQuickTableViewPrivate::visibleTableItem(const QPoint &cellCoord) const
+{
+    return visibleTableItem(indexAt(cellCoord));
 }
 
 FxTableItemSG *QQuickTableViewPrivate::currentTopLeftItem() const
@@ -299,13 +311,18 @@ FxTableItemSG *QQuickTableViewPrivate::currentTopLeftItem() const
 FxTableItemSG *QQuickTableViewPrivate::currentTopRightItem() const
 {
     int topLeftRow = rowAtIndex(currentTopLeftIndex);
-    return visibleTableItem(indexAt(topLeftRow, currentTopRightColumn));
+    return visibleTableItem(QPoint(topLeftRow, currentTopRightX));
 }
 
 FxTableItemSG *QQuickTableViewPrivate::currentBottomLeftItem() const
 {
     int topLeftColumn = columnAtIndex(currentTopLeftIndex);
-    return visibleTableItem(indexAt(currentBottomLeftRow, topLeftColumn));
+    return visibleTableItem(QPoint(currentBottomLeftY, topLeftColumn));
+}
+
+FxTableItemSG *QQuickTableViewPrivate::currentBottomRightItem() const
+{
+    return visibleTableItem(QPoint(currentBottomLeftY, currentTopRightX));
 }
 
 void QQuickTableViewPrivate::updateViewportContentWidth()
@@ -373,7 +390,7 @@ QString QQuickTableViewPrivate::indexToString(int index)
 {
     if (index == kNullValue)
         return QLatin1String("null index");
-    return QString::fromLatin1("index: %1 (%2, %3)").arg(index).arg(rowAtIndex(index)).arg(columnAtIndex(index));
+    return QString::fromLatin1("index: %1 (x:%2, y:%3)").arg(index).arg(columnAtIndex(index)).arg(rowAtIndex(index));
 }
 
 void QQuickTableViewPrivate::loadTableItemAsync(int index)
@@ -442,37 +459,17 @@ FxTableItemSG *QQuickTableViewPrivate::getTableItemFromModel(int index)
     return item;
 }
 
-void QQuickTableViewPrivate::releaseItems(int fromColumn, int toColumn, int fromRow, int toRow)
+void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &toCell)
 {
-    qCDebug(lcItemViewDelegateLifecycle) << "release items ( x1:"
-                                         << fromColumn << ", x2:" << toColumn << ", y1:"
-                                         << fromRow << ", y2:" << toRow  << ")";
+    qCDebug(lcItemViewDelegateLifecycle) << fromCell << "->" << toCell;
 
-    for (int row = fromRow; row <= toRow; ++row) {
-        for (int col = fromColumn; col <= toColumn; ++col) {
-            FxViewItem *item = visibleItemAt(row, col);
+    for (int y = fromCell.y(); y <= toCell.y(); ++y) {
+        for (int x = fromCell.x(); x <= toCell.x(); ++x) {
+            FxTableItemSG *item = visibleTableItem(QPoint(x ,y));
             visibleItems.removeOne(item);
             releaseItem(item);
         }
     }
-}
-
-FxTableItemSG *QQuickTableViewPrivate::visibleTableItem(int modelIndex) const
-{
-    // TODO: this is an overload of visibleItems, since the other version
-    // does some wierd things with the index. Fix that up later. And change
-    // visibleItems to use hash or map instead of list.
-    for (int i = 0; i < visibleItems.count(); ++i) {
-        FxViewItem *item = visibleItems.at(i);
-        if (item->index == modelIndex)
-            return static_cast<FxTableItemSG *>(item);
-    }
-    return 0;
-}
-
-FxTableItemSG *QQuickTableViewPrivate::visibleTableItem(const QPoint &cellCoord) const
-{
-    return visibleTableItem(indexAt(cellCoord));
 }
 
 void QQuickTableViewPrivate::showTableItem(FxTableItemSG *fxViewItem)
@@ -484,10 +481,7 @@ void QQuickTableViewPrivate::showTableItem(FxTableItemSG *fxViewItem)
 
 FxTableItemSG *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const
 {
-    int index = fxViewItem->index;
-    int row = rowAtIndex(index) + direction.y();
-    int column = columnAtIndex(index) + direction.x();
-    return visibleTableItem(indexAt(row, column));
+    return visibleTableItem(cellCoordAt(fxViewItem) + direction);
 }
 
 FxTableItemSG *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const
@@ -497,11 +491,11 @@ FxTableItemSG *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxTabl
     if (orientation == Qt::Horizontal) {
         int row = rowAtIndex(index);
         int edgeColumn = columnAtIndex(currentTopLeftIndex);
-        return visibleTableItem(indexAt(row, edgeColumn));
+        return visibleTableItem(QPoint(edgeColumn, row));
     } else {
         int column = columnAtIndex(index);
         int edgeRow = rowAtIndex(currentTopLeftIndex);
-        return visibleTableItem(indexAt(edgeRow, column));
+        return visibleTableItem(QPoint(column, edgeRow));
     }
 }
 
@@ -595,8 +589,8 @@ void QQuickTableViewPrivate::updateTableMetrics(int addedIndex, int removedIndex
 {
     int row = rowAtIndex(addedIndex);
     int column = columnAtIndex(addedIndex);
-    currentTopRightColumn = qMax(column, currentTopRightColumn);
-    currentBottomLeftRow = qMax(row, currentBottomLeftRow);
+    currentTopRightX = qMax(column, currentTopRightX);
+    currentBottomLeftY = qMax(row, currentBottomLeftY);
 
     // When all edge items of the table has been loaded, we have enough
     // information to calculate column widths and row height etc.
@@ -626,7 +620,7 @@ void QQuickTableView::createdItem(int index, QObject* object)
         d->requestedIndex = -1;
     }
 
-    Q_ASSERT(d->layoutState != QQuickTableViewPrivate::Idle);
+    Q_ASSERT(d->currentLayoutState != QQuickTableViewPrivate::Idle);
 
     if (d->blockCreatedItemsSyncCallback) {
         // Items that are created synchronously will still need to
@@ -664,7 +658,7 @@ void QQuickTableViewPrivate::checkLoadRequestStatus()
     } else {
         // Nothing more todo. Check if the view port moved while we
         // were processing load requests, and if so, start all over.
-        layoutState = Idle;
+        currentLayoutState = Idle;
         addRemoveVisibleItems();
     }
 }
@@ -684,7 +678,7 @@ void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
 void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
 {
     Q_ASSERT(!loadRequests.isEmpty());
-    layoutState = ProcessingLoadRequest;
+    currentLayoutState = ProcessingLoadRequest;
 
     TableSectionLoadRequest &request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle) << request;
@@ -700,16 +694,11 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
         // those items must be loaded first. And when doing so, we determine
         // the current table metrics on the way, like visual row count/column
         // count, which we then use below to figure out the number of items to request.
-        int topLeftRow = rowAtIndex(currentTopLeftIndex);
-        int topLeftColumn = columnAtIndex(currentTopLeftIndex);
-        int rows = currentBottomLeftRow - topLeftRow + 1;
-        int columns = currentTopRightColumn - topLeftColumn + 1;
+        QPoint bottomRightCell(currentTopRightX, currentBottomLeftY);
 
-        for (int y = request.startCell.y(); y < rows; ++y) {
-            for (int x = request.startCell.x(); x < columns; ++x) {
-                request.requestedItemCount++;
-                int index = indexAt(topLeftRow + y, topLeftColumn + x);
-                loadTableItemAsync(index);
+        for (int y = request.startCell.y(); y <= bottomRightCell.y(); ++y) {
+            for (int x = request.startCell.x(); x <= bottomRightCell.x(); ++x) {
+                loadTableItemAsync(indexAt(QPoint(x, y)));
             }
         }
         break; }
@@ -731,7 +720,7 @@ void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest(const FxTableItem
     case TableSectionLoadRequest::LoadOneByOne: {
         request.done = !canHaveMoreItemsInDirection(receivedTableItem, request.fillDirection);
         if (!request.done) {
-            const QPoint nextCell = cellCoordAt(receivedTableItem->index) + request.fillDirection;
+            const QPoint nextCell = cellCoordAt(receivedTableItem) + request.fillDirection;
             loadTableItemAsync(indexAt(nextCell));
         }
         break; }
@@ -750,7 +739,7 @@ void QQuickTableViewPrivate::loadInitialItems()
     qCDebug(lcItemViewDelegateLifecycle());
     Q_ASSERT(visibleItems.isEmpty());
 
-    currentTopLeftIndex = indexAt(0, 0);
+    currentTopLeftIndex = indexAt(QPoint(0, 0));
 
     QPoint topLeftCoord = cellCoordAt(currentTopLeftIndex);
 
@@ -778,15 +767,18 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
     // For each corner item, get the item that is inside next to it diagonally. If that item
     // can't fit more items in the direction towards the corner, it means that the corner item
     // (and the row/column it belongs to) has been scrolled out of view and should be released.
-    FxTableItemSG *downRightItem = visibleTableItem(cellCoordAt(currentTopLeftIndex) + kDown + kRight);
+    FxTableItemSG *innerTopLeftItem = visibleTableItem(cellCoordAt(currentTopLeftIndex) + kDown + kRight);
 
-    if (!canHaveMoreItemsInDirection(downRightItem, kLeft)) {
-        qDebug() << "remove left column";
-        // release items
-        // update top-left
-//        releaseItem(item);
+    if (!canHaveMoreItemsInDirection(innerTopLeftItem, kLeft)) {
+        QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
+        QPoint bottomLeftCell = cellCoordAt(currentBottomLeftItem());
+        unloadItems(topLeftCell, bottomLeftCell);
+        currentTopLeftIndex = indexAt(cellCoordAt(currentTopLeftIndex) + kRight);
     }
+
+    qCDebug(lcItemViewDelegateLifecycle()) << "new top left index:" << indexToString(currentTopLeftIndex);
 }
+
 
 void QQuickTableViewPrivate::loadScrolledInItems()
 {
@@ -796,18 +788,18 @@ void QQuickTableViewPrivate::loadScrolledInItems()
     FxTableItemSG *bottomLeftItem = currentBottomLeftItem();
 
     if (canHaveMoreItemsInDirection(bottomLeftItem, kLeft)) {
-        QPoint startCell = cellCoordAt(bottomLeftItem->index) + kLeft;
+        QPoint startCell = cellCoordAt(bottomLeftItem) + kLeft;
         loadRowOrColumn(startCell, kUp);
     } else if (canHaveMoreItemsInDirection(topRightItem, kRight)) {
-        QPoint startCell = cellCoordAt(topRightItem->index) + kRight;
+        QPoint startCell = cellCoordAt(topRightItem) + kRight;
         loadRowOrColumn(startCell, kDown);
     }
 
     if (canHaveMoreItemsInDirection(topRightItem, kUp)) {
-        QPoint startCell = cellCoordAt(topRightItem->index) + kUp;
+        QPoint startCell = cellCoordAt(topRightItem) + kUp;
         loadRowOrColumn(startCell, kLeft);
     } else if (canHaveMoreItemsInDirection(bottomLeftItem, kDown)) {
-        QPoint startCell = cellCoordAt(bottomLeftItem->index) + kDown;
+        QPoint startCell = cellCoordAt(bottomLeftItem) + kDown;
         loadRowOrColumn(startCell, kRight);
     }
 }
@@ -831,7 +823,7 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     Q_Q(QQuickTableView);
 
-    if (layoutState != Idle)
+    if (currentLayoutState != Idle)
         return false;
 
     QRectF viewportRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
