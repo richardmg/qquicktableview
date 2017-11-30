@@ -144,7 +144,7 @@ protected:
     qreal columnSpacing;
     QQueue<TableSectionLoadRequest> loadRequests;
     QEvent::Type eventTypeDeliverPostedTableItems;
-    QVector<int> postedTableItems;
+    QVector<FxTableItemSG *> postedTableItems;
 
     bool blockCreatedItemsSyncCallback;
     bool forceSynchronousMode;
@@ -205,7 +205,7 @@ protected:
     void beginExecuteCurrentLoadRequest();
     void continueExecuteCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
     void checkLoadRequestStatus();
-    void tableItemLoaded(int index);
+    void tableItemLoaded(FxTableItemSG *tableItem);
 
     QString indexToString(int index);
 };
@@ -222,7 +222,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , columnSpacing(0)
     , loadRequests(QQueue<TableSectionLoadRequest>())
     , eventTypeDeliverPostedTableItems(static_cast<QEvent::Type>(QEvent::registerEventType()))
-    , postedTableItems(QVector<int>())
+    , postedTableItems(QVector<FxTableItemSG *>())
     , blockCreatedItemsSyncCallback(false)
     , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
     , inViewportMoved(false)
@@ -455,15 +455,13 @@ void QQuickTableViewPrivate::loadTableItemAsync(int index)
         // all in one go once we receive the event.
         qCDebug(lcItemViewDelegateLifecycle) << "item already loaded, posting it:" << indexToString(index);
         bool alreadyWaitingForPendingEvent = !postedTableItems.isEmpty();
-        postedTableItems.append(index);
+        postedTableItems.append(item);
 
         if (!alreadyWaitingForPendingEvent && !forceSynchronousMode) {
             qCDebug(lcItemViewDelegateLifecycle) << "posting eventTypeDeliverPostedTableItems";
             QEvent *event = new QEvent(eventTypeDeliverPostedTableItems);
             qApp->postEvent(q_func(), event);
         }
-
-        releaseItem(item);
     }
 }
 
@@ -480,9 +478,9 @@ void QQuickTableViewPrivate::deliverPostedTableItems()
     // might be appended to the list, which means that we can end
     // up delivering more items than what we had when we started.
     for (int i = 0; i < postedTableItems.count(); ++i) {
-        const int index = postedTableItems[i];
-        qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
-        tableItemLoaded(index);
+        FxTableItemSG *tableItem = postedTableItems[i];
+        qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << indexToString(tableItem->index);
+        tableItemLoaded(tableItem);
     }
 
     postedTableItems.clear();
@@ -665,18 +663,18 @@ void QQuickTableView::createdItem(int index, QObject* object)
 
     Q_ASSERT(qmlobject_cast<QQuickItem*>(object));
     qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
-    d->tableItemLoaded(index);
+
+    d->tableItemLoaded(d->getTableItemFromModel(index));
 }
 
-void QQuickTableViewPrivate::tableItemLoaded(int index)
+void QQuickTableViewPrivate::tableItemLoaded(FxTableItemSG *tableItem)
 {
-    qCDebug(lcItemViewDelegateLifecycle) << indexToString(index);
+    qCDebug(lcItemViewDelegateLifecycle) << indexToString(tableItem->index);
 
-    FxTableItemSG *receivedTableItem = getTableItemFromModel(index);
-    updateCurrentTableGeometry(index);
-    positionTableItem(receivedTableItem);
-    showTableItem(receivedTableItem);
-    continueExecuteCurrentLoadRequest(receivedTableItem);
+    updateCurrentTableGeometry(tableItem->index);
+    positionTableItem(tableItem);
+    showTableItem(tableItem);
+    continueExecuteCurrentLoadRequest(tableItem);
     checkLoadRequestStatus();
 }
 
