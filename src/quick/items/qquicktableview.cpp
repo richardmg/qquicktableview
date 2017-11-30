@@ -202,6 +202,7 @@ protected:
     void checkLoadRequestStatus();
     void tableItemLoaded(int index);
 
+    void moveTopLeftIndexInDirection(const QPoint &direction);
     QString indexToString(int index);
 };
 
@@ -310,19 +311,19 @@ FxTableItemSG *QQuickTableViewPrivate::currentTopLeftItem() const
 
 FxTableItemSG *QQuickTableViewPrivate::currentTopRightItem() const
 {
-    int topLeftRow = rowAtIndex(currentTopLeftIndex);
-    return visibleTableItem(QPoint(topLeftRow, currentTopRightX));
+    int topLeftY = rowAtIndex(currentTopLeftIndex);
+    return visibleTableItem(QPoint(currentTopRightX, topLeftY));
 }
 
 FxTableItemSG *QQuickTableViewPrivate::currentBottomLeftItem() const
 {
-    int topLeftColumn = columnAtIndex(currentTopLeftIndex);
-    return visibleTableItem(QPoint(currentBottomLeftY, topLeftColumn));
+    int topLeftX = columnAtIndex(currentTopLeftIndex);
+    return visibleTableItem(QPoint(topLeftX, currentBottomLeftY));
 }
 
 FxTableItemSG *QQuickTableViewPrivate::currentBottomRightItem() const
 {
-    return visibleTableItem(QPoint(currentBottomLeftY, currentTopRightX));
+    return visibleTableItem(QPoint(currentTopRightX, currentBottomLeftY));
 }
 
 void QQuickTableViewPrivate::updateViewportContentWidth()
@@ -585,6 +586,12 @@ void QQuickTableViewPrivate::positionTableItem(FxTableItemSG *fxTableItem)
     fxTableItem->setPosition(QPointF(x, y));
 }
 
+void QQuickTableViewPrivate::moveTopLeftIndexInDirection(const QPoint &direction)
+{
+    currentTopLeftIndex = indexAt(cellCoordAt(currentTopLeftIndex) + direction);
+    qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentTopLeftIndex);
+}
+
 void QQuickTableViewPrivate::updateTableMetrics(int addedIndex, int removedIndex)
 {
     int row = rowAtIndex(addedIndex);
@@ -698,6 +705,7 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
 
         for (int y = request.startCell.y(); y <= bottomRightCell.y(); ++y) {
             for (int x = request.startCell.x(); x <= bottomRightCell.x(); ++x) {
+                request.requestedItemCount++;
                 loadTableItemAsync(indexAt(QPoint(x, y)));
             }
         }
@@ -773,12 +781,9 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftItem());
         unloadItems(topLeftCell, bottomLeftCell);
-        currentTopLeftIndex = indexAt(cellCoordAt(currentTopLeftIndex) + kRight);
+        moveTopLeftIndexInDirection(kRight);
     }
-
-    qCDebug(lcItemViewDelegateLifecycle()) << "new top left index:" << indexToString(currentTopLeftIndex);
 }
-
 
 void QQuickTableViewPrivate::loadScrolledInItems()
 {
