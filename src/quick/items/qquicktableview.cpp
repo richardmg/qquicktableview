@@ -193,14 +193,14 @@ protected:
 
     void loadInitialItems();
     void loadScrolledInItems();
-    void loadItemsInDirection(const QPoint &startCell, const QPoint &fillDirection);
+    void loadRowOrColumn(const QPoint &startCell, const QPoint &fillDirection);
     void unloadScrolledOutItems();
     void releaseItems(int fromColumn, int toColumn, int fromRow, int toRow);
 
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
     void dequeueCurrentLoadRequest();
-    void executeNextLoadRequest();
-    void continueExecutingCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
+    void beginExecuteCurrentLoadRequest();
+    void continueExecuteCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
     void checkLoadRequestStatus();
     void tableItemLoaded(int index);
 };
@@ -648,7 +648,7 @@ void QQuickTableViewPrivate::tableItemLoaded(int index)
     positionTableItem(receivedTableItem);
     showTableItem(receivedTableItem);
     updateTableMetrics(index, kNullValue);
-    continueExecutingCurrentLoadRequest(receivedTableItem);
+    continueExecuteCurrentLoadRequest(receivedTableItem);
     checkLoadRequestStatus();
 }
 
@@ -660,7 +660,7 @@ void QQuickTableViewPrivate::checkLoadRequestStatus()
     dequeueCurrentLoadRequest();
 
     if (!loadRequests.isEmpty()) {
-        executeNextLoadRequest();
+        beginExecuteCurrentLoadRequest();
     } else {
         // Nothing more todo. Check if the view port moved while we
         // were processing load requests, and if so, start all over.
@@ -681,7 +681,7 @@ void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
     qCDebug(lcItemViewDelegateLifecycle) << request << "\n";
 }
 
-void QQuickTableViewPrivate::executeNextLoadRequest()
+void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
 {
     Q_ASSERT(!loadRequests.isEmpty());
     layoutState = ProcessingLoadRequest;
@@ -716,7 +716,7 @@ void QQuickTableViewPrivate::executeNextLoadRequest()
     }
 }
 
-void QQuickTableViewPrivate::continueExecutingCurrentLoadRequest(const FxTableItemSG *receivedTableItem)
+void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest(const FxTableItemSG *receivedTableItem)
 {
     Q_ASSERT(!loadRequests.isEmpty());
     TableSectionLoadRequest &request = loadRequests.head();
@@ -797,23 +797,25 @@ void QQuickTableViewPrivate::loadScrolledInItems()
 
     if (canHaveMoreItemsInDirection(bottomLeftItem, kLeft)) {
         QPoint startCell = cellCoordAt(bottomLeftItem->index) + kLeft;
-        loadItemsInDirection(startCell, kUp);
+        loadRowOrColumn(startCell, kUp);
     } else if (canHaveMoreItemsInDirection(topRightItem, kRight)) {
         QPoint startCell = cellCoordAt(topRightItem->index) + kRight;
-        loadItemsInDirection(startCell, kDown);
+        loadRowOrColumn(startCell, kDown);
     }
 
     if (canHaveMoreItemsInDirection(topRightItem, kUp)) {
         QPoint startCell = cellCoordAt(topRightItem->index) + kUp;
-        loadItemsInDirection(startCell, kLeft);
+        loadRowOrColumn(startCell, kLeft);
     } else if (canHaveMoreItemsInDirection(bottomLeftItem, kDown)) {
         QPoint startCell = cellCoordAt(bottomLeftItem->index) + kDown;
-        loadItemsInDirection(startCell, kRight);
+        loadRowOrColumn(startCell, kRight);
     }
 }
 
-void QQuickTableViewPrivate::loadItemsInDirection(const QPoint &startCell, const QPoint &fillDirection)
+void QQuickTableViewPrivate::loadRowOrColumn(const QPoint &startCell, const QPoint &fillDirection)
 {
+    // When we load a new row or column, we begin by loading the start cell to determine the new
+    // row/column size. Once that information is known we can load the rest of the items in parallel.
     TableSectionLoadRequest edgeItemRequest;
     edgeItemRequest.startCell = startCell;
     enqueueLoadRequest(edgeItemRequest);
@@ -846,7 +848,7 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     }
 
     if (!loadRequests.isEmpty()) {
-        executeNextLoadRequest();
+        beginExecuteCurrentLoadRequest();
 
         if (forceSynchronousMode)
             deliverPostedTableItems();
