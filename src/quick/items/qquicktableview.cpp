@@ -134,8 +134,7 @@ protected:
     QRectF currentLayoutRect;
 
     int currentTopLeftIndex;
-    int currentTopRightX;
-    int currentBottomLeftY;
+    int currentBottomRightIndex;
 
     int rowCount;
     int columnCount;
@@ -146,6 +145,7 @@ protected:
     QQueue<TableSectionLoadRequest> loadRequests;
     QEvent::Type eventTypeDeliverPostedTableItems;
     QVector<int> postedTableItems;
+
     bool blockCreatedItemsSyncCallback;
     bool forceSynchronousMode;
     bool inViewportMoved;
@@ -158,6 +158,9 @@ protected:
 protected:
     bool isRightToLeft() const;
     bool isBottomToTop() const;
+
+    void setTopLeftIndex(int newIndex);
+    void setBottomRightIndex(int newIndex);
 
     int rowAtIndex(int index) const;
     int columnAtIndex(int index) const;
@@ -202,16 +205,14 @@ protected:
     void checkLoadRequestStatus();
     void tableItemLoaded(int index);
 
-    void setTopLeftIndex(int newIndex);
     QString indexToString(int index);
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
     : currentLayoutState(Idle)
     , currentLayoutRect(QRect())
-    , currentTopLeftIndex(kNullValue)
-    , currentTopRightX(kNullValue)
-    , currentBottomLeftY(kNullValue)
+    , currentTopLeftIndex(0)
+    , currentBottomRightIndex(0)
     , rowCount(-1)
     , columnCount(-1)
     , orientation(QQuickTableView::Vertical)
@@ -235,6 +236,18 @@ bool QQuickTableViewPrivate::isRightToLeft() const
 bool QQuickTableViewPrivate::isBottomToTop() const
 {
     return orientation == QQuickTableView::Vertical && verticalLayoutDirection == QQuickAbstractItemView::BottomToTop;
+}
+
+void QQuickTableViewPrivate::setTopLeftIndex(int newIndex)
+{
+    qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentTopLeftIndex) << "->" << indexToString(newIndex);
+    currentTopLeftIndex = newIndex;
+}
+
+void QQuickTableViewPrivate::setBottomRightIndex(int newIndex)
+{
+    qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentBottomRightIndex) << "->" << indexToString(newIndex);
+    currentBottomRightIndex = newIndex;
 }
 
 int QQuickTableViewPrivate::rowAtIndex(int index) const
@@ -311,19 +324,21 @@ FxTableItemSG *QQuickTableViewPrivate::currentTopLeftItem() const
 
 FxTableItemSG *QQuickTableViewPrivate::currentTopRightItem() const
 {
-    int topLeftY = rowAtIndex(currentTopLeftIndex);
-    return visibleTableItem(QPoint(currentTopRightX, topLeftY));
+    int x = columnAtIndex(currentBottomRightIndex);
+    int y = rowAtIndex(currentTopLeftIndex);
+    return visibleTableItem(QPoint(x, y));
 }
 
 FxTableItemSG *QQuickTableViewPrivate::currentBottomLeftItem() const
 {
-    int topLeftX = columnAtIndex(currentTopLeftIndex);
-    return visibleTableItem(QPoint(topLeftX, currentBottomLeftY));
+    int x = columnAtIndex(currentTopLeftIndex);
+    int y = rowAtIndex(currentBottomRightIndex);
+    return visibleTableItem(QPoint(x, y));
 }
 
 FxTableItemSG *QQuickTableViewPrivate::currentBottomRightItem() const
 {
-    return visibleTableItem(QPoint(currentTopRightX, currentBottomLeftY));
+    return visibleTableItem(currentBottomRightIndex);
 }
 
 void QQuickTableViewPrivate::updateViewportContentWidth()
@@ -355,8 +370,16 @@ void QQuickTableViewPrivate::updateCurrentTableGeometry(int addedIndex)
 {
     if (addedIndex < currentTopLeftIndex)
         setTopLeftIndex(addedIndex);
-    currentTopRightX = qMax(columnAtIndex(addedIndex), currentTopRightX);
-    currentBottomLeftY = qMax(rowAtIndex(addedIndex), currentBottomLeftY);
+
+    // While currentTopLeftIndex always points to a loaded item, currentBottomRightIndex
+    // will often point to a cell that is yet to be loaded
+    QPoint bottomRight = cellCoordAt(currentBottomRightIndex);
+    QPoint addedCoord = cellCoordAt(addedIndex);
+
+    if (addedCoord.x() > bottomRight.x())
+        setBottomRightIndex(indexAt(QPoint(addedCoord.x(), bottomRight.y())));
+    if (addedCoord.y() > bottomRight.y())
+        setBottomRightIndex(indexAt(QPoint(bottomRight.x(), addedCoord.y())));
 }
 
 void QQuickTableView::viewportMoved(Qt::Orientations orient)
@@ -545,7 +568,6 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTab
     // loaded, we use that as reference instead, as it allows us to load several items in parallel.
     if (visibleItems.isEmpty()) {
         // Special case: the first item will be at 0, 0 for now
-        qCDebug(lcItemViewDelegateLifecycle()) << "special case x";
         return 0;
     }
 
@@ -578,7 +600,6 @@ qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTab
     // loaded, we use that as reference instead, as it allows us to load several items in parallel.
     if (visibleItems.isEmpty()) {
         // Special case: the first item will be at 0, 0 for now
-        qCDebug(lcItemViewDelegateLifecycle()) << "special case y";
         return 0;
     }
 
@@ -609,12 +630,6 @@ void QQuickTableViewPrivate::positionTableItem(FxTableItemSG *fxTableItem)
     int y = calculateTablePositionY(fxTableItem);
     fxTableItem->setPosition(QPointF(x, y));
     qCDebug(lcItemViewDelegateLifecycle()) << indexToString(fxTableItem->index) << fxTableItem->rect();
-}
-
-void QQuickTableViewPrivate::setTopLeftIndex(int newIndex)
-{
-    qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentTopLeftIndex) << "->" << indexToString(newIndex);
-    currentTopLeftIndex = newIndex;
 }
 
 void QQuickTableView::createdItem(int index, QObject* object)
@@ -704,8 +719,8 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
         Q_ASSERT(direction.x() >= 0);
         Q_ASSERT(direction.y() >= 0);
 
-        int endX = direction.x() == 1 ? currentTopRightX : startCell.x();
-        int endY = direction.y() == 1 ? currentBottomLeftY : startCell.y();
+        int endX = direction.x() == 1 ? columnAtIndex(currentBottomRightIndex) : startCell.x();
+        int endY = direction.y() == 1 ? rowAtIndex(currentBottomRightIndex) : startCell.y();
 
         for (int y = startCell.y(); y <= endY; ++y) {
             for (int x = startCell.x(); x <= endX; ++x) {
