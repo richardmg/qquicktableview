@@ -531,6 +531,8 @@ void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &t
             releaseItem(item);
         }
     }
+
+    dumpTableGeometry();
 }
 
 void QQuickTableViewPrivate::showTableItem(FxTableItemSG *fxViewItem)
@@ -830,35 +832,31 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
     const QRectF &bottomRightRect = currentBottomRightItem()->rect();
 
     if (topLeftRect.right() < currentLayoutRect.left()) {
-        qCDebug(lcTableViewLayout()) << "unload left column";
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
+        qCDebug(lcTableViewLayout()) << "unload left column" << topLeftCell.x();
         setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kRight));
         unloadItems(topLeftCell, bottomLeftCell);
-        dumpTableGeometry();
     } else if (bottomRightRect.left() > currentLayoutRect.right()) {
-        qCDebug(lcTableViewLayout()) << "unload right column";
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
+        qCDebug(lcTableViewLayout()) << "unload right column" << topRightCell.x();
         setBottomRightIndex(indexAt(cellCoordAt(currentBottomRightIndex) + kLeft));
         unloadItems(topRightCell, bottomRightCell);
-        dumpTableGeometry();
     }
 
     if (topLeftRect.bottom() < currentLayoutRect.top()) {
-        qCDebug(lcTableViewLayout()) << "unload top column";
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
+        qCDebug(lcTableViewLayout()) << "unload top row" << topLeftCell.y();
         setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kDown));
         unloadItems(topLeftCell, topRightCell);
-        dumpTableGeometry();
     } else if (bottomRightRect.top() > currentLayoutRect.bottom()) {
-        qCDebug(lcTableViewLayout()) << "unload bottom column";
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
+        qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomLeftCell.y();
         setBottomRightIndex(indexAt(cellCoordAt(currentBottomRightIndex) + kUp));
         unloadItems(bottomLeftCell, bottomRightCell);
-        dumpTableGeometry();
     }
 }
 
@@ -871,27 +869,23 @@ void QQuickTableViewPrivate::loadScrolledInItems()
     FxTableItemSG *bottomLeftItem = currentBottomLeftItem();
 
     if (canHaveMoreItemsInDirection(topLeftItem, kLeft)) {
-        qCDebug(lcTableViewLayout()) << "load left column";
         QPoint startCell = cellCoordAt(topLeftItem) + kLeft;
+        qCDebug(lcTableViewLayout()) << "load left column" << startCell.x();
         loadRowOrColumn(startCell, kDown);
-        dumpTableGeometry();
     } else if (canHaveMoreItemsInDirection(topRightItem, kRight)) {
-        qCDebug(lcTableViewLayout()) << "load right column";
         QPoint startCell = cellCoordAt(topRightItem) + kRight;
+        qCDebug(lcTableViewLayout()) << "load right column" << startCell.x();
         loadRowOrColumn(startCell, kDown);
-        dumpTableGeometry();
     }
 
     if (canHaveMoreItemsInDirection(topLeftItem, kUp)) {
-        qCDebug(lcTableViewLayout()) << "load top row";
         QPoint startCell = cellCoordAt(topLeftItem) + kUp;
+        qCDebug(lcTableViewLayout()) << "load top row" << startCell.y();
         loadRowOrColumn(startCell, kRight);
-        dumpTableGeometry();
     } else if (canHaveMoreItemsInDirection(bottomLeftItem, kDown)) {
-        qCDebug(lcTableViewLayout()) << "load bottom row";
         QPoint startCell = cellCoordAt(bottomLeftItem) + kDown;
+        qCDebug(lcTableViewLayout()) << "load bottom row" << startCell.y();
         loadRowOrColumn(startCell, kRight);
-        dumpTableGeometry();
     }
 }
 
