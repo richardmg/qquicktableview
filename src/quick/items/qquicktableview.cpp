@@ -826,6 +826,10 @@ void QQuickTableViewPrivate::loadInitialItems()
     beginExecuteCurrentLoadRequest();
 }
 
+void lt(qreal x1, qreal x2) {
+    return qFloor(x) < qFloor(x2);
+}
+
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
     const QRectF &topLeftRect = currentTopLeftItem->rect();
