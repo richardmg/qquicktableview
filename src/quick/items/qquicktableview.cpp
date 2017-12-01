@@ -130,7 +130,7 @@ public:
     void translateAndTransitionFilledItems() override { }
 
 protected:
-    LayoutState currentLayoutState;
+    bool addRemoveVisibleItemsGuard;
     QRectF currentLayoutRect;
 
     int currentTopLeftIndex;
@@ -156,6 +156,7 @@ protected:
     constexpr static QPoint kDown = QPoint(0, 1);
 
 protected:
+    QRectF viewportRect() const;
     bool isRightToLeft() const;
     bool isBottomToTop() const;
 
@@ -193,6 +194,7 @@ protected:
     qreal calculateTablePositionY(const FxTableItemSG *fxTableItem) const;
     void positionTableItem(FxTableItemSG *fxTableItem);
 
+    bool loadUnloadTableEdges();
     void loadInitialItems();
     void loadScrolledInItems();
     void loadRowOrColumn(const QPoint &startCell, const QPoint &fillDirection);
@@ -211,7 +213,7 @@ protected:
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
-    : currentLayoutState(Idle)
+    : addRemoveVisibleItemsGuard(false)
     , currentLayoutRect(QRect())
     , currentTopLeftIndex(0)
     , currentBottomRightIndex(0)
@@ -227,6 +229,12 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
     , itemCountChanged(false)
 {
+}
+
+QRectF QQuickTableViewPrivate::viewportRect() const
+{
+    Q_Q(const QQuickTableView);
+    return QRectF(QPointF(q->contentX(), q->contentY()), q->size());
 }
 
 bool QQuickTableViewPrivate::isRightToLeft() const
@@ -400,9 +408,6 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     QQuickAbstractItemView::viewportMoved(orient);
 
     d->addRemoveVisibleItems();
-
-    if (d->forceSynchronousMode)
-        d->deliverPostedTableItems();
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -655,7 +660,7 @@ void QQuickTableView::createdItem(int index, QObject*)
         d->requestedIndex = -1;
     }
 
-    Q_ASSERT(d->currentLayoutState != QQuickTableViewPrivate::Idle);
+    Q_ASSERT(d->addRemoveVisibleItemsGuard);
 
     if (d->blockCreatedItemsSyncCallback) {
         // Items that are created synchronously will still need to
@@ -698,9 +703,8 @@ void QQuickTableViewPrivate::checkLoadRequestStatus()
     } else {
         // Nothing more todo. Check if the view port moved while we
         // were processing load requests, and if so, start all over.
-        currentLayoutState = Idle;
         dumpDebugInfo();
-        addRemoveVisibleItems();
+        loadUnloadTableEdges();
     }
 }
 
@@ -719,7 +723,6 @@ void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
 void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
 {
     Q_ASSERT(!loadRequests.isEmpty());
-    currentLayoutState = ProcessingLoadRequest;
 
     TableSectionLoadRequest &request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle) << request;
@@ -782,8 +785,10 @@ void QQuickTableViewPrivate::loadInitialItems()
     // Load top row and left column one-by-one first to determine the number
     // of rows and columns that fit inside the view. Once that is knows, we
     // can load all the remaining items in parallel.
-    qCDebug(lcItemViewDelegateLifecycle());
     Q_ASSERT(visibleItems.isEmpty());
+
+    currentLayoutRect = viewportRect();
+    qCDebug(lcItemViewDelegateLifecycle()) << "layout rect:" << currentLayoutRect;
 
     QPoint topLeftCoord(0, 0);
     setTopLeftIndex(indexAt(topLeftCoord));
@@ -805,6 +810,8 @@ void QQuickTableViewPrivate::loadInitialItems()
     requestInnerItems.fillDirection = kRight + kDown;
     requestInnerItems.loadMode = TableSectionLoadRequest::LoadInParallel;
     enqueueLoadRequest(requestInnerItems);
+
+    beginExecuteCurrentLoadRequest();
 }
 
 void QQuickTableViewPrivate::unloadScrolledOutItems()
@@ -880,33 +887,44 @@ void QQuickTableViewPrivate::loadRowOrColumn(const QPoint &startCell, const QPoi
     enqueueLoadRequest(trailingItemsRequest);
 }
 
+bool QQuickTableViewPrivate::loadUnloadTableEdges()
+{
+    Q_ASSERT(!visibleItems.isEmpty());
+    currentLayoutRect = viewportRect();
+
+    unloadScrolledOutItems();
+    loadScrolledInItems();
+
+    if (loadRequests.isEmpty())
+        return false;
+
+    beginExecuteCurrentLoadRequest();
+    return true;
+}
+
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
-    Q_Q(QQuickTableView);
-
-    if (currentLayoutState != Idle)
+    if (addRemoveVisibleItemsGuard)
         return false;
 
-    QRectF viewportRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
-    if (!viewportRect.isValid())
+    QBoolBlocker blocker(addRemoveVisibleItemsGuard);
+
+    if (!viewportRect().isValid())
         return false;
 
-    currentLayoutRect = viewportRect;
+    bool modified = false;
 
     if (visibleItems.isEmpty()) {
         loadInitialItems();
+        modified = true;
     } else {
-        unloadScrolledOutItems();
-        loadScrolledInItems();
+        modified = loadUnloadTableEdges();
     }
 
-    if (!loadRequests.isEmpty())
-        beginExecuteCurrentLoadRequest();
+    if (forceSynchronousMode)
+        deliverPostedTableItems();
 
-    dumpDebugInfo();
-
-    // return false? or override caller? Or check load queue?
-    return true;
+    return modified;
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
