@@ -208,7 +208,7 @@ protected:
     void checkLoadRequestStatus();
     void tableItemLoaded(FxTableItemSG *tableItem);
 
-    QString indexToString(int index);
+    QString indexToString(int index) const;
     void dumpDebugInfo();
 };
 
@@ -431,7 +431,7 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
     return new FxTableItemSG(item, q, false);
 }
 
-QString QQuickTableViewPrivate::indexToString(int index)
+QString QQuickTableViewPrivate::indexToString(int index) const
 {
     if (index == kNullValue)
         return QLatin1String("null index");
