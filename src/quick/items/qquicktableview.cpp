@@ -47,6 +47,8 @@
 
 QT_BEGIN_NAMESPACE
 
+Q_LOGGING_CATEGORY(lcTableViewLayout, "qt.quick.tableview.layout")
+
 class FxTableItemSG : public FxViewItem
 {
 public:
@@ -150,7 +152,6 @@ protected:
 
     bool blockCreatedItemsSyncCallback;
     bool forceSynchronousMode;
-    bool itemCountChanged;
 
     constexpr static QPoint kLeft = QPoint(-1, 0);
     constexpr static QPoint kRight = QPoint(1, 0);
@@ -210,7 +211,7 @@ protected:
     void tableItemLoaded(FxTableItemSG *tableItem);
 
     QString indexToString(int index) const;
-    void dumpDebugInfo();
+    void dumpTableGeometry();
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -229,7 +230,6 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , postedTableItems(QVector<FxTableItemSG *>())
     , blockCreatedItemsSyncCallback(false)
     , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
-    , itemCountChanged(false)
 {
 }
 
@@ -456,24 +456,18 @@ QString QQuickTableViewPrivate::indexToString(int index) const
     return QString::fromLatin1("index: %1 (x:%2, y:%3)").arg(index).arg(columnAtIndex(index)).arg(rowAtIndex(index));
 }
 
-void QQuickTableViewPrivate::dumpDebugInfo()
+void QQuickTableViewPrivate::dumpTableGeometry()
 {
 #ifdef QT_DEBUG
-    if (!itemCountChanged)
-        return;
-    itemCountChanged = false;
-
-    qCDebug(lcItemViewDelegateLifecycle());
-    qCDebug(lcItemViewDelegateLifecycle()) << "item count:" << visibleItems.count();
-    qCDebug(lcItemViewDelegateLifecycle()) << "top-left:" << indexToString(currentTopLeftIndex);
-    qCDebug(lcItemViewDelegateLifecycle()) << "bottom-right" << indexToString(currentBottomRightIndex);
-    qCDebug(lcItemViewDelegateLifecycle());
+    qCDebug(lcTableViewLayout());
+    qCDebug(lcTableViewLayout()) << "item count:" << visibleItems.count();
+    qCDebug(lcTableViewLayout()) << "top-left:" << indexToString(currentTopLeftIndex);
+    qCDebug(lcTableViewLayout()) << "bottom-right" << indexToString(currentBottomRightIndex);
 #endif
 }
 
 void QQuickTableViewPrivate::loadTableItemAsync(int index)
 {
-    itemCountChanged = true;
     qCDebug(lcItemViewDelegateLifecycle) << indexToString(index);
 
     // TODO: check if item is already available before creating an FxTableItemSG
@@ -528,7 +522,6 @@ void QQuickTableViewPrivate::deliverPostedTableItems()
 
 void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &toCell)
 {
-    itemCountChanged = true;
     qCDebug(lcItemViewDelegateLifecycle) << fromCell << "->" << toCell;
 
     for (int y = fromCell.y(); y <= toCell.y(); ++y) {
@@ -538,6 +531,8 @@ void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &t
             releaseItem(item);
         }
     }
+
+    dumpTableGeometry();
 }
 
 void QQuickTableViewPrivate::showTableItem(FxTableItemSG *fxViewItem)
@@ -679,8 +674,6 @@ void QQuickTableView::createdItem(int index, QObject*)
         d->requestedIndex = -1;
     }
 
-    Q_ASSERT(d->addRemoveVisibleItemsGuard);
-
     if (d->blockCreatedItemsSyncCallback) {
         // Items that are created synchronously will still need to
         // be delivered async later, to funnel all item creation through
@@ -688,7 +681,7 @@ void QQuickTableView::createdItem(int index, QObject*)
         return;
     }
 
-    qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << index;
+    qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << d->indexToString(index);
 
     // It's important to use createItem to get the item, and
     // not the object argument, since the former will ref-count it.
@@ -705,6 +698,7 @@ void QQuickTableViewPrivate::tableItemLoaded(FxTableItemSG *tableItem)
     qCDebug(lcItemViewDelegateLifecycle) << indexToString(tableItem->index);
     visibleItems.append(tableItem);
     updateCurrentTableGeometry(tableItem->index);
+    dumpTableGeometry();
     positionTableItem(tableItem);
     showTableItem(tableItem);
     continueExecuteCurrentLoadRequest(tableItem);
@@ -723,7 +717,6 @@ void QQuickTableViewPrivate::checkLoadRequestStatus()
     } else {
         // Nothing more todo. Check if the view port moved while we
         // were processing load requests, and if so, start all over.
-        dumpDebugInfo();
         loadUnloadTableEdges();
     }
 }
@@ -835,49 +828,31 @@ void QQuickTableViewPrivate::loadInitialItems()
 
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
-    // For each corner item, get the item that is inside next to it diagonally. If that item
-    // can't fit more items in the direction towards the corner, it means that the corner item
-    // (and the row/column it belongs to) has been scrolled out of view and should be released.
-    FxTableItemSG *innerTopLeftItem = visibleTableItem(cellCoordAt(currentTopLeftIndex) + kDown + kRight);
-    FxTableItemSG *innerBottomRightItem = visibleTableItem(cellCoordAt(currentBottomRightIndex) + kUp + kLeft);
+    const QRectF &topLeftRect = currentTopLeftItem->rect();
+    const QRectF &bottomRightRect = currentBottomLeftItem()->rect();
 
-    dumpDebugInfo();
-
-//    if (!innerTopLeftItem) {
-//        qDebug() << "no innerTopLeftItem";
-//        return;
-//    }
-
-//    if (!innerBottomRightItem) {
-//        qDebug() << "no innerBottomRightItem";
-//        return;
-//    }
-
-//    qDebug() << "innerTopLeftItem" << indexToString(innerTopLeftItem->index);
-//    qDebug() << "innerBottomRightItem" << indexToString(innerBottomRightItem->index);
-
-    if (!canHaveMoreItemsInDirection(innerTopLeftItem, kLeft)) {
+    if (topLeftRect.right() < currentLayoutRect.left()) {
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
-        unloadItems(topLeftCell, bottomLeftCell);
         setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kRight));
-    } else if (!canHaveMoreItemsInDirection(innerBottomRightItem, kRight)) {
+        unloadItems(topLeftCell, bottomLeftCell);
+    } else if (bottomRightRect.left() > currentLayoutRect.right()) {
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
-        unloadItems(topRightCell, bottomRightCell);
         setBottomRightIndex(indexAt(cellCoordAt(currentBottomRightIndex) + kLeft));
+        unloadItems(topRightCell, bottomRightCell);
     }
 
-    if (!canHaveMoreItemsInDirection(innerTopLeftItem, kUp)) {
+    if (topLeftRect.bottom() < currentLayoutRect.top()) {
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
-        unloadItems(topLeftCell, topRightCell);
         setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kDown));
-    } else if (!canHaveMoreItemsInDirection(innerBottomRightItem, kDown)) {
+        unloadItems(topLeftCell, topRightCell);
+    } else if (bottomRightRect.top() > currentLayoutRect.bottom()) {
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
-        unloadItems(bottomLeftCell, bottomRightCell);
         setBottomRightIndex(indexAt(cellCoordAt(currentBottomRightIndex) + kUp));
+        unloadItems(bottomLeftCell, bottomRightCell);
     }
 }
 
