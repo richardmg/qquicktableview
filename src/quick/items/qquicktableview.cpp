@@ -216,8 +216,8 @@ protected:
 QQuickTableViewPrivate::QQuickTableViewPrivate()
     : addRemoveVisibleItemsGuard(false)
     , currentLayoutRect(QRect())
-    , currentTopLeftIndex(0)
-    , currentBottomRightIndex(0)
+    , currentTopLeftIndex(INT_MAX)
+    , currentBottomRightIndex(kNullValue)
     , currentTopLeftItem(nullptr)
     , rowCount(-1)
     , columnCount(-1)
@@ -252,7 +252,9 @@ bool QQuickTableViewPrivate::isBottomToTop() const
 
 void QQuickTableViewPrivate::setTopLeftIndex(int newIndex)
 {
-    // The current top-left index always needs to point
+    if (newIndex == currentTopLeftIndex)
+        return;
+
     FxTableItemSG *newTopLeftItem = visibleTableItem(newIndex);
     if (!newTopLeftItem) {
         qCDebug(lcItemViewDelegateLifecycle()) << "refuse to set no item as top left index. Continue using:" << indexToString(currentTopLeftIndex);
@@ -261,12 +263,17 @@ void QQuickTableViewPrivate::setTopLeftIndex(int newIndex)
 
     qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentTopLeftIndex) << "->" << indexToString(newIndex);
     currentTopLeftIndex = newIndex;
-    currentTopLeftItem = static_cast<FxTableItemSG *>(createItem(index, false));
-    Q_ASSERT(currentTopLeftIndex);
+
+    if (currentTopLeftItem)
+        releaseItem(currentTopLeftItem);
+    currentTopLeftItem = static_cast<FxTableItemSG *>(createItem(newIndex, false));
+    Q_ASSERT(currentTopLeftItem);
 }
 
 void QQuickTableViewPrivate::setBottomRightIndex(int newIndex)
 {
+    if (newIndex == -1)
+        newIndex = currentTopLeftIndex;
     qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentBottomRightIndex) << "->" << indexToString(newIndex);
     currentBottomRightIndex = newIndex;
 }
@@ -535,8 +542,6 @@ void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &t
 
 void QQuickTableViewPrivate::showTableItem(FxTableItemSG *fxViewItem)
 {
-    // Add the item to the list of visible items, and show it
-    visibleItems.append(fxViewItem);
     QQuickItemPrivate::get(fxViewItem->item)->setCulled(false);
 }
 
@@ -598,7 +603,7 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTab
     // the horizontal edge, or otherwise the item directly next to it. This assumes that at
     // least the item next to it has already been loaded. If the edge item has been
     // loaded, we use that as reference instead, as it allows us to load several items in parallel.
-    if (visibleItems.isEmpty()) {
+    if (visibleItems.size() == 1) {
         // Special case: the first item will be at 0, 0 for now
         return 0;
     }
@@ -630,7 +635,7 @@ qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTab
     // the vertical edge, or otherwise the item directly next to it. This assumes that at
     // least the item next to it has already been loaded. If the edge item has been
     // loaded, we use that as reference instead, as it allows us to load several items in parallel.
-    if (visibleItems.isEmpty()) {
+    if (visibleItems.size() == 1) {
         // Special case: the first item will be at 0, 0 for now
         return 0;
     }
@@ -698,6 +703,7 @@ void QQuickTableView::createdItem(int index, QObject*)
 void QQuickTableViewPrivate::tableItemLoaded(FxTableItemSG *tableItem)
 {
     qCDebug(lcItemViewDelegateLifecycle) << indexToString(tableItem->index);
+    visibleItems.append(tableItem);
     updateCurrentTableGeometry(tableItem->index);
     positionTableItem(tableItem);
     showTableItem(tableItem);
@@ -805,7 +811,6 @@ void QQuickTableViewPrivate::loadInitialItems()
     qCDebug(lcItemViewDelegateLifecycle()) << "layout rect:" << currentLayoutRect;
 
     QPoint topLeftCoord(0, 0);
-    setTopLeftIndex(indexAt(topLeftCoord));
 
     TableSectionLoadRequest requestEdgeRow;
     requestEdgeRow.startCell = topLeftCoord;
@@ -836,18 +841,20 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
     FxTableItemSG *innerTopLeftItem = visibleTableItem(cellCoordAt(currentTopLeftIndex) + kDown + kRight);
     FxTableItemSG *innerBottomRightItem = visibleTableItem(cellCoordAt(currentBottomRightIndex) + kUp + kLeft);
 
-    if (!innerTopLeftItem) {
-        qDebug() << "no innerTopLeftItem";
-        return;
-    }
+    dumpDebugInfo();
 
-    if (!innerBottomRightItem) {
-        qDebug() << "no innerBottomRightItem";
-        return;
-    }
+//    if (!innerTopLeftItem) {
+//        qDebug() << "no innerTopLeftItem";
+//        return;
+//    }
 
-    qDebug() << "innerTopLeftItem" << indexToString(innerTopLeftItem->index);
-    qDebug() << "innerBottomRightItem" << indexToString(innerBottomRightItem->index);
+//    if (!innerBottomRightItem) {
+//        qDebug() << "no innerBottomRightItem";
+//        return;
+//    }
+
+//    qDebug() << "innerTopLeftItem" << indexToString(innerTopLeftItem->index);
+//    qDebug() << "innerBottomRightItem" << indexToString(innerBottomRightItem->index);
 
     if (!canHaveMoreItemsInDirection(innerTopLeftItem, kLeft)) {
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);

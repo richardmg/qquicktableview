@@ -28,7 +28,7 @@ public:
     {
         if (!index.isValid() || role != Qt::DisplayRole)
             return QVariant();
-        return QString("[%1-%2]").arg(index.row()).arg(index.column());
+        return QString("[%1-%2]").arg(index.column()).arg(index.row());
     }
 
     QHash<int, QByteArray> roleNames() const override
