@@ -555,19 +555,19 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fx
     int column = columnAtIndex(fxTableItem->index);
     QRectF itemRect = fxTableItem->rect();
 
-    if (direction.x() == 1) {
-        if (column > columnCount)
+    if (direction == kRight) {
+        if (column == columnCount - 1)
             return false;
         return itemRect.topRight().x() < currentLayoutRect.topRight().x();
-    } else if (direction.x() == -1) {
+    } else if (direction == kLeft) {
         if (column == 0)
             return false;
         return itemRect.topLeft().x() > currentLayoutRect.topLeft().x();
-    } else if (direction.y() == 1) {
-        if (row > rowCount)
+    } else if (direction == kDown) {
+        if (row == rowCount - 1)
             return false;
         return itemRect.bottomLeft().y() < currentLayoutRect.bottomLeft().y();
-    } else if (direction.y() == -1) {
+    } else if (direction == kUp) {
         if (row == 0)
             return false;
         return itemRect.topLeft().y() > currentLayoutRect.topLeft().y();
