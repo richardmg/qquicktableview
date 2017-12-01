@@ -207,7 +207,7 @@ protected:
     void tableItemLoaded(FxTableItemSG *tableItem);
 
     QString indexToString(int index);
-    void dumpItemCount();
+    void dumpDebugInfo();
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -400,6 +400,9 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     QQuickAbstractItemView::viewportMoved(orient);
 
     d->addRemoveVisibleItems();
+
+    if (d->forceSynchronousMode)
+        d->deliverPostedTableItems();
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -430,13 +433,19 @@ QString QQuickTableViewPrivate::indexToString(int index)
     return QString::fromLatin1("index: %1 (x:%2, y:%3)").arg(index).arg(columnAtIndex(index)).arg(rowAtIndex(index));
 }
 
-void QQuickTableViewPrivate::dumpItemCount()
+void QQuickTableViewPrivate::dumpDebugInfo()
 {
+#ifdef QT_DEBUG
     if (!itemCountChanged)
         return;
-
-    qCDebug(lcItemViewDelegateLifecycle()) << visibleItems.count();
     itemCountChanged = false;
+
+    qCDebug(lcItemViewDelegateLifecycle());
+    qCDebug(lcItemViewDelegateLifecycle()) << "item count:" << visibleItems.count();
+    qCDebug(lcItemViewDelegateLifecycle()) << "top-left:" << indexToString(currentTopLeftIndex);
+    qCDebug(lcItemViewDelegateLifecycle()) << "bottom-right" << indexToString(currentBottomRightIndex);
+    qCDebug(lcItemViewDelegateLifecycle());
+#endif
 }
 
 void QQuickTableViewPrivate::loadTableItemAsync(int index)
@@ -470,6 +479,9 @@ void QQuickTableViewPrivate::loadTableItemAsync(int index)
 
 void QQuickTableViewPrivate::deliverPostedTableItems()
 {
+    if (postedTableItems.isEmpty())
+        return;
+
     qCDebug(lcItemViewDelegateLifecycle) << "initial count:" << postedTableItems.count();
 
     // When we deliver items, the receivers will typically ask for
@@ -687,7 +699,7 @@ void QQuickTableViewPrivate::checkLoadRequestStatus()
         // Nothing more todo. Check if the view port moved while we
         // were processing load requests, and if so, start all over.
         currentLayoutState = Idle;
-        dumpItemCount();
+        dumpDebugInfo();
         addRemoveVisibleItems();
     }
 }
@@ -888,14 +900,10 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
         loadScrolledInItems();
     }
 
-    if (!loadRequests.isEmpty()) {
+    if (!loadRequests.isEmpty())
         beginExecuteCurrentLoadRequest();
 
-        if (forceSynchronousMode)
-            deliverPostedTableItems();
-    }
-
-    dumpItemCount();
+    dumpDebugInfo();
 
     // return false? or override caller? Or check load queue?
     return true;
