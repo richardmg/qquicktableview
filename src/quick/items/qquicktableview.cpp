@@ -136,6 +136,8 @@ protected:
     int currentTopLeftIndex;
     int currentBottomRightIndex;
 
+    FxTableItemSG *currentTopLeftItem;
+
     int rowCount;
     int columnCount;
 
@@ -174,7 +176,6 @@ protected:
 
     FxTableItemSG *visibleTableItem(int modelIndex) const;
     FxTableItemSG *visibleTableItem(const QPoint &cellCoord) const;
-    FxTableItemSG *currentTopLeftItem() const;
     FxTableItemSG *currentTopRightItem() const;
     FxTableItemSG *currentBottomLeftItem() const;
     FxTableItemSG *currentBottomRightItem() const;
@@ -217,6 +218,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , currentLayoutRect(QRect())
     , currentTopLeftIndex(0)
     , currentBottomRightIndex(0)
+    , currentTopLeftItem(nullptr)
     , rowCount(-1)
     , columnCount(-1)
     , orientation(QQuickTableView::Vertical)
@@ -250,8 +252,17 @@ bool QQuickTableViewPrivate::isBottomToTop() const
 
 void QQuickTableViewPrivate::setTopLeftIndex(int newIndex)
 {
+    // The current top-left index always needs to point
+    FxTableItemSG *newTopLeftItem = visibleTableItem(newIndex);
+    if (!newTopLeftItem) {
+        qCDebug(lcItemViewDelegateLifecycle()) << "refuse to set no item as top left index. Continue using:" << indexToString(currentTopLeftIndex);
+        return;
+    }
+
     qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentTopLeftIndex) << "->" << indexToString(newIndex);
     currentTopLeftIndex = newIndex;
+    currentTopLeftItem = static_cast<FxTableItemSG *>(createItem(index, false));
+    Q_ASSERT(currentTopLeftIndex);
 }
 
 void QQuickTableViewPrivate::setBottomRightIndex(int newIndex)
@@ -328,22 +339,22 @@ FxTableItemSG *QQuickTableViewPrivate::visibleTableItem(int modelIndex) const
     // TODO: this is an overload of visibleItems, since the other version
     // does some wierd things with the index. Fix that up later. And change
     // visibleItems to use hash or map instead of list.
+
+    if (modelIndex == -1)
+        return nullptr;
+
     for (int i = 0; i < visibleItems.count(); ++i) {
         FxViewItem *item = visibleItems.at(i);
         if (item->index == modelIndex)
             return static_cast<FxTableItemSG *>(item);
     }
-    return 0;
+
+    return nullptr;
 }
 
 FxTableItemSG *QQuickTableViewPrivate::visibleTableItem(const QPoint &cellCoord) const
 {
     return visibleTableItem(indexAt(cellCoord));
-}
-
-FxTableItemSG *QQuickTableViewPrivate::currentTopLeftItem() const
-{
-    return visibleTableItem(currentTopLeftIndex);
 }
 
 FxTableItemSG *QQuickTableViewPrivate::currentTopRightItem() const
@@ -551,6 +562,9 @@ FxTableItemSG *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxTabl
 
 bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPoint &direction) const
 {
+    if (!fxTableItem)
+        return false;
+
     int row = rowAtIndex(fxTableItem->index);
     int column = columnAtIndex(fxTableItem->index);
     QRectF itemRect = fxTableItem->rect();
@@ -822,6 +836,19 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
     FxTableItemSG *innerTopLeftItem = visibleTableItem(cellCoordAt(currentTopLeftIndex) + kDown + kRight);
     FxTableItemSG *innerBottomRightItem = visibleTableItem(cellCoordAt(currentBottomRightIndex) + kUp + kLeft);
 
+    if (!innerTopLeftItem) {
+        qDebug() << "no innerTopLeftItem";
+        return;
+    }
+
+    if (!innerBottomRightItem) {
+        qDebug() << "no innerBottomRightItem";
+        return;
+    }
+
+    qDebug() << "innerTopLeftItem" << indexToString(innerTopLeftItem->index);
+    qDebug() << "innerBottomRightItem" << indexToString(innerBottomRightItem->index);
+
     if (!canHaveMoreItemsInDirection(innerTopLeftItem, kLeft)) {
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
@@ -851,7 +878,7 @@ void QQuickTableViewPrivate::loadScrolledInItems()
 {
     // For each corner item, check if it's more available space on the outside. If so, and
     // if the model has more items, load new rows and columns on the outside of those items.
-    FxTableItemSG *topLeftItem = currentTopLeftItem();
+    FxTableItemSG *topLeftItem = currentTopLeftItem;
     FxTableItemSG *topRightItem = currentTopRightItem();
     FxTableItemSG *bottomLeftItem = currentBottomLeftItem();
 
