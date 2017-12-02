@@ -826,22 +826,19 @@ void QQuickTableViewPrivate::loadInitialItems()
     beginExecuteCurrentLoadRequest();
 }
 
-void lt(qreal x1, qreal x2) {
-    return qFloor(x) < qFloor(x2);
-}
-
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
     const QRectF &topLeftRect = currentTopLeftItem->rect();
     const QRectF &bottomRightRect = currentBottomRightItem()->rect();
+    const qreal wholePixelMargin = -1.0;
 
-    if (topLeftRect.right() < currentLayoutRect.left()) {
+    if (topLeftRect.right() - currentLayoutRect.left() < wholePixelMargin) {
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         qCDebug(lcTableViewLayout()) << "unload left column" << topLeftCell.x();
         setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kRight));
         unloadItems(topLeftCell, bottomLeftCell);
-    } else if (bottomRightRect.left() > currentLayoutRect.right()) {
+    } else if (currentLayoutRect.right() - bottomRightRect.left() < wholePixelMargin) {
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
         qCDebug(lcTableViewLayout()) << "unload right column" << topRightCell.x();
@@ -849,13 +846,13 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         unloadItems(topRightCell, bottomRightCell);
     }
 
-    if (topLeftRect.bottom() < currentLayoutRect.top()) {
+    if (topLeftRect.bottom() - currentLayoutRect.top() < wholePixelMargin) {
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         qCDebug(lcTableViewLayout()) << "unload top row" << topLeftCell.y();
         setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kDown));
         unloadItems(topLeftCell, topRightCell);
-    } else if (bottomRightRect.top() > currentLayoutRect.bottom()) {
+    } else if (currentLayoutRect.bottom() - bottomRightRect.top() < wholePixelMargin) {
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
         qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomLeftCell.y();
