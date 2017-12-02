@@ -163,8 +163,8 @@ protected:
     bool isRightToLeft() const;
     bool isBottomToTop() const;
 
-    void setTopLeftIndex(int newIndex);
-    void setBottomRightIndex(int newIndex);
+    void setTopLeftCoord(QPoint cellCoord);
+    void setBottomRightCoord(QPoint cellCoord);
 
     int rowAtIndex(int index) const;
     int columnAtIndex(int index) const;
@@ -217,7 +217,7 @@ protected:
 QQuickTableViewPrivate::QQuickTableViewPrivate()
     : addRemoveVisibleItemsGuard(false)
     , currentLayoutRect(QRect())
-    , currentTopLeftIndex(INT_MAX)
+    , currentTopLeftIndex(kNullValue)
     , currentBottomRightIndex(kNullValue)
     , currentTopLeftItem(nullptr)
     , rowCount(-1)
@@ -250,32 +250,43 @@ bool QQuickTableViewPrivate::isBottomToTop() const
     return orientation == QQuickTableView::Vertical && verticalLayoutDirection == QQuickAbstractItemView::BottomToTop;
 }
 
-void QQuickTableViewPrivate::setTopLeftIndex(int newIndex)
+void QQuickTableViewPrivate::setTopLeftCoord(QPoint cellCoord)
 {
-    if (newIndex == currentTopLeftIndex)
+    QPoint currentTopLeftCoord = cellCoordAt(currentTopLeftIndex);
+
+    if (cellCoord.x() < 0 || cellCoord.x() > columnCount - 1)
+        cellCoord.setX(currentTopLeftCoord.x());
+    if (cellCoord.y() < 0 || cellCoord.y() > rowCount - 1)
+        cellCoord.setY(currentTopLeftCoord.y());
+
+    if (cellCoord == currentTopLeftCoord)
         return;
 
-    FxTableItemSG *newTopLeftItem = visibleTableItem(newIndex);
-    if (!newTopLeftItem) {
-        qCDebug(lcItemViewDelegateLifecycle()) << "refuse to set no item as top left index. Continue using:" << indexToString(currentTopLeftIndex);
-        return;
-    }
-
-    qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentTopLeftIndex) << "->" << indexToString(newIndex);
-    currentTopLeftIndex = newIndex;
+    qCDebug(lcTableViewLayout()) << indexToString(currentTopLeftIndex) << "->" << indexToString(indexAt(cellCoord));
+    currentTopLeftIndex = indexAt(cellCoord);
 
     if (currentTopLeftItem)
         releaseItem(currentTopLeftItem);
-    currentTopLeftItem = static_cast<FxTableItemSG *>(createItem(newIndex, false));
+
+    currentTopLeftItem = static_cast<FxTableItemSG *>(createItem(currentTopLeftIndex, false));
     Q_ASSERT(currentTopLeftItem);
 }
 
-void QQuickTableViewPrivate::setBottomRightIndex(int newIndex)
+void QQuickTableViewPrivate::setBottomRightCoord(QPoint cellCoord)
 {
-    if (newIndex == -1)
-        newIndex = currentTopLeftIndex;
-    qCDebug(lcItemViewDelegateLifecycle()) << indexToString(currentBottomRightIndex) << "->" << indexToString(newIndex);
-    currentBottomRightIndex = newIndex;
+    QPoint currentTopLeftCoord = cellCoordAt(currentTopLeftIndex);
+    QPoint currentBottomRightCoord = cellCoordAt(currentBottomRightIndex);
+
+    if (cellCoord.x() < 0 || cellCoord.x() > columnCount - 1 || cellCoord.y() < 0 || cellCoord.y() > rowCount - 1) {
+        qDebug() << "should not reset here"; // and don't reset y just because we flick out on x
+        cellCoord = currentTopLeftCoord;
+    }
+
+    if (cellCoord == currentBottomRightCoord)
+        return;
+
+    qCDebug(lcTableViewLayout()) << indexToString(currentBottomRightIndex) << "->" << indexToString(indexAt(cellCoord));
+    currentBottomRightIndex = indexAt(cellCoord);
 }
 
 int QQuickTableViewPrivate::rowAtIndex(int index) const
@@ -406,18 +417,25 @@ void QQuickTableViewPrivate::updateViewportContentHeight()
 
 void QQuickTableViewPrivate::updateCurrentTableGeometry(int addedIndex)
 {
-    if (addedIndex < currentTopLeftIndex)
-        setTopLeftIndex(addedIndex);
-
-    // While currentTopLeftIndex always points to a loaded item, currentBottomRightIndex
-    // will often point to a cell that is yet to be loaded
-    QPoint bottomRight = cellCoordAt(currentBottomRightIndex);
     QPoint addedCoord = cellCoordAt(addedIndex);
 
-    if (addedCoord.x() > bottomRight.x())
-        setBottomRightIndex(indexAt(QPoint(addedCoord.x(), bottomRight.y())));
-    if (addedCoord.y() > bottomRight.y())
-        setBottomRightIndex(indexAt(QPoint(bottomRight.x(), addedCoord.y())));
+    if (!currentTopLeftItem) {
+        setTopLeftCoord(addedCoord);
+    } else {
+        QPoint topLeftCoord = cellCoordAt(currentTopLeftItem);
+        int minX = qMin(addedCoord.x(), topLeftCoord.x());
+        int minY = qMin(addedCoord.y(), topLeftCoord.y());
+        setTopLeftCoord(QPoint(minX, minY));
+    }
+
+    if (currentBottomRightIndex == kNullValue) {
+        setBottomRightCoord(addedCoord);
+    } else {
+        QPoint bottomRightCoord = cellCoordAt(currentBottomRightIndex);
+        int maxX = qMax(addedCoord.x(), bottomRightCoord.x());
+        int maxY = qMax(addedCoord.y(), bottomRightCoord.y());
+        setBottomRightCoord(QPoint(maxX, maxY));
+    }
 }
 
 void QQuickTableView::viewportMoved(Qt::Orientations orient)
@@ -836,13 +854,13 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         qCDebug(lcTableViewLayout()) << "unload left column" << topLeftCell.x();
-        setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kRight));
+        setTopLeftCoord(cellCoordAt(currentTopLeftIndex) + kRight);
         unloadItems(topLeftCell, bottomLeftCell);
     } else if (currentLayoutRect.right() - bottomRightRect.left() < wholePixelMargin) {
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
         qCDebug(lcTableViewLayout()) << "unload right column" << topRightCell.x();
-        setBottomRightIndex(indexAt(cellCoordAt(currentBottomRightIndex) + kLeft));
+        setBottomRightCoord(cellCoordAt(currentBottomRightIndex) + kLeft);
         unloadItems(topRightCell, bottomRightCell);
     }
 
@@ -850,13 +868,13 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         qCDebug(lcTableViewLayout()) << "unload top row" << topLeftCell.y();
-        setTopLeftIndex(indexAt(cellCoordAt(currentTopLeftIndex) + kDown));
+        setTopLeftCoord(cellCoordAt(currentTopLeftIndex) + kDown);
         unloadItems(topLeftCell, topRightCell);
     } else if (currentLayoutRect.bottom() - bottomRightRect.top() < wholePixelMargin) {
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
         qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomLeftCell.y();
-        setBottomRightIndex(indexAt(cellCoordAt(currentBottomRightIndex) + kUp));
+        setBottomRightCoord(cellCoordAt(currentBottomRightIndex) + kUp);
         unloadItems(bottomLeftCell, bottomRightCell);
     }
 }
