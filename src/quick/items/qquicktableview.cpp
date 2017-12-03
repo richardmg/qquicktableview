@@ -581,14 +581,13 @@ FxTableItemSG *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxTabl
 
 bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fxTableItem, const QPoint &direction) const
 {
-    if (!fxTableItem)
-        return false;
-
     int row = rowAtIndex(fxTableItem->index);
     int column = columnAtIndex(fxTableItem->index);
     QRectF itemRect = fxTableItem->rect();
 
-    if (direction == kRight) {
+    if (!currentLayoutRect.intersects(itemRect)) {
+        return false;
+    } else if (direction == kRight) {
         if (column == columnCount - 1)
             return false;
         return itemRect.topRight().x() < currentLayoutRect.topRight().x();
