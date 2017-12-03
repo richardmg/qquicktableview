@@ -781,6 +781,14 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
                 loadTableItemAsync(indexAt(QPoint(x, y)));
             }
         }
+
+        if (request.requestedItemCount == 0) {
+            // All items requested where outside available rows/columns.
+            // This is typically the case when flicking a table back into view.
+            request.done = true;
+            checkLoadRequestStatus();
+        }
+
         break; }
     }
 }
