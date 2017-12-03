@@ -165,7 +165,6 @@ protected:
 
     void setTopLeftCoord(QPoint cellCoord);
     void setBottomRightCoord(QPoint cellCoord);
-    void validateBottomRight();
 
     int rowAtIndex(int index) const;
     int columnAtIndex(int index) const;
@@ -202,6 +201,7 @@ protected:
     void loadScrolledInItems();
     void loadRowOrColumn(const QPoint &startCell, const QPoint &fillDirection);
     void unloadScrolledOutItems();
+    void unloadTableRowOrColumn(const QPoint &fromCell, const QPoint &toCell);
     void unloadItems(const QPoint &fromCell, const QPoint &toCell);
 
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
@@ -275,14 +275,6 @@ void QQuickTableViewPrivate::setTopLeftCoord(QPoint cellCoord)
 void QQuickTableViewPrivate::setBottomRightCoord(QPoint cellCoord)
 {
     currentBottomRightIndex = indexAt(cellCoord);
-}
-
-void QQuickTableViewPrivate::validateBottomRight()
-{
-    // It there are no visible items (e.g if the flickable has flicked all
-    // items out of view), we let bottom right be the same as top left.
-    if (visibleItems.isEmpty())
-        setBottomRightCoord(cellCoordAt(currentTopLeftIndex));
 }
 
 int QQuickTableViewPrivate::rowAtIndex(int index) const
@@ -532,6 +524,21 @@ void QQuickTableViewPrivate::deliverPostedTableItems()
     postedTableItems.clear();
 
     qCDebug(lcItemViewDelegateLifecycle) << "done delivering items!";
+}
+
+void QQuickTableViewPrivate::unloadTableRowOrColumn(const QPoint &fromCell, const QPoint &toCell)
+{
+    unloadItems(fromCell, toCell);
+
+    if (!visibleItems.isEmpty())
+        return;
+
+    // Add back top-left
+    visibleItems.append(currentTopLeftItem);
+
+    // It there are no visible items (e.g if the flickable has flicked all
+    // items out of view), we let bottom right be the same as top left.
+    setBottomRightCoord(cellCoordAt(currentTopLeftIndex));
 }
 
 void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &toCell)
@@ -841,9 +848,6 @@ void QQuickTableViewPrivate::loadInitialItems()
 
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
-    if (visibleItems.isEmpty())
-        return;
-
     const QRectF &topLeftRect = currentTopLeftItem->rect();
     const QRectF &bottomRightRect = currentBottomRightItem()->rect();
     const qreal wholePixelMargin = -1.0;
@@ -852,16 +856,15 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         qCDebug(lcTableViewLayout()) << "unload left column" << topLeftCell.x();
-        unloadItems(topLeftCell, bottomLeftCell);
         setTopLeftCoord(cellCoordAt(currentTopLeftIndex) + kRight);
-        validateBottomRight();
+        unloadTableRowOrColumn(topLeftCell, bottomLeftCell);
         dumpTableGeometry();
     } else if (currentLayoutRect.right() - bottomRightRect.left() < wholePixelMargin) {
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
         qCDebug(lcTableViewLayout()) << "unload right column" << topRightCell.x();
-        unloadItems(topRightCell, bottomRightCell);
         setBottomRightCoord(cellCoordAt(currentBottomRightIndex) + kLeft);
+        unloadTableRowOrColumn(topRightCell, bottomRightCell);
         dumpTableGeometry();
     }
 
@@ -869,16 +872,15 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         QPoint topLeftCell = cellCoordAt(currentTopLeftIndex);
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         qCDebug(lcTableViewLayout()) << "unload top row" << topLeftCell.y();
-        unloadItems(topLeftCell, topRightCell);
         setTopLeftCoord(cellCoordAt(currentTopLeftIndex) + kDown);
-        validateBottomRight();
+        unloadTableRowOrColumn(topLeftCell, topRightCell);
         dumpTableGeometry();
     } else if (currentLayoutRect.bottom() - bottomRightRect.top() < wholePixelMargin) {
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
         qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomLeftCell.y();
-        unloadItems(bottomLeftCell, bottomRightCell);
         setBottomRightCoord(cellCoordAt(currentBottomRightIndex) + kUp);
+        unloadTableRowOrColumn(bottomLeftCell, bottomRightCell);
         dumpTableGeometry();
     }
 }
