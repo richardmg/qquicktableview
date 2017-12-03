@@ -847,6 +847,11 @@ void QQuickTableViewPrivate::loadInitialItems()
 
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
+    if (visibleItems.count() == 1) {
+        Q_ASSERT(visibleItems[0] == currentTopLeftItem);
+        return;
+    }
+
     const QRectF &topLeftRect = currentTopLeftItem->rect();
     const QRectF &bottomRightRect = currentBottomRightItem()->rect();
     const qreal wholePixelMargin = -1.0;
