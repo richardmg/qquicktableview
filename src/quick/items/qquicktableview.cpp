@@ -817,6 +817,7 @@ void QQuickTableViewPrivate::loadInitialItems()
     // of rows and columns that fit inside the view. Once that is knows, we
     // can load all the remaining items in parallel.
     Q_ASSERT(visibleItems.isEmpty());
+    Q_ASSERT(!currentTopLeftItem);
 
     currentLayoutRect = viewportRect();
     qCDebug(lcItemViewDelegateLifecycle()) << "layout rect:" << currentLayoutRect;
@@ -925,7 +926,7 @@ void QQuickTableViewPrivate::loadRowOrColumn(const QPoint &startCell, const QPoi
 
 bool QQuickTableViewPrivate::loadUnloadTableEdges()
 {
-    Q_ASSERT(!visibleItems.isEmpty());
+    Q_ASSERT(currentTopLeftItem);
     currentLayoutRect = viewportRect();
 
     unloadScrolledOutItems();
@@ -950,7 +951,7 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 
     bool modified = false;
 
-    if (visibleItems.isEmpty()) {
+    if (!currentTopLeftItem) {
         loadInitialItems();
         modified = true;
     } else {
