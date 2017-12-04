@@ -49,6 +49,11 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcTableViewLayout, "qt.quick.tableview.layout")
 
+#define Q_TABLEVIEW_UNREACHABLE() \
+        dumpTableGeometry(); \
+        dumpVisibleItems(); \
+        Q_UNREACHABLE();
+
 class FxTableItemSG : public FxViewItem
 {
 public:
@@ -465,22 +470,17 @@ QString QQuickTableViewPrivate::indexToString(int index) const
 
 void QQuickTableViewPrivate::dumpTableGeometry() const
 {
-#ifdef QT_DEBUG
-    qCDebug(lcTableViewLayout())
-                    << "count:" << visibleItems.count()
-                    << indexToString(currentTopLeftIndex)
-                    << "->" << indexToString(currentBottomRightIndex);
-#endif
+    qDebug() << "count:" << visibleItems.count() << indexToString(currentTopLeftIndex) << "->" << indexToString(currentBottomRightIndex);
 }
 
 void QQuickTableViewPrivate::dumpVisibleItems() const
 {
-    qCDebug(lcTableViewLayout()) << "******* DUMP LIST DONE *******";
+    qDebug() << "******* DUMP VISIBLE ITEMS BEGIN *******";
     for (int i = 0; i < visibleItems.count(); ++i) {
         FxViewItem *item = visibleItems.at(i);
-        qCDebug(lcTableViewLayout()) << indexToString(item->index);
+        qDebug() << indexToString(item->index);
     }
-    qCDebug(lcTableViewLayout()) << "******* DUMP LIST BEGIN *******";
+    qDebug() << "******* DUMP VISIBLE ITEMS DONE *******";
 }
 
 void QQuickTableViewPrivate::loadTableItemAsync(int index)
@@ -617,7 +617,7 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fx
             return false;
         return itemRect.topLeft().y() > currentLayoutRect.topLeft().y();
     } else {
-        Q_UNREACHABLE();
+        Q_TABLEVIEW_UNREACHABLE();
     }
 
     return false;
@@ -647,11 +647,11 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTab
             return neighbourItem->rect().x();
         if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kDown))
             return neighbourItem->rect().x();
-        Q_UNREACHABLE();
+        Q_TABLEVIEW_UNREACHABLE();
     } else {
         if (FxTableItemSG *edgeItem = tableEdgeItem(fxTableItem, Qt::Vertical))
             return edgeItem->rect().x();
-        Q_UNREACHABLE();
+        Q_TABLEVIEW_UNREACHABLE();
     }
 }
 
@@ -679,11 +679,11 @@ qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTab
             return neighbourItem->rect().bottom() + rowSpacing;
         if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kDown))
             return neighbourItem->rect().top() - rowSpacing - fxTableItem->rect().height();
-        Q_UNREACHABLE();
+        Q_TABLEVIEW_UNREACHABLE();
     } else {
         if (FxTableItemSG *edgeItem = tableEdgeItem(fxTableItem, Qt::Horizontal))
             return edgeItem->rect().y();
-        Q_UNREACHABLE();
+        Q_TABLEVIEW_UNREACHABLE();
     }
 }
 
