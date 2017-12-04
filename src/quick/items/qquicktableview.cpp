@@ -205,7 +205,7 @@ protected:
     void loadScrolledInItems();
     void loadRowOrColumn(const QPoint &startCell, const QPoint &fillDirection);
     void unloadScrolledOutItems();
-    void unloadTableRowOrColumn(const QPoint &fromCell, const QPoint &toCell);
+    void unloadRowOrColumn(const QPoint &fromCell, const QPoint &toCell);
     void unloadItems(const QPoint &fromCell, const QPoint &toCell);
 
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
@@ -535,23 +535,6 @@ void QQuickTableViewPrivate::deliverPostedTableItems()
     qCDebug(lcItemViewDelegateLifecycle) << "done delivering items!";
 }
 
-void QQuickTableViewPrivate::unloadTableRowOrColumn(const QPoint &fromCell, const QPoint &toCell)
-{
-    unloadItems(fromCell, toCell);
-
-    if (!visibleItems.isEmpty())
-        return;
-
-    // Add back top-left, since we need one item to be able to rebuild the table later at the correct
-    // position later. We already have a dedicated reference to it (currentTopLeftItem), but
-    // fetch it one more time to bump up the ref-count after it was de-referenced in unloadItems().
-    visibleItems.append(static_cast<FxTableItemSG *>(createItem(currentTopLeftIndex, false)));
-
-    // It there are no visible items (e.g if the flickable has flicked all
-    // items out of view), we let bottom right be the same as top left.
-    setBottomRightCoord(cellCoordAt(currentTopLeftIndex));
-}
-
 void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &toCell)
 {
     qCDebug(lcItemViewDelegateLifecycle) << fromCell << "->" << toCell;
@@ -796,7 +779,8 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
 
         if (request.requestedItemCount == 0) {
             // All items requested where outside available rows/columns.
-            // This is typically the case when flicking a table back into view.
+            // This is typically the case when flicking a table back into
+            // view after overshooting.
             request.done = true;
             checkLoadRequestStatus();
         }
@@ -881,14 +865,14 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         qCDebug(lcTableViewLayout()) << "unload left column" << topLeftCell.x();
         setTopLeftCoord(cellCoordAt(currentTopLeftIndex) + kRight);
-        unloadTableRowOrColumn(topLeftCell, bottomLeftCell);
+        unloadRowOrColumn(topLeftCell, bottomLeftCell);
         dumpTableGeometry();
     } else if (currentLayoutRect.right() - bottomRightRect.left() < wholePixelMargin) {
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
         qCDebug(lcTableViewLayout()) << "unload right column" << topRightCell.x();
         setBottomRightCoord(cellCoordAt(currentBottomRightIndex) + kLeft);
-        unloadTableRowOrColumn(topRightCell, bottomRightCell);
+        unloadRowOrColumn(topRightCell, bottomRightCell);
         dumpTableGeometry();
     }
 
@@ -897,14 +881,14 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         qCDebug(lcTableViewLayout()) << "unload top row" << topLeftCell.y();
         setTopLeftCoord(cellCoordAt(currentTopLeftIndex) + kDown);
-        unloadTableRowOrColumn(topLeftCell, topRightCell);
+        unloadRowOrColumn(topLeftCell, topRightCell);
         dumpTableGeometry();
     } else if (currentLayoutRect.bottom() - bottomRightRect.top() < wholePixelMargin) {
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
         qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomLeftCell.y();
         setBottomRightCoord(cellCoordAt(currentBottomRightIndex) + kUp);
-        unloadTableRowOrColumn(bottomLeftCell, bottomRightCell);
+        unloadRowOrColumn(bottomLeftCell, bottomRightCell);
         dumpTableGeometry();
     }
 }
@@ -949,6 +933,23 @@ void QQuickTableViewPrivate::loadRowOrColumn(const QPoint &startCell, const QPoi
     trailingItemsRequest.fillDirection = fillDirection;
     trailingItemsRequest.loadMode = TableSectionLoadRequest::LoadInParallel;
     enqueueLoadRequest(trailingItemsRequest);
+}
+
+void QQuickTableViewPrivate::unloadRowOrColumn(const QPoint &fromCell, const QPoint &toCell)
+{
+    unloadItems(fromCell, toCell);
+
+    if (!visibleItems.isEmpty())
+        return;
+
+    // Add back top-left, since we need one item to be able to rebuild the table at the correct
+    // position later. We already have a dedicated reference to it (currentTopLeftItem), but
+    // fetch it one more time to bump the ref-count up after it got de-referenced in unloadItems().
+    visibleItems.append(static_cast<FxTableItemSG *>(createItem(currentTopLeftIndex, false)));
+
+    // It there are no visible items (e.g if the flickable has flicked all
+    // items out of view), we let bottom right be the same as top left.
+    setBottomRightCoord(cellCoordAt(currentTopLeftIndex));
 }
 
 bool QQuickTableViewPrivate::loadUnloadTableEdges()
