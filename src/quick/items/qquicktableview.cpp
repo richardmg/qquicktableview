@@ -927,9 +927,7 @@ void QQuickTableViewPrivate::loadScrolledInItems()
         QPoint startCell = cellCoordAt(topRightItem) + kRight;
         qCDebug(lcTableViewLayout()) << "load right column" << startCell.x();
         loadRowOrColumn(startCell, kDown);
-    }
-
-    if (canHaveMoreItemsInDirection(topLeftItem, kUp)) {
+    } else if (canHaveMoreItemsInDirection(topLeftItem, kUp)) {
         QPoint startCell = cellCoordAt(topLeftItem) + kUp;
         qCDebug(lcTableViewLayout()) << "load top row" << startCell.y();
         loadRowOrColumn(startCell, kRight);
