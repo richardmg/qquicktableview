@@ -137,7 +137,6 @@ public:
     void translateAndTransitionFilledItems() override { }
 
 protected:
-    bool addRemoveVisibleItemsGuard;
     QRectF currentLayoutRect;
 
     int currentTopLeftIndex;
@@ -222,8 +221,7 @@ protected:
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
-    : addRemoveVisibleItemsGuard(false)
-    , currentLayoutRect(QRect())
+    : currentLayoutRect(QRect())
     , currentTopLeftIndex(kNullValue)
     , currentBottomRightIndex(kNullValue)
     , currentTopLeftItem(nullptr)
@@ -970,10 +968,11 @@ bool QQuickTableViewPrivate::loadUnloadTableEdges()
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
-    if (addRemoveVisibleItemsGuard)
+    if (!loadRequests.isEmpty()) {
+        // We don't accept any new requests before we
+        // have finished all the current ones.
         return false;
-
-    QBoolBlocker blocker(addRemoveVisibleItemsGuard);
+    }
 
     if (!viewportRect().isValid())
         return false;
