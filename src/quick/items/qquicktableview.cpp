@@ -748,7 +748,7 @@ void QQuickTableViewPrivate::enqueueLoadRequest(const TableSectionLoadRequest &r
 void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
 {
     const TableSectionLoadRequest request = loadRequests.dequeue();
-    qCDebug(lcItemViewDelegateLifecycle) << request << "\n";
+    qCDebug(lcItemViewDelegateLifecycle) << request;
 }
 
 void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
@@ -756,6 +756,7 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
     Q_ASSERT(!loadRequests.isEmpty());
 
     TableSectionLoadRequest &request = loadRequests.head();
+    qCDebug(lcItemViewDelegateLifecycle) << QString(40, '*');
     qCDebug(lcItemViewDelegateLifecycle) << request;
 
     switch (request.loadMode) {
