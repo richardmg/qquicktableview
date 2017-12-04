@@ -212,7 +212,8 @@ protected:
     void tableItemLoaded(FxTableItemSG *tableItem);
 
     QString indexToString(int index) const;
-    void dumpTableGeometry();
+    void dumpTableGeometry() const;
+    void dumpVisibleItems() const;
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -462,7 +463,7 @@ QString QQuickTableViewPrivate::indexToString(int index) const
     return QString::fromLatin1("index: %1 (x:%2, y:%3)").arg(index).arg(columnAtIndex(index)).arg(rowAtIndex(index));
 }
 
-void QQuickTableViewPrivate::dumpTableGeometry()
+void QQuickTableViewPrivate::dumpTableGeometry() const
 {
 #ifdef QT_DEBUG
     qCDebug(lcTableViewLayout())
@@ -470,6 +471,16 @@ void QQuickTableViewPrivate::dumpTableGeometry()
                     << indexToString(currentTopLeftIndex)
                     << "->" << indexToString(currentBottomRightIndex);
 #endif
+}
+
+void QQuickTableViewPrivate::dumpVisibleItems() const
+{
+    qCDebug(lcTableViewLayout()) << "******* DUMP LIST DONE *******";
+    for (int i = 0; i < visibleItems.count(); ++i) {
+        FxViewItem *item = visibleItems.at(i);
+        qCDebug(lcTableViewLayout()) << indexToString(item->index);
+    }
+    qCDebug(lcTableViewLayout()) << "******* DUMP LIST BEGIN *******";
 }
 
 void QQuickTableViewPrivate::loadTableItemAsync(int index)
