@@ -533,8 +533,10 @@ void QQuickTableViewPrivate::unloadTableRowOrColumn(const QPoint &fromCell, cons
     if (!visibleItems.isEmpty())
         return;
 
-    // Add back top-left
-    visibleItems.append(currentTopLeftItem);
+    // Add back top-left, since we need one item to be able to rebuild the table later at the correct
+    // position later. We already have a dedicated reference to it (currentTopLeftItem), but
+    // fetch it one more time to bump up the ref-count after it was de-referenced in unloadItems().
+    visibleItems.append(static_cast<FxTableItemSG *>(createItem(currentTopLeftIndex, false)));
 
     // It there are no visible items (e.g if the flickable has flicked all
     // items out of view), we let bottom right be the same as top left.
@@ -857,7 +859,7 @@ void QQuickTableViewPrivate::loadInitialItems()
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
     if (visibleItems.count() == 1) {
-        Q_ASSERT(visibleItems[0] == currentTopLeftItem);
+        Q_ASSERT(visibleItems[0]->index == currentTopLeftIndex);
         return;
     }
 
