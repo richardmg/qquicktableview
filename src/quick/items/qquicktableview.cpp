@@ -166,7 +166,7 @@ protected:
     bool isBottomToTop() const;
 
     void setTopLeftCoord(QPoint cellCoord);
-    void setBottomRightCoord(QPoint cellCoord);
+    void setBottomRightCoord(const QPoint &cellCoord);
 
     int rowAtIndex(int index) const;
     int columnAtIndex(int index) const;
@@ -269,9 +269,13 @@ void QQuickTableViewPrivate::setTopLeftCoord(QPoint cellCoord)
     Q_TABLEVIEW_ASSERT(currentTopLeftItem);
 }
 
-void QQuickTableViewPrivate::setBottomRightCoord(QPoint cellCoord)
+void QQuickTableViewPrivate::setBottomRightCoord(const QPoint &cellCoord)
 {
-    currentBottomRightIndex = indexAt(cellCoord);
+    // Ensure that new bottom right is equal to, or in front of, top-left
+    QPoint topLeft = cellCoordAt(currentTopLeftIndex);
+    int maxX = qMax(cellCoord.x(), topLeft.x());
+    int maxY = qMax(cellCoord.y(), topLeft.y());
+    currentBottomRightIndex = indexAt(QPoint(maxX, maxY));
 }
 
 int QQuickTableViewPrivate::rowAtIndex(int index) const
@@ -941,12 +945,6 @@ void QQuickTableViewPrivate::unloadRowOrColumn(const QPoint &fromCell, const QPo
     }
 
     unloadItems(fromCell, toCell);
-
-    if (visibleItems.isEmpty()) {
-        // It there are no visible items (e.g if the flickable has flicked all
-        // items out of view), we let bottom right be the same as top left.
-        setBottomRightCoord(cellCoordAt(currentTopLeftIndex));
-    }
 }
 
 bool QQuickTableViewPrivate::loadUnloadTableEdges()
