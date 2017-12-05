@@ -181,7 +181,6 @@ protected:
     FxTableItemSG *topRightItem() const;
     FxTableItemSG *bottomLeftItem() const;
     FxTableItemSG *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
-    FxTableItemSG *tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const;
 
     void updateViewportContentWidth();
     void updateViewportContentHeight();
@@ -549,19 +548,6 @@ FxTableItemSG *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewIte
     return visibleTableItem(cellCoordAt(fxViewItem) + direction);
 }
 
-FxTableItemSG *QQuickTableViewPrivate::tableEdgeItem(const FxTableItemSG *fxTableItem, Qt::Orientation orientation) const
-{
-    int index = fxTableItem->index;
-
-    if (orientation == Qt::Horizontal) {
-        int row = rowAtIndex(index);
-        return visibleTableItem(QPoint(topLeft.x(), row));
-    } else {
-        int column = columnAtIndex(index);
-        return visibleTableItem(QPoint(column, topLeft.y()));
-    }
-}
-
 bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction) const
 {
     Q_TABLEVIEW_ASSERT(visibleTableItem(cellCoord));
@@ -616,9 +602,9 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTab
             return neighbourItem->rect().x();
         Q_TABLEVIEW_UNREACHABLE();
     } else {
-        if (FxTableItemSG *edgeItem = tableEdgeItem(fxTableItem, Qt::Vertical))
-            return edgeItem->rect().x();
-        Q_TABLEVIEW_UNREACHABLE();
+        auto edgeItem = visibleTableItem(QPoint(cellCoordAt(fxTableItem).x(), topLeft.y()));
+        Q_TABLEVIEW_ASSERT(edgeItem);
+        return edgeItem->rect().x();
     }
 }
 
@@ -648,9 +634,9 @@ qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTab
             return neighbourItem->rect().top() - rowSpacing - fxTableItem->rect().height();
         Q_TABLEVIEW_UNREACHABLE();
     } else {
-        if (FxTableItemSG *edgeItem = tableEdgeItem(fxTableItem, Qt::Horizontal))
-            return edgeItem->rect().y();
-        Q_TABLEVIEW_UNREACHABLE();
+        auto edgeItem = visibleTableItem(QPoint(topLeft.x(), cellCoordAt(fxTableItem).y()));
+        Q_TABLEVIEW_ASSERT(edgeItem);
+        return edgeItem->rect().y();
     }
 }
 
