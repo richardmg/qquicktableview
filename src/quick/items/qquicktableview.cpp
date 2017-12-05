@@ -150,6 +150,7 @@ protected:
     QEvent::Type eventTypeDeliverPostedTableItems;
     QVector<FxTableItemSG *> postedTableItems;
 
+    bool loadTableFromScratch;
     bool blockCreatedItemsSyncCallback;
     bool forceSynchronousMode;
 
@@ -226,6 +227,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , loadRequests(QQueue<TableSectionLoadRequest>())
     , eventTypeDeliverPostedTableItems(static_cast<QEvent::Type>(QEvent::registerEventType()))
     , postedTableItems(QVector<FxTableItemSG *>())
+    , loadTableFromScratch(true)
     , blockCreatedItemsSyncCallback(false)
     , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
 {
@@ -809,6 +811,7 @@ void QQuickTableViewPrivate::loadInitialItems()
     Q_TABLEVIEW_ASSERT(visibleItems.isEmpty());
     Q_TABLEVIEW_ASSERT(topLeft.x() == kNullValue);
 
+    loadTableFromScratch = false;
     layoutRect = viewportRect();
     qCDebug(lcItemViewDelegateLifecycle()) << "layout rect:" << layoutRect;
 
@@ -939,7 +942,7 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 
     bool modified = false;
 
-    if (topLeft.x() == kNullValue) {
+    if (loadTableFromScratch) {
         loadInitialItems();
         modified = true;
     } else {
