@@ -567,10 +567,7 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const QPoint &cellCoord
     Q_TABLEVIEW_ASSERT(visibleTableItem(cellCoord));
     const QRectF itemRect = visibleTableItem(cellCoord)->rect();
 
-    if (!layoutRect.intersects(itemRect)) {
-        qDebug() << "THIS LOOKS LIKE A WRONG ASSUMPTION!!!";
-        return false;
-    } else if (direction == kRight) {
+    if (direction == kRight) {
         if (cellCoord.x() == columnCount - 1)
             return false;
         return itemRect.topRight().x() < layoutRect.topRight().x();
