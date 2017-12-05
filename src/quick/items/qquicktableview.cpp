@@ -255,24 +255,16 @@ bool QQuickTableViewPrivate::isBottomToTop() const
 
 void QQuickTableViewPrivate::setTopLeftCoord(QPoint cellCoord)
 {
-    QPoint currentTopLeftCoord = cellCoordAt(currentTopLeftIndex);
-
-    if (cellCoord.x() < 0 || cellCoord.x() > columnCount - 1)
-        cellCoord.setX(currentTopLeftCoord.x());
-    if (cellCoord.y() < 0 || cellCoord.y() > rowCount - 1)
-        cellCoord.setY(currentTopLeftCoord.y());
-
-    if (cellCoord == currentTopLeftCoord)
+    if (!visibleTableItem(cellCoord)) {
+        qCDebug(lcTableViewLayout()) << "ignore setting unloaded item:" << indexToString(indexAt(cellCoord));
         return;
-
-    Q_TABLEVIEW_ASSERT(visibleTableItem(cellCoord) || visibleItems.isEmpty());
+    }
 
     currentTopLeftIndex = indexAt(cellCoord);
 
     if (currentTopLeftItem)
         releaseItem(currentTopLeftItem);
 
-    QBoolBlocker guard(blockCreatedItemsSyncCallback);
     currentTopLeftItem = static_cast<FxTableItemSG *>(createItem(currentTopLeftIndex, false));
     Q_TABLEVIEW_ASSERT(currentTopLeftItem);
 }
@@ -942,20 +934,19 @@ void QQuickTableViewPrivate::loadRowOrColumn(const QPoint &startCell, const QPoi
 
 void QQuickTableViewPrivate::unloadRowOrColumn(const QPoint &fromCell, const QPoint &toCell)
 {
+    const QPoint &topLeft = cellCoordAt(currentTopLeftIndex);
+    if (fromCell == topLeft) {
+        qCDebug(lcItemViewDelegateLifecycle()) << "refuse to unload edge row/column:" << fromCell << toCell;
+        return;
+    }
+
     unloadItems(fromCell, toCell);
 
-    if (!visibleItems.isEmpty())
-        return;
-
-    // Add back top-left, since we need one item to be able to rebuild the table at the correct
-    // position later. We already have a dedicated reference to it (currentTopLeftItem), but
-    // fetch it one more time to bump the ref-count up after it got de-referenced in unloadItems().
-    Q_TABLEVIEW_ASSERT(currentTopLeftItem);
-    visibleItems.append(static_cast<FxTableItemSG *>(createItem(currentTopLeftIndex, false)));
-
-    // It there are no visible items (e.g if the flickable has flicked all
-    // items out of view), we let bottom right be the same as top left.
-    setBottomRightCoord(cellCoordAt(currentTopLeftIndex));
+    if (visibleItems.isEmpty()) {
+        // It there are no visible items (e.g if the flickable has flicked all
+        // items out of view), we let bottom right be the same as top left.
+        setBottomRightCoord(cellCoordAt(currentTopLeftIndex));
+    }
 }
 
 bool QQuickTableViewPrivate::loadUnloadTableEdges()
