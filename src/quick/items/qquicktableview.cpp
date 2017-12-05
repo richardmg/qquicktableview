@@ -587,7 +587,7 @@ qreal QQuickTableViewPrivate::calculateTablePositionX(const FxTableItemSG *fxTab
         return 0;
     }
 
-    bool isEdgeItem = rowAtIndex(fxTableItem->index) == topLeft.y();
+    bool isEdgeItem = cellCoordAt(fxTableItem).y() == topLeft.y();
 
     if (isEdgeItem) {
         // For edge items we can find the X position by looking at any adjacent item (which
@@ -619,7 +619,7 @@ qreal QQuickTableViewPrivate::calculateTablePositionY(const FxTableItemSG *fxTab
         return 0;
     }
 
-    bool isEdgeItem = columnAtIndex(fxTableItem->index) == topLeft.x();
+    bool isEdgeItem = cellCoordAt(fxTableItem).x() == topLeft.x();
 
     if (isEdgeItem) {
         // For edge items we can find the Y position by looking at any adjacent item (which
