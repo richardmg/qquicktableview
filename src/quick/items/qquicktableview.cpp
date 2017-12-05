@@ -135,7 +135,7 @@ public:
     void translateAndTransitionFilledItems() override { }
 
 protected:
-    QRectF currentLayoutRect;
+    QRectF layoutRect;
 
     QPoint topLeft;
     QPoint bottomRight;
@@ -218,7 +218,7 @@ protected:
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
-    : currentLayoutRect(QRect())
+    : layoutRect(QRect())
     , topLeft(QPoint(kNullValue, kNullValue))
     , bottomRight(QPoint(kNullValue, kNullValue))
     , currentTopLeftItem(nullptr)
@@ -574,24 +574,24 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const FxTableItemSG *fx
     int column = columnAtIndex(fxTableItem->index);
     QRectF itemRect = fxTableItem->rect();
 
-    if (!currentLayoutRect.intersects(itemRect)) {
+    if (!layoutRect.intersects(itemRect)) {
         return false;
     } else if (direction == kRight) {
         if (column == columnCount - 1)
             return false;
-        return itemRect.topRight().x() < currentLayoutRect.topRight().x();
+        return itemRect.topRight().x() < layoutRect.topRight().x();
     } else if (direction == kLeft) {
         if (column == 0)
             return false;
-        return itemRect.topLeft().x() > currentLayoutRect.topLeft().x();
+        return itemRect.topLeft().x() > layoutRect.topLeft().x();
     } else if (direction == kDown) {
         if (row == rowCount - 1)
             return false;
-        return itemRect.bottomLeft().y() < currentLayoutRect.bottomLeft().y();
+        return itemRect.bottomLeft().y() < layoutRect.bottomLeft().y();
     } else if (direction == kUp) {
         if (row == 0)
             return false;
-        return itemRect.topLeft().y() > currentLayoutRect.topLeft().y();
+        return itemRect.topLeft().y() > layoutRect.topLeft().y();
     } else {
         Q_TABLEVIEW_UNREACHABLE();
     }
@@ -818,8 +818,8 @@ void QQuickTableViewPrivate::loadInitialItems()
     Q_TABLEVIEW_ASSERT(visibleItems.isEmpty());
     Q_TABLEVIEW_ASSERT(!currentTopLeftItem);
 
-    currentLayoutRect = viewportRect();
-    qCDebug(lcItemViewDelegateLifecycle()) << "layout rect:" << currentLayoutRect;
+    layoutRect = viewportRect();
+    qCDebug(lcItemViewDelegateLifecycle()) << "layout rect:" << layoutRect;
 
     QPoint topLeftCoord(0, 0);
 
@@ -850,39 +850,35 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
     const QRectF &bottomRightRect = currentBottomRightItem()->rect();
     const qreal wholePixelMargin = -1.0;
 
-    if (topLeftRect.right() - currentLayoutRect.left() < wholePixelMargin) {
+    if (topLeftRect.right() - layoutRect.left() < wholePixelMargin) {
         QPoint from = topLeft;
         QPoint to = bottomLeft();
         if (setTopLeftCoord(topLeft + kRight)) {
             qCDebug(lcTableViewLayout()) << "unload left column" << from.x();
             unloadItems(from, to);
-            qCDebug(lcTableViewLayout()) << tableGeometryToString();
         }
-    } else if (currentLayoutRect.right() - bottomRightRect.left() < wholePixelMargin) {
+    } else if (layoutRect.right() - bottomRightRect.left() < wholePixelMargin) {
         QPoint from = topRight();
         QPoint to = bottomRight;
         if (setBottomRightCoord(bottomRight + kLeft)) {
             qCDebug(lcTableViewLayout()) << "unload right column" << from.x();
             unloadItems(from, to);
-            qCDebug(lcTableViewLayout()) << tableGeometryToString();
         }
     }
 
-    if (topLeftRect.bottom() - currentLayoutRect.top() < wholePixelMargin) {
+    if (topLeftRect.bottom() - layoutRect.top() < wholePixelMargin) {
         QPoint from = topLeft;
         QPoint to = topRight();
         if (setTopLeftCoord(topLeft + kDown)) {
             qCDebug(lcTableViewLayout()) << "unload top row" << topLeft.y();
             unloadItems(from, to);
-            qCDebug(lcTableViewLayout()) << tableGeometryToString();
         }
-    } else if (currentLayoutRect.bottom() - bottomRightRect.top() < wholePixelMargin) {
+    } else if (layoutRect.bottom() - bottomRightRect.top() < wholePixelMargin) {
         QPoint from = bottomLeft();
         QPoint to = bottomRight;
         if (setBottomRightCoord(bottomRight + kUp)) {
             qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomLeft().y();
             unloadItems(from, to);
-            qCDebug(lcTableViewLayout()) << tableGeometryToString();
         }
     }
 }
@@ -930,7 +926,7 @@ void QQuickTableViewPrivate::loadRowOrColumn(const QPoint &startCell, const QPoi
 bool QQuickTableViewPrivate::loadUnloadTableEdges()
 {
     Q_TABLEVIEW_ASSERT(currentTopLeftItem);
-    currentLayoutRect = viewportRect();
+    layoutRect = viewportRect();
 
     unloadScrolledOutItems();
     loadScrolledInItems();
