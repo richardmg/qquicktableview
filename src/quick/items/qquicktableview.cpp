@@ -594,14 +594,14 @@ qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem) c
     if (isEdgeItem) {
         // For edge items we can find the X position by looking at any adjacent item (which
         // means that we need to be aware of the order in which we load items)
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kUp))
-            return neighbourItem->rect().x();
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kDown))
-            return neighbourItem->rect().x();
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kLeft))
-            return neighbourItem->rect().right() + columnSpacing;
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kRight))
-            return neighbourItem->rect().left() - columnSpacing - fxTableItem->rect().width();
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
+            return neighborItem->rect().x();
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
+            return neighborItem->rect().x();
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
+            return neighborItem->rect().right() + columnSpacing;
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
+            return neighborItem->rect().left() - columnSpacing - fxTableItem->rect().width();
         Q_TABLEVIEW_UNREACHABLE(coordAt(fxTableItem));
     } else {
         auto edgeItem = visibleTableItem(QPoint(coordAt(fxTableItem).x(), topLeft.y()));
@@ -626,14 +626,14 @@ qreal QQuickTableViewPrivate::calculateItemY(const FxTableItemSG *fxTableItem) c
     if (isEdgeItem) {
         // For edge items we can find the Y position by looking at any adjacent item (which
         // means that we need to be aware of the order in which we load items)
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kLeft))
-            return neighbourItem->rect().y();
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kRight))
-            return neighbourItem->rect().y();
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kUp))
-            return neighbourItem->rect().bottom() + rowSpacing;
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kDown))
-            return neighbourItem->rect().top() - rowSpacing - fxTableItem->rect().height();
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
+            return neighborItem->rect().y();
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
+            return neighborItem->rect().y();
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
+            return neighborItem->rect().bottom() + rowSpacing;
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
+            return neighborItem->rect().top() - rowSpacing - fxTableItem->rect().height();
         Q_TABLEVIEW_UNREACHABLE(coordAt(fxTableItem));
     } else {
         auto edgeItem = visibleTableItem(QPoint(topLeft.x(), coordAt(fxTableItem).y()));
@@ -651,10 +651,10 @@ qreal QQuickTableViewPrivate::calculateItemWidth(const FxTableItemSG *fxTableIte
     bool isEdgeItem = coordAt(fxTableItem).y() == topLeft.y();
 
     if (isEdgeItem) {
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kUp))
-            return neighbourItem->rect().width();
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kDown))
-            return neighbourItem->rect().width();
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
+            return neighborItem->rect().width();
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
+            return neighborItem->rect().width();
         return fxTableItem->rect().width();
     } else {
         auto edgeItem = visibleTableItem(QPoint(coordAt(fxTableItem).x(), topLeft.y()));
@@ -672,10 +672,10 @@ qreal QQuickTableViewPrivate::calculateItemHeight(const FxTableItemSG *fxTableIt
     bool isEdgeItem = coordAt(fxTableItem).x() == topLeft.x();
 
     if (isEdgeItem) {
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kLeft))
-            return neighbourItem->rect().height();
-        if (FxTableItemSG *neighbourItem = itemNextTo(fxTableItem, kRight))
-            return neighbourItem->rect().height();
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
+            return neighborItem->rect().height();
+        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
+            return neighborItem->rect().height();
         return fxTableItem->rect().height();
     } else {
         auto edgeItem = visibleTableItem(QPoint(topLeft.x(), coordAt(fxTableItem).y()));
