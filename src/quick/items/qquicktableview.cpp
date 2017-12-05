@@ -49,10 +49,8 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcTableViewLayout, "qt.quick.tableview.layout")
 
-#define Q_TABLEVIEW_UNREACHABLE() \
-        dumpTableGeometry(); \
-        dumpVisibleItems(); \
-        Q_UNREACHABLE();
+#define Q_TABLEVIEW_UNREACHABLE() (void)dumpTable(); Q_UNREACHABLE();
+#define Q_TABLEVIEW_ASSERT(cond) Q_ASSERT(cond || dumpTable())
 
 class FxTableItemSG : public FxViewItem
 {
@@ -216,8 +214,8 @@ protected:
     void tableItemLoaded(FxTableItemSG *tableItem);
 
     QString indexToString(int index) const;
-    void dumpTableGeometry() const;
-    void dumpVisibleItems() const;
+    QString tableGeometryToString() const;
+    bool dumpTable() const;
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
@@ -267,13 +265,16 @@ void QQuickTableViewPrivate::setTopLeftCoord(QPoint cellCoord)
     if (cellCoord == currentTopLeftCoord)
         return;
 
+    Q_TABLEVIEW_ASSERT(visibleTableItem(cellCoord) || visibleItems.isEmpty());
+
     currentTopLeftIndex = indexAt(cellCoord);
 
     if (currentTopLeftItem)
         releaseItem(currentTopLeftItem);
 
+    QBoolBlocker guard(blockCreatedItemsSyncCallback);
     currentTopLeftItem = static_cast<FxTableItemSG *>(createItem(currentTopLeftIndex, false));
-    Q_ASSERT(currentTopLeftItem);
+    Q_TABLEVIEW_ASSERT(currentTopLeftItem);
 }
 
 void QQuickTableViewPrivate::setBottomRightCoord(QPoint cellCoord)
@@ -466,19 +467,23 @@ QString QQuickTableViewPrivate::indexToString(int index) const
     return QString::fromLatin1("index: %1 (x:%2, y:%3)").arg(index).arg(columnAtIndex(index)).arg(rowAtIndex(index));
 }
 
-void QQuickTableViewPrivate::dumpTableGeometry() const
+QString QQuickTableViewPrivate::tableGeometryToString() const
 {
-    qDebug() << "count:" << visibleItems.count() << indexToString(currentTopLeftIndex) << "->" << indexToString(currentBottomRightIndex);
+    return QString(QLatin1String("count: %1, %2 -> %3"))
+            .arg(visibleItems.count())
+            .arg(indexToString(currentTopLeftIndex))
+            .arg(indexToString(currentBottomRightIndex));
 }
 
-void QQuickTableViewPrivate::dumpVisibleItems() const
+bool QQuickTableViewPrivate::dumpTable() const
 {
-    qDebug() << "******* DUMP VISIBLE ITEMS BEGIN *******";
+    qDebug() << "******* TABLE DUMP *******";
+    qDebug() << tableGeometryToString();
     for (int i = 0; i < visibleItems.count(); ++i) {
         FxViewItem *item = visibleItems.at(i);
         qDebug() << indexToString(item->index);
     }
-    qDebug() << "******* DUMP VISIBLE ITEMS DONE *******";
+    return false;
 }
 
 void QQuickTableViewPrivate::loadTableItemAsync(int index)
@@ -722,7 +727,7 @@ void QQuickTableViewPrivate::checkLoadRequestStatus()
         return;
 
     dequeueCurrentLoadRequest();
-    dumpTableGeometry();
+    qCDebug(lcTableViewLayout()) << tableGeometryToString();
 
     if (!loadRequests.isEmpty()) {
         beginExecuteCurrentLoadRequest();
@@ -747,7 +752,7 @@ void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
 
 void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
 {
-    Q_ASSERT(!loadRequests.isEmpty());
+    Q_TABLEVIEW_ASSERT(!loadRequests.isEmpty());
 
     TableSectionLoadRequest &request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle) << QString(40, '*');
@@ -764,8 +769,8 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
         // those items must be loaded first.
         const QPoint &startCell = request.startCell;
         const QPoint &direction = request.fillDirection;
-        Q_ASSERT(direction.x() >= 0);
-        Q_ASSERT(direction.y() >= 0);
+        Q_TABLEVIEW_ASSERT(direction.x() >= 0);
+        Q_TABLEVIEW_ASSERT(direction.y() >= 0);
 
         int endX = direction.x() == 1 ? columnAtIndex(currentBottomRightIndex) : startCell.x();
         int endY = direction.y() == 1 ? rowAtIndex(currentBottomRightIndex) : startCell.y();
@@ -791,7 +796,7 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
 
 void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest(const FxTableItemSG *receivedTableItem)
 {
-    Q_ASSERT(!loadRequests.isEmpty());
+    Q_TABLEVIEW_ASSERT(!loadRequests.isEmpty());
     TableSectionLoadRequest &request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle()) << request;
 
@@ -820,8 +825,8 @@ void QQuickTableViewPrivate::loadInitialItems()
     // Load top row and left column one-by-one first to determine the number
     // of rows and columns that fit inside the view. Once that is knows, we
     // can load all the remaining items in parallel.
-    Q_ASSERT(visibleItems.isEmpty());
-    Q_ASSERT(!currentTopLeftItem);
+    Q_TABLEVIEW_ASSERT(visibleItems.isEmpty());
+    Q_TABLEVIEW_ASSERT(!currentTopLeftItem);
 
     currentLayoutRect = viewportRect();
     qCDebug(lcItemViewDelegateLifecycle()) << "layout rect:" << currentLayoutRect;
@@ -852,7 +857,7 @@ void QQuickTableViewPrivate::loadInitialItems()
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
     if (visibleItems.count() == 1) {
-        Q_ASSERT(visibleItems[0]->index == currentTopLeftIndex);
+        Q_TABLEVIEW_ASSERT(visibleItems[0]->index == currentTopLeftIndex);
         return;
     }
 
@@ -866,14 +871,14 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         qCDebug(lcTableViewLayout()) << "unload left column" << topLeftCell.x();
         setTopLeftCoord(cellCoordAt(currentTopLeftIndex) + kRight);
         unloadRowOrColumn(topLeftCell, bottomLeftCell);
-        dumpTableGeometry();
+        qCDebug(lcTableViewLayout()) << tableGeometryToString();
     } else if (currentLayoutRect.right() - bottomRightRect.left() < wholePixelMargin) {
         QPoint topRightCell = cellCoordAt(currentTopRightIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
         qCDebug(lcTableViewLayout()) << "unload right column" << topRightCell.x();
         setBottomRightCoord(cellCoordAt(currentBottomRightIndex) + kLeft);
         unloadRowOrColumn(topRightCell, bottomRightCell);
-        dumpTableGeometry();
+        qCDebug(lcTableViewLayout()) << tableGeometryToString();
     }
 
     if (topLeftRect.bottom() - currentLayoutRect.top() < wholePixelMargin) {
@@ -882,14 +887,14 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
         qCDebug(lcTableViewLayout()) << "unload top row" << topLeftCell.y();
         setTopLeftCoord(cellCoordAt(currentTopLeftIndex) + kDown);
         unloadRowOrColumn(topLeftCell, topRightCell);
-        dumpTableGeometry();
+        qCDebug(lcTableViewLayout()) << tableGeometryToString();
     } else if (currentLayoutRect.bottom() - bottomRightRect.top() < wholePixelMargin) {
         QPoint bottomLeftCell = cellCoordAt(currentBottomLeftIndex());
         QPoint bottomRightCell = cellCoordAt(currentBottomRightIndex);
         qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomLeftCell.y();
         setBottomRightCoord(cellCoordAt(currentBottomRightIndex) + kUp);
         unloadRowOrColumn(bottomLeftCell, bottomRightCell);
-        dumpTableGeometry();
+        qCDebug(lcTableViewLayout()) << tableGeometryToString();
     }
 }
 
@@ -945,6 +950,7 @@ void QQuickTableViewPrivate::unloadRowOrColumn(const QPoint &fromCell, const QPo
     // Add back top-left, since we need one item to be able to rebuild the table at the correct
     // position later. We already have a dedicated reference to it (currentTopLeftItem), but
     // fetch it one more time to bump the ref-count up after it got de-referenced in unloadItems().
+    Q_TABLEVIEW_ASSERT(currentTopLeftItem);
     visibleItems.append(static_cast<FxTableItemSG *>(createItem(currentTopLeftIndex, false)));
 
     // It there are no visible items (e.g if the flickable has flicked all
@@ -954,7 +960,7 @@ void QQuickTableViewPrivate::unloadRowOrColumn(const QPoint &fromCell, const QPo
 
 bool QQuickTableViewPrivate::loadUnloadTableEdges()
 {
-    Q_ASSERT(currentTopLeftItem);
+    Q_TABLEVIEW_ASSERT(currentTopLeftItem);
     currentLayoutRect = viewportRect();
 
     unloadScrolledOutItems();
