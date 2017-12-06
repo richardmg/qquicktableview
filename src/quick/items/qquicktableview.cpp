@@ -212,6 +212,7 @@ protected:
     void tableItemLoaded(FxTableItemSG *tableItem);
 
     QString indexToString(int index) const;
+    QString itemToString(const FxTableItemSG *tableItem) const;
     QString tableGeometryToString() const;
     bool dumpTable() const;
 };
@@ -454,6 +455,11 @@ QString QQuickTableViewPrivate::indexToString(int index) const
     return QString::fromLatin1("index: %1 (x:%2, y:%3)").arg(index).arg(columnAtIndex(index)).arg(rowAtIndex(index));
 }
 
+QString QQuickTableViewPrivate::itemToString(const FxTableItemSG *tableItem) const
+{
+    indexToString(tableItem->index);
+}
+
 QString QQuickTableViewPrivate::tableGeometryToString() const
 {
     return QString(QLatin1String("count: %1, (%2,%3) -> (%4,%5)"))
@@ -468,7 +474,7 @@ bool QQuickTableViewPrivate::dumpTable() const
     qDebug() << tableGeometryToString();
     for (int i = 0; i < visibleItems.count(); ++i) {
         FxViewItem *item = visibleItems.at(i);
-        qDebug() << indexToString(item->index);
+        qDebug() << itemToString(item);
     }
     return false;
 }
@@ -515,7 +521,7 @@ void QQuickTableViewPrivate::deliverPostedTableItems()
     // up delivering more items than what we had when we started.
     for (int i = 0; i < postedTableItems.count(); ++i) {
         FxTableItemSG *tableItem = postedTableItems[i];
-        qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << indexToString(tableItem->index);
+        qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << itemToString(tableItem);
         tableItemLoaded(tableItem);
     }
 
@@ -691,7 +697,7 @@ void QQuickTableViewPrivate::calculateItemGeometry(FxTableItemSG *fxTableItem)
     qreal y = calculateItemY(fxTableItem);
     fxTableItem->setPosition(QPointF(x, y));
 
-    qCDebug(lcItemViewDelegateLifecycle()) << indexToString(fxTableItem->index) << fxTableItem->rect();
+    qCDebug(lcItemViewDelegateLifecycle()) << itemToString(fxTableItem) << fxTableItem->rect();
 }
 
 void QQuickTableView::createdItem(int index, QObject*)
@@ -725,7 +731,7 @@ void QQuickTableView::createdItem(int index, QObject*)
 
 void QQuickTableViewPrivate::tableItemLoaded(FxTableItemSG *tableItem)
 {
-    qCDebug(lcItemViewDelegateLifecycle) << indexToString(tableItem->index);
+    qCDebug(lcItemViewDelegateLifecycle) << itemToString(tableItem);
     visibleItems.append(tableItem);
     updateCurrentTableGeometry(tableItem->index);
     calculateItemGeometry(tableItem);
