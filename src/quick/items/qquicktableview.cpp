@@ -147,8 +147,7 @@ protected:
     qreal rowSpacing;
     qreal columnSpacing;
     QQueue<TableSectionLoadRequest> loadRequests;
-    QEvent::Type eventTypeDeliverPostedTableItems;
-    QVector<FxTableItemSG *> postedTableItems;
+    QVector<FxTableItemSG *> loadedTableItems;
 
     bool loadTableFromScratch;
     bool blockCreatedItemsSyncCallback;
@@ -187,7 +186,7 @@ protected:
     void updateCurrentTableGeometry(int addedIndex);
 
     void loadTableItemAsync(const QPoint &cellCoord);
-    void deliverPostedTableItems();
+    void deliverLoadedTableItems();
     void showTableItem(FxTableItemSG *fxViewItem);
 
     bool canHaveMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction) const;
@@ -227,8 +226,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , rowSpacing(0)
     , columnSpacing(0)
     , loadRequests(QQueue<TableSectionLoadRequest>())
-    , eventTypeDeliverPostedTableItems(static_cast<QEvent::Type>(QEvent::registerEventType()))
-    , postedTableItems(QVector<FxTableItemSG *>())
+    , loadedTableItems(QVector<FxTableItemSG *>())
     , loadTableFromScratch(true)
     , blockCreatedItemsSyncCallback(false)
     , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
@@ -457,7 +455,7 @@ QString QQuickTableViewPrivate::indexToString(int index) const
 
 QString QQuickTableViewPrivate::itemToString(const FxTableItemSG *tableItem) const
 {
-    indexToString(tableItem->index);
+    return indexToString(tableItem->index);
 }
 
 QString QQuickTableViewPrivate::tableGeometryToString() const
@@ -473,7 +471,7 @@ bool QQuickTableViewPrivate::dumpTable() const
     qDebug() << "******* TABLE DUMP *******";
     qDebug() << tableGeometryToString();
     for (int i = 0; i < visibleItems.count(); ++i) {
-        FxViewItem *item = visibleItems.at(i);
+        FxTableItemSG *item = static_cast<FxTableItemSG *>(visibleItems.at(i));
         qDebug() << itemToString(item);
     }
     return false;
@@ -488,44 +486,34 @@ void QQuickTableViewPrivate::loadTableItemAsync(const QPoint &cellCoord)
 
     if (item) {
         // This can happen if the item was cached by the model from before. But we really don't
-        // want to check for this case everywhere, so we create an async callback anyway.
-        // To avoid sending multiple events for different items, we take care to only
-        // schedule one event, and instead queue the indices and process them
-        // all in one go once we receive the event.
-        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded, posting it:" << cellCoord;
-        bool alreadyWaitingForPendingEvent = !postedTableItems.isEmpty();
-        postedTableItems.append(item);
-
-        if (!alreadyWaitingForPendingEvent && !forceSynchronousMode) {
-            qCDebug(lcItemViewDelegateLifecycle) << "posting eventTypeDeliverPostedTableItems";
-            QEvent *event = new QEvent(eventTypeDeliverPostedTableItems);
-            qApp->postEvent(q_func(), event);
-        }
+        // want to deliver the item right away, since that will create a recursion on the
+        // call stack. So we queue it, and deliver it later.
+        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded, queuing it:" << cellCoord;
+        loadedTableItems.append(item);
     }
 }
 
-void QQuickTableViewPrivate::deliverPostedTableItems()
+void QQuickTableViewPrivate::deliverLoadedTableItems()
 {
-    if (postedTableItems.isEmpty())
+    if (loadedTableItems.isEmpty())
         return;
 
-    qCDebug(lcItemViewDelegateLifecycle) << "initial count:" << postedTableItems.count();
+    qCDebug(lcItemViewDelegateLifecycle) << "initial count:" << loadedTableItems.count();
 
-    // When we deliver items, the receivers will typically ask for
-    // not only the item we deliver, but also subsequent items in
-    // the layout. To avoid recursion, we need to block.
+    // When we deliver items, the receivers will typically ask for but also
+    // subsequent items in the layout. To avoid recursion, we need to block.
     QBoolBlocker guard(blockCreatedItemsSyncCallback);
 
     // Note that as we deliver items from this function, new items
     // might be appended to the list, which means that we can end
     // up delivering more items than what we had when we started.
-    for (int i = 0; i < postedTableItems.count(); ++i) {
-        FxTableItemSG *tableItem = postedTableItems[i];
+    for (int i = 0; i < loadedTableItems.count(); ++i) {
+        FxTableItemSG *tableItem = loadedTableItems[i];
         qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << itemToString(tableItem);
         tableItemLoaded(tableItem);
     }
 
-    postedTableItems.clear();
+    loadedTableItems.clear();
 
     qCDebug(lcItemViewDelegateLifecycle) << "done delivering items!";
 }
@@ -717,7 +705,7 @@ void QQuickTableView::createdItem(int index, QObject*)
         return;
     }
 
-    qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << d->indexToString(index);
+    qCDebug(lcItemViewDelegateLifecycle) << "received:" << d->indexToString(index);
 
     // It's important to use createItem to get the item, and
     // not the object argument, since the former will ref-count it.
@@ -726,7 +714,8 @@ void QQuickTableView::createdItem(int index, QObject*)
     Q_ASSERT(item);
     Q_ASSERT(item->item);
 
-    d->tableItemLoaded(item);
+    d->loadedTableItems.append(item);
+    d->deliverLoadedTableItems();
 }
 
 void QQuickTableViewPrivate::tableItemLoaded(FxTableItemSG *tableItem)
@@ -984,8 +973,7 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
         modified = loadUnloadTableEdges();
     }
 
-    if (forceSynchronousMode)
-        deliverPostedTableItems();
+    deliverLoadedTableItems();
 
     return modified;
 }
@@ -1112,18 +1100,6 @@ void QQuickTableView::setOrientation(Orientation orientation)
     if (isComponentComplete())
         d->regenerate();
     emit orientationChanged();
-}
-
-bool QQuickTableView::event(QEvent *e)
-{
-    Q_D(QQuickTableView);
-
-    if (e->type() == d->eventTypeDeliverPostedTableItems) {
-        d->deliverPostedTableItems();
-        return true;
-    }
-
-    return QQuickAbstractItemView::event(e);
 }
 
 QQuickTableViewAttached *QQuickTableView::qmlAttachedProperties(QObject *obj)

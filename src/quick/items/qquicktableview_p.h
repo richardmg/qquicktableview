@@ -99,8 +99,6 @@ public:
     Orientation orientation() const;
     void setOrientation(Orientation orientation);
 
-    bool event(QEvent *e) override;
-
     static QQuickTableViewAttached *qmlAttachedProperties(QObject *);
 
 Q_SIGNALS:
