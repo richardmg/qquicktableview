@@ -477,9 +477,6 @@ void QQuickTableViewPrivate::loadTableItemAsync(const QPoint &cellCoord)
 {
     qCDebug(lcItemViewDelegateLifecycle) << cellCoord;
 
-    // TODO: check if item is already available before creating an FxTableItemSG
-    // so we don't have to release it below in case it exists.
-
     QBoolBlocker guard(blockCreatedItemsSyncCallback);
     FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(indexAt(cellCoord), !forceSynchronousMode));
 
