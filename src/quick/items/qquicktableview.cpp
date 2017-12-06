@@ -783,12 +783,7 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
         int endX = direction.x() == 1 ? bottomRight.x() : startCell.x();
         int endY = direction.y() == 1 ? bottomRight.y() : startCell.y();
 
-        for (int y = startCell.y(); y <= endY; ++y) {
-            for (int x = startCell.x(); x <= endX; ++x) {
-                request.requestedItemCount++;
-                loadTableItemAsync(QPoint(x, y));
-            }
-        }
+        request.requestedItemCount = (endX - startCell.x() + 1) * (endY - startCell.y() + 1);
 
         if (request.requestedItemCount == 0) {
             // All items requested where outside available rows/columns.
@@ -796,6 +791,12 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
             // view after overshooting.
             request.done = true;
             checkLoadRequestStatus();
+        } else {
+            for (int y = startCell.y(); y <= endY; ++y) {
+                for (int x = startCell.x(); x <= endX; ++x) {
+                    loadTableItemAsync(QPoint(x, y));
+                }
+            }
         }
 
         break; }
