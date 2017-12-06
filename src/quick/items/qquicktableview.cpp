@@ -88,6 +88,7 @@ public:
     QPoint fillDirection = QPoint(0, 0);
     LoadMode loadMode = LoadOneByOne;
     int requestedItemCount = 0;
+    bool started = false;
     bool done = false;
 
     bool onlyOneItemRequested() const { return fillDirection.isNull(); }
@@ -147,8 +148,10 @@ protected:
     qreal rowSpacing;
     qreal columnSpacing;
     QQueue<TableSectionLoadRequest> loadRequests;
-    QVector<FxTableItemSG *> loadedTableItems;
 
+    FxTableItemSG *itemLoaded;
+
+    bool modified;
     bool loadTableFromScratch;
     bool blockCreatedItemsSyncCallback;
     bool forceSynchronousMode;
@@ -185,8 +188,7 @@ protected:
     void updateViewportContentHeight();
     void updateCurrentTableGeometry(int addedIndex);
 
-    void loadTableItemAsync(const QPoint &cellCoord);
-    void deliverLoadedTableItems();
+    void loadTableItem(const QPoint &cellCoord);
     void showTableItem(FxTableItemSG *fxViewItem);
 
     bool canHaveMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction) const;
@@ -196,8 +198,8 @@ protected:
     qreal calculateItemHeight(const FxTableItemSG *fxTableItem) const;
     void calculateItemGeometry(FxTableItemSG *fxTableItem);
 
-    bool loadUnloadTableEdges();
     void loadInitialItems();
+    void loadUnloadTableEdges();
     void loadScrolledInItems();
     void loadRowOrColumn(const QPoint &startCell, const QPoint &fillDirection);
     void unloadScrolledOutItems();
@@ -205,9 +207,9 @@ protected:
 
     void enqueueLoadRequest(const TableSectionLoadRequest &request);
     void dequeueCurrentLoadRequest();
+    void processLoadRequests();
     void beginExecuteCurrentLoadRequest();
     void continueExecuteCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
-    void checkLoadRequestStatus();
     void tableItemLoaded(FxTableItemSG *tableItem);
 
     QString indexToString(int index) const;
@@ -226,7 +228,8 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , rowSpacing(0)
     , columnSpacing(0)
     , loadRequests(QQueue<TableSectionLoadRequest>())
-    , loadedTableItems(QVector<FxTableItemSG *>())
+    , itemLoaded(nullptr)
+    , modified(false)
     , loadTableFromScratch(true)
     , blockCreatedItemsSyncCallback(false)
     , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
@@ -477,7 +480,7 @@ bool QQuickTableViewPrivate::dumpTable() const
     return false;
 }
 
-void QQuickTableViewPrivate::loadTableItemAsync(const QPoint &cellCoord)
+void QQuickTableViewPrivate::loadTableItem(const QPoint &cellCoord)
 {
     qCDebug(lcItemViewDelegateLifecycle) << cellCoord;
 
@@ -485,42 +488,16 @@ void QQuickTableViewPrivate::loadTableItemAsync(const QPoint &cellCoord)
     FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(indexAt(cellCoord), !forceSynchronousMode));
 
     if (item) {
-        // This can happen if the item was cached by the model from before. But we really don't
-        // want to deliver the item right away, since that will create a recursion on the
-        // call stack. So we queue it, and deliver it later.
-        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded, queuing it:" << cellCoord;
-        loadedTableItems.append(item);
+        // This can happen if the item was cached by the model from before.
+        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded:" << cellCoord;
+        tableItemLoaded(item);
     }
-}
-
-void QQuickTableViewPrivate::deliverLoadedTableItems()
-{
-    if (loadedTableItems.isEmpty())
-        return;
-
-    qCDebug(lcItemViewDelegateLifecycle) << "initial count:" << loadedTableItems.count();
-
-    // When we deliver items, the receivers will typically ask for but also
-    // subsequent items in the layout. To avoid recursion, we need to block.
-    QBoolBlocker guard(blockCreatedItemsSyncCallback);
-
-    // Note that as we deliver items from this function, new items
-    // might be appended to the list, which means that we can end
-    // up delivering more items than what we had when we started.
-    for (int i = 0; i < loadedTableItems.count(); ++i) {
-        FxTableItemSG *tableItem = loadedTableItems[i];
-        qCDebug(lcItemViewDelegateLifecycle) << "deliver:" << itemToString(tableItem);
-        tableItemLoaded(tableItem);
-    }
-
-    loadedTableItems.clear();
-
-    qCDebug(lcItemViewDelegateLifecycle) << "done delivering items!";
 }
 
 void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &toCell)
 {
     qCDebug(lcItemViewDelegateLifecycle) << fromCell << "->" << toCell;
+    modified = true;
 
     for (int y = fromCell.y(); y <= toCell.y(); ++y) {
         for (int x = fromCell.x(); x <= toCell.x(); ++x) {
@@ -714,36 +691,22 @@ void QQuickTableView::createdItem(int index, QObject*)
     Q_ASSERT(item);
     Q_ASSERT(item->item);
 
-    d->loadedTableItems.append(item);
-    d->deliverLoadedTableItems();
+    d->tableItemLoaded(item);
+    d->processLoadRequests();
+    if (d->loadRequests.isEmpty())
+        d->loadUnloadTableEdges();
 }
 
 void QQuickTableViewPrivate::tableItemLoaded(FxTableItemSG *tableItem)
 {
     qCDebug(lcItemViewDelegateLifecycle) << itemToString(tableItem);
+    modified = true;
+    itemLoaded = tableItem;
+    loadRequests.head().requestedItemCount--;
     visibleItems.append(tableItem);
     updateCurrentTableGeometry(tableItem->index);
     calculateItemGeometry(tableItem);
     showTableItem(tableItem);
-    continueExecuteCurrentLoadRequest(tableItem);
-    checkLoadRequestStatus();
-}
-
-void QQuickTableViewPrivate::checkLoadRequestStatus()
-{
-    if (!loadRequests.head().done)
-        return;
-
-    dequeueCurrentLoadRequest();
-    qCDebug(lcTableViewLayout()) << tableGeometryToString();
-
-    if (!loadRequests.isEmpty()) {
-        beginExecuteCurrentLoadRequest();
-    } else {
-        // Nothing more todo. Check if the view port moved while we
-        // were processing load requests, and if so, start all over.
-        loadUnloadTableEdges();
-    }
 }
 
 void QQuickTableViewPrivate::enqueueLoadRequest(const TableSectionLoadRequest &request)
@@ -763,12 +726,14 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
     Q_TABLEVIEW_ASSERT(!loadRequests.isEmpty());
 
     TableSectionLoadRequest &request = loadRequests.head();
+    request.started = true;
+
     qCDebug(lcItemViewDelegateLifecycle) << QString(40, '*');
     qCDebug(lcItemViewDelegateLifecycle) << request;
 
     switch (request.loadMode) {
     case TableSectionLoadRequest::LoadOneByOne:
-        loadTableItemAsync(request.startCell);
+        loadTableItem(request.startCell);
         break;
     case TableSectionLoadRequest::LoadInParallel: {
         // Note: TableSectionLoadRequest::LoadInParallel can only work when we
@@ -790,12 +755,10 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
             // This is typically the case when flicking a table back into
             // view after overshooting.
             request.done = true;
-            checkLoadRequestStatus();
         } else {
             for (int y = startCell.y(); y <= endY; ++y) {
-                for (int x = startCell.x(); x <= endX; ++x) {
-                    loadTableItemAsync(QPoint(x, y));
-                }
+                for (int x = startCell.x(); x <= endX; ++x)
+                    loadTableItem(QPoint(x, y));
             }
         }
 
@@ -819,11 +782,10 @@ void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest(const FxTableItem
         const QPoint cellCoord = coordAt(receivedTableItem);
         request.done = !canHaveMoreItemsInDirection(cellCoord, request.fillDirection);
         if (!request.done)
-            loadTableItemAsync(cellCoord + request.fillDirection);
+            loadTableItem(cellCoord + request.fillDirection);
         break; }
     case TableSectionLoadRequest::LoadInParallel:
-        // All items have already been requested. Just count them in.
-        request.done = --request.requestedItemCount == 0;
+        request.done = request.requestedItemCount == 0;
         break;
     }
 }
@@ -859,8 +821,50 @@ void QQuickTableViewPrivate::loadInitialItems()
     requestInnerItems.fillDirection = kRight + kDown;
     requestInnerItems.loadMode = TableSectionLoadRequest::LoadInParallel;
     enqueueLoadRequest(requestInnerItems);
+}
 
-    beginExecuteCurrentLoadRequest();
+void QQuickTableViewPrivate::loadUnloadTableEdges()
+{
+    bool modifiedAtLeastOnce = modified;
+    layoutRect = viewportRect();
+
+    do {
+        modified = false;
+        unloadScrolledOutItems();
+        loadScrolledInItems();
+        processLoadRequests();
+        modifiedAtLeastOnce |= modified;
+    } while (modified);
+
+    modified = modifiedAtLeastOnce;
+}
+
+void QQuickTableViewPrivate::processLoadRequests()
+{
+    if (loadRequests.isEmpty())
+        return;
+
+    if (!loadRequests.head().started)
+        beginExecuteCurrentLoadRequest();
+
+    forever {
+        while (itemLoaded) {
+            auto item = itemLoaded;
+            itemLoaded = nullptr;
+            continueExecuteCurrentLoadRequest(item);
+        }
+
+        if (!loadRequests.head().done)
+            break;
+
+        dequeueCurrentLoadRequest();
+        qCDebug(lcTableViewLayout()) << tableGeometryToString();
+
+        if (loadRequests.isEmpty())
+            break;
+
+        beginExecuteCurrentLoadRequest();
+    }
 }
 
 void QQuickTableViewPrivate::unloadScrolledOutItems()
@@ -940,20 +944,6 @@ void QQuickTableViewPrivate::loadRowOrColumn(const QPoint &startCell, const QPoi
     enqueueLoadRequest(trailingItemsRequest);
 }
 
-bool QQuickTableViewPrivate::loadUnloadTableEdges()
-{
-    layoutRect = viewportRect();
-
-    unloadScrolledOutItems();
-    loadScrolledInItems();
-
-    if (loadRequests.isEmpty())
-        return false;
-
-    beginExecuteCurrentLoadRequest();
-    return true;
-}
-
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     if (!loadRequests.isEmpty()) {
@@ -965,16 +955,14 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     if (!viewportRect().isValid())
         return false;
 
-    bool modified = false;
+    modified = false;
 
     if (loadTableFromScratch) {
         loadInitialItems();
-        modified = true;
+        processLoadRequests();
     } else {
-        modified = loadUnloadTableEdges();
+        loadUnloadTableEdges();
     }
-
-    deliverLoadedTableItems();
 
     return modified;
 }
