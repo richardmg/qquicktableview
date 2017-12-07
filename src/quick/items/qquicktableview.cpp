@@ -209,6 +209,7 @@ protected:
     void processLoadRequests();
     void beginExecuteCurrentLoadRequest();
     void continueExecuteCurrentLoadRequest();
+    void loadNextOneByOneItem(TableSectionLoadRequest &request);
     void insertItemIntoTable(FxTableItemSG *tableItem);
 
     QString indexToString(int index) const;
@@ -520,6 +521,9 @@ FxTableItemSG *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewIte
 
 bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction) const
 {
+    if (direction == QPoint())
+        return false;
+
     Q_TABLEVIEW_ASSERT(visibleTableItem(cellCoord), cellCoord);
     const QRectF itemRect = visibleTableItem(cellCoord)->rect();
 
@@ -732,12 +736,8 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
     switch (request.loadMode) {
     case TableSectionLoadRequest::LoadOneByOne:
         loadTableItem(request.startCell);
-        if (loadedItem && request.onlyOneItemRequested()) {
-            // Since we got the item sync, and we're not
-            // supposed to fill in any direction, we're done.
-            loadedItem = nullptr;
-            request.done = true;
-        }
+        if (loadedItem)
+            loadNextOneByOneItem(request);
         break;
     case TableSectionLoadRequest::LoadInParallel: {
         // Note: TableSectionLoadRequest::LoadInParallel can only work when we
@@ -768,7 +768,7 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
                 }
             }
             if (request.requestedItemCount == 0) {
-                // All items were loaded synchronously
+                // All items were loaded synchronously, so we're done
                 loadedItem = nullptr;
                 request.done = true;
             }
@@ -782,24 +782,26 @@ void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest()
     TableSectionLoadRequest &request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle()) << request;
 
-    if (request.onlyOneItemRequested()) {
-        request.done = true;
-        return;
-    }
-
     switch (request.loadMode) {
     case TableSectionLoadRequest::LoadOneByOne:
-        while (loadedItem) {
-            const QPoint cellCoord = coordAt(loadedItem);
-            request.done = !canHaveMoreItemsInDirection(cellCoord, request.fillDirection);
-            if (request.done)
-                break;
-            loadTableItem(cellCoord + request.fillDirection);
-        }
+        loadNextOneByOneItem(request);
         break;
     case TableSectionLoadRequest::LoadInParallel:
         request.done = --request.requestedItemCount == 0;
         break;
+    }
+}
+
+void QQuickTableViewPrivate::loadNextOneByOneItem(TableSectionLoadRequest &request)
+{
+    while (loadedItem) {
+        const QPoint cellCoord = coordAt(loadedItem);
+        request.done = !canHaveMoreItemsInDirection(cellCoord, request.fillDirection);
+        if (request.done) {
+            loadedItem = nullptr;
+            return;
+        }
+        loadTableItem(cellCoord + request.fillDirection);
     }
 }
 
