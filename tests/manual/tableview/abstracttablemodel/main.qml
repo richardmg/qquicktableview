@@ -62,7 +62,7 @@ Window {
                 // Setting columns and rows is not really needed, since the model contains the info.
                 // But it should probably be the opposite, so that we always use columns and rows?
                 // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
-                columns: 1000
+                columns: 20
                 rows: 50
 
                 columnSpacing: 1
@@ -84,7 +84,7 @@ Window {
         Component {
             id: cellComponent
             Rectangle {
-                width: row === 1 ? 100 : 50//(row + column) % 2 ? 100 : 50
+                width: 100//row === 1 ? 100 : 50//(row + column) % 2 ? 100 : 50
                 height: 50//index % 2 ? 100 : index % 3 ? 50 : 30
                 color: model.display ? "white" : Qt.rgba(0.96, 0.96, 0.96, 1)
 

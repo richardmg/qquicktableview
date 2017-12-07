@@ -152,6 +152,7 @@ protected:
     FxTableItemSG *itemLoaded;
 
     bool modified;
+    bool modifiedAtLeastOnce;
     bool loadTableFromScratch;
     bool blockCreatedItemsSyncCallback;
     bool forceSynchronousMode;
@@ -199,7 +200,6 @@ protected:
     void calculateItemGeometry(FxTableItemSG *fxTableItem);
 
     void loadInitialItems();
-    void loadUnloadTableEdges();
     void loadScrolledInItems();
     void loadRowOrColumn(const QPoint &startCell, const QPoint &fillDirection);
     void unloadScrolledOutItems();
@@ -209,8 +209,8 @@ protected:
     void dequeueCurrentLoadRequest();
     void processLoadRequests();
     void beginExecuteCurrentLoadRequest();
-    void continueExecuteCurrentLoadRequest(const FxTableItemSG *receivedTableItem);
-    void tableItemLoaded(FxTableItemSG *tableItem);
+    void continueExecuteCurrentLoadRequest();
+    void insertItemIntoTable(FxTableItemSG *tableItem);
 
     QString indexToString(int index) const;
     QString itemToString(const FxTableItemSG *tableItem) const;
@@ -230,6 +230,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , loadRequests(QQueue<TableSectionLoadRequest>())
     , itemLoaded(nullptr)
     , modified(false)
+    , modifiedAtLeastOnce(false)
     , loadTableFromScratch(true)
     , blockCreatedItemsSyncCallback(false)
     , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
@@ -485,18 +486,19 @@ void QQuickTableViewPrivate::loadTableItem(const QPoint &cellCoord)
     qCDebug(lcItemViewDelegateLifecycle) << cellCoord;
 
     QBoolBlocker guard(blockCreatedItemsSyncCallback);
-    FxTableItemSG *item = static_cast<FxTableItemSG *>(createItem(indexAt(cellCoord), !forceSynchronousMode));
+    itemLoaded = static_cast<FxTableItemSG *>(createItem(indexAt(cellCoord), !forceSynchronousMode));
 
-    if (item) {
+    if (itemLoaded) {
         // This can happen if the item was cached by the model from before.
-        qCDebug(lcItemViewDelegateLifecycle) << "item already loaded:" << cellCoord;
-        tableItemLoaded(item);
+        qCDebug(lcItemViewDelegateLifecycle) << "item received synchronously:" << cellCoord;
+        insertItemIntoTable(itemLoaded);
     }
 }
 
 void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &toCell)
 {
     qCDebug(lcItemViewDelegateLifecycle) << fromCell << "->" << toCell;
+    modifiedAtLeastOnce = true;
     modified = true;
 
     for (int y = fromCell.y(); y <= toCell.y(); ++y) {
@@ -691,17 +693,15 @@ void QQuickTableView::createdItem(int index, QObject*)
     Q_ASSERT(item);
     Q_ASSERT(item->item);
 
-    d->tableItemLoaded(item);
+    d->insertItemIntoTable(item);
     d->processLoadRequests();
-    if (d->loadRequests.isEmpty())
-        d->loadUnloadTableEdges();
 }
 
-void QQuickTableViewPrivate::tableItemLoaded(FxTableItemSG *tableItem)
+void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *tableItem)
 {
     qCDebug(lcItemViewDelegateLifecycle) << itemToString(tableItem);
     modified = true;
-    itemLoaded = tableItem;
+    modifiedAtLeastOnce = true;
     loadRequests.head().requestedItemCount--;
     visibleItems.append(tableItem);
     updateCurrentTableGeometry(tableItem->index);
@@ -766,9 +766,8 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
     }
 }
 
-void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest(const FxTableItemSG *receivedTableItem)
+void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest()
 {
-    Q_TABLEVIEW_ASSERT(!loadRequests.isEmpty());
     TableSectionLoadRequest &request = loadRequests.head();
     qCDebug(lcItemViewDelegateLifecycle()) << request;
 
@@ -778,12 +777,15 @@ void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest(const FxTableItem
     }
 
     switch (request.loadMode) {
-    case TableSectionLoadRequest::LoadOneByOne: {
-        const QPoint cellCoord = coordAt(receivedTableItem);
-        request.done = !canHaveMoreItemsInDirection(cellCoord, request.fillDirection);
-        if (!request.done)
+    case TableSectionLoadRequest::LoadOneByOne:
+        while (itemLoaded) {
+            const QPoint cellCoord = coordAt(itemLoaded);
+            request.done = !canHaveMoreItemsInDirection(cellCoord, request.fillDirection);
+            if (request.done)
+                break;
             loadTableItem(cellCoord + request.fillDirection);
-        break; }
+        }
+        break;
     case TableSectionLoadRequest::LoadInParallel:
         request.done = request.requestedItemCount == 0;
         break;
@@ -823,91 +825,80 @@ void QQuickTableViewPrivate::loadInitialItems()
     enqueueLoadRequest(requestInnerItems);
 }
 
-void QQuickTableViewPrivate::loadUnloadTableEdges()
-{
-    bool modifiedAtLeastOnce = modified;
-    layoutRect = viewportRect();
-
-    do {
-        modified = false;
-        unloadScrolledOutItems();
-        loadScrolledInItems();
-        processLoadRequests();
-        modifiedAtLeastOnce |= modified;
-    } while (modified);
-
-    modified = modifiedAtLeastOnce;
-}
-
 void QQuickTableViewPrivate::processLoadRequests()
 {
-    if (loadRequests.isEmpty())
-        return;
-
-    if (!loadRequests.head().started)
-        beginExecuteCurrentLoadRequest();
-
     forever {
-        while (itemLoaded) {
-            auto item = itemLoaded;
-            itemLoaded = nullptr;
-            continueExecuteCurrentLoadRequest(item);
+        if (loadRequests.isEmpty()) {
+            unloadScrolledOutItems();
+            loadScrolledInItems();
+            if (loadRequests.isEmpty())
+                return;
         }
 
+        if (!loadRequests.head().started)
+            beginExecuteCurrentLoadRequest();
+
+        if (itemLoaded)
+            continueExecuteCurrentLoadRequest();
+
         if (!loadRequests.head().done)
-            break;
+            return;
 
         dequeueCurrentLoadRequest();
         qCDebug(lcTableViewLayout()) << tableGeometryToString();
-
-        if (loadRequests.isEmpty())
-            break;
-
-        beginExecuteCurrentLoadRequest();
     }
 }
 
 void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
-    const QRectF &topLeftRect = visibleTableItem(topLeft)->rect();
-    const QRectF &bottomRightRect = visibleTableItem(bottomRight)->rect();
-    const qreal wholePixelMargin = -1.0;
+    layoutRect = viewportRect();
 
-    if (topLeftRect.right() - layoutRect.left() < wholePixelMargin) {
-        QPoint from = topLeft;
-        QPoint to = bottomLeft();
-        if (setTopLeftCoord(topLeft + kRight)) {
-            qCDebug(lcTableViewLayout()) << "unload left column" << from.x();
-            unloadItems(from, to);
-        }
-    } else if (layoutRect.right() - bottomRightRect.left() < wholePixelMargin) {
-        QPoint from = topRight();
-        QPoint to = bottomRight;
-        if (setBottomRightCoord(bottomRight + kLeft)) {
-            qCDebug(lcTableViewLayout()) << "unload right column" << from.x();
-            unloadItems(from, to);
-        }
-    }
+    while (modified) {
+        modified = false;
 
-    if (topLeftRect.bottom() - layoutRect.top() < wholePixelMargin) {
-        QPoint from = topLeft;
-        QPoint to = topRight();
-        if (setTopLeftCoord(topLeft + kDown)) {
-            qCDebug(lcTableViewLayout()) << "unload top row" << topLeft.y();
-            unloadItems(from, to);
+        const QRectF &topLeftRect = visibleTableItem(topLeft)->rect();
+        const QRectF &bottomRightRect = visibleTableItem(bottomRight)->rect();
+        const qreal wholePixelMargin = -1.0;
+
+        if (topLeftRect.right() - layoutRect.left() < wholePixelMargin) {
+            QPoint from = topLeft;
+            QPoint to = bottomLeft();
+            if (setTopLeftCoord(topLeft + kRight)) {
+                qCDebug(lcTableViewLayout()) << "unload left column" << from.x();
+                unloadItems(from, to);
+            }
+        } else if (layoutRect.right() - bottomRightRect.left() < wholePixelMargin) {
+            QPoint from = topRight();
+            QPoint to = bottomRight;
+            if (setBottomRightCoord(bottomRight + kLeft)) {
+                qCDebug(lcTableViewLayout()) << "unload right column" << from.x();
+                unloadItems(from, to);
+            }
         }
-    } else if (layoutRect.bottom() - bottomRightRect.top() < wholePixelMargin) {
-        QPoint from = bottomLeft();
-        QPoint to = bottomRight;
-        if (setBottomRightCoord(bottomRight + kUp)) {
-            qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomLeft().y();
-            unloadItems(from, to);
+
+        if (topLeftRect.bottom() - layoutRect.top() < wholePixelMargin) {
+            QPoint from = topLeft;
+            QPoint to = topRight();
+            if (setTopLeftCoord(topLeft + kDown)) {
+                qCDebug(lcTableViewLayout()) << "unload top row" << topLeft.y();
+                unloadItems(from, to);
+            }
+        } else if (layoutRect.bottom() - bottomRightRect.top() < wholePixelMargin) {
+            QPoint from = bottomLeft();
+            QPoint to = bottomRight;
+            if (setBottomRightCoord(bottomRight + kUp)) {
+                qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomLeft().y();
+                unloadItems(from, to);
+            }
         }
     }
 }
 
 void QQuickTableViewPrivate::loadScrolledInItems()
 {
+    // Todo: move layoutRect into
+    layoutRect = viewportRect();
+
     // For each corner item, check if it's more available space on the outside. If so, and
     // if the model has more items, load new rows and columns on the outside of those items.
     if (canHaveMoreItemsInDirection(topLeft, kLeft)) {
@@ -955,16 +946,14 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     if (!viewportRect().isValid())
         return false;
 
-    modified = false;
+    modifiedAtLeastOnce = false;
 
-    if (loadTableFromScratch) {
+    if (loadTableFromScratch)
         loadInitialItems();
-        processLoadRequests();
-    } else {
-        loadUnloadTableEdges();
-    }
 
-    return modified;
+    processLoadRequests();
+
+    return modifiedAtLeastOnce;
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
