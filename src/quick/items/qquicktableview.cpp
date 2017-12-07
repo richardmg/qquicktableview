@@ -723,11 +723,12 @@ void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
 void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
 {
     Q_TABLEVIEW_ASSERT(!loadRequests.isEmpty(), loadRequests.head());
+    Q_TABLEVIEW_ASSERT(!loadedItem, itemToString(loadedItem));
 
     TableSectionLoadRequest &request = loadRequests.head();
+    Q_TABLEVIEW_ASSERT(!request.started, request);
     request.started = true;
 
-    qCDebug(lcItemViewDelegateLifecycle) << QString(40, '*');
     qCDebug(lcItemViewDelegateLifecycle) << request;
 
     switch (request.loadMode) {
@@ -780,10 +781,8 @@ void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest()
         while (loadedItem) {
             const QPoint cellCoord = coordAt(loadedItem);
             request.done = !canHaveMoreItemsInDirection(cellCoord, request.fillDirection);
-            if (request.done) {
-                loadedItem = nullptr;
+            if (request.done)
                 break;
-            }
             loadTableItem(cellCoord + request.fillDirection);
         }
         break;
@@ -829,9 +828,8 @@ void QQuickTableViewPrivate::loadInitialItems()
 void QQuickTableViewPrivate::processLoadRequests()
 {
     forever {
-        Q_TABLEVIEW_ASSERT(!loadedItem, itemToString(loadedItem));
-
         if (loadRequests.isEmpty()) {
+            Q_TABLEVIEW_ASSERT(!loadedItem, itemToString(loadedItem));
             unloadScrolledOutItems();
             loadScrolledInItems();
             if (loadRequests.isEmpty())
@@ -841,14 +839,19 @@ void QQuickTableViewPrivate::processLoadRequests()
         if (!loadRequests.head().started)
             beginExecuteCurrentLoadRequest();
 
-        if (loadedItem)
+        if (loadedItem) {
             continueExecuteCurrentLoadRequest();
+            loadedItem = nullptr;
+        }
 
         if (!loadRequests.head().done)
             return;
 
         dequeueCurrentLoadRequest();
+
+        qCDebug(lcItemViewDelegateLifecycle()) << QString(40, '*');
         qCDebug(lcTableViewLayout()) << tableGeometryToString();
+        qCDebug(lcItemViewDelegateLifecycle()) << QString(40, '*');
     }
 }
 
