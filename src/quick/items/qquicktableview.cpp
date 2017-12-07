@@ -683,7 +683,7 @@ void QQuickTableView::createdItem(int index, QObject*)
         return;
     }
 
-    qCDebug(lcItemViewDelegateLifecycle) << "received:" << d->indexToString(index);
+    qCDebug(lcItemViewDelegateLifecycle) << "loaded asynchronously:" << d->indexToString(index);
 
     // It's important to use createItem to get the item, and
     // not the object argument, since the former will ref-count it.
@@ -692,6 +692,7 @@ void QQuickTableView::createdItem(int index, QObject*)
     Q_ASSERT(item);
     Q_ASSERT(item->item);
 
+    d->loadedItem = item;
     d->insertItemIntoTable(item);
     d->processLoadRequests();
 }
