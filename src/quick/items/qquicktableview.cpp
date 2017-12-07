@@ -701,7 +701,6 @@ void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *tableItem)
 {
     qCDebug(lcItemViewDelegateLifecycle) << itemToString(tableItem);
     modified = true;
-    loadRequests.head().requestedItemCount--;
     visibleItems.append(tableItem);
     updateCurrentTableGeometry(tableItem->index);
     calculateItemGeometry(tableItem);
@@ -757,8 +756,11 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
             request.done = true;
         } else {
             for (int y = startCell.y(); y <= endY; ++y) {
-                for (int x = startCell.x(); x <= endX; ++x)
+                for (int x = startCell.x(); x <= endX; ++x) {
                     loadTableItem(QPoint(x, y));
+                    if (loadedItem)
+                        loadRequests.head().requestedItemCount--;
+                }
             }
         }
 
@@ -787,8 +789,52 @@ void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest()
         }
         break;
     case TableSectionLoadRequest::LoadInParallel:
-        request.done = request.requestedItemCount == 0;
+        request.done = --request.requestedItemCount <= 0;
         break;
+    }
+}
+
+void QQuickTableViewPrivate::processLoadRequests()
+{
+    // Either start to process the next pending load request, or continue
+    // with the current one when an item was received async. In either case
+    // we load as many items as possible, and handle all pending load requests
+    // if we can, before we leave. If one of the items we try to load ends up
+    // loading async, we need to wait for it before we can continue. In that
+    // case we just leave, and continue the process later, once we receive it.
+
+    forever {
+        if (loadRequests.isEmpty()) {
+            // We have nothing more load requests pending, but check if we
+            // the view port moved since we started processing the first
+            // load requests, and if so, add or remove items at the edges.
+            // This migh cause new load requests to be queued.
+            Q_TABLEVIEW_ASSERT(!loadedItem, itemToString(loadedItem));
+            unloadScrolledOutItems();
+            loadScrolledInItems();
+            if (loadRequests.isEmpty())
+                return;
+        }
+
+        if (!loadRequests.head().started)
+            beginExecuteCurrentLoadRequest();
+
+        if (loadedItem) {
+            continueExecuteCurrentLoadRequest();
+            loadedItem = nullptr;
+        }
+
+        if (!loadRequests.head().done) {
+            // We need to wait for async items to be
+            // loaded before we can continue.
+            return;
+        }
+
+        dequeueCurrentLoadRequest();
+
+        qCDebug(lcItemViewDelegateLifecycle()) << QString(40, '*');
+        qCDebug(lcTableViewLayout()) << tableGeometryToString();
+        qCDebug(lcItemViewDelegateLifecycle()) << QString(40, '*');
     }
 }
 
@@ -823,47 +869,6 @@ void QQuickTableViewPrivate::loadInitialItems()
     requestInnerItems.fillDirection = kRight + kDown;
     requestInnerItems.loadMode = TableSectionLoadRequest::LoadInParallel;
     enqueueLoadRequest(requestInnerItems);
-}
-
-void QQuickTableViewPrivate::processLoadRequests()
-{
-    // Either start to process the next pending load request, or continue
-    // with the current one when an item was received async. In either case
-    // we load as many items as possible, and handle all pending load requests
-    // if we can, before we leave. If one of the items we try to load ends up
-    // loading async, we need to wait for it before we can continue. In that
-    // case we just leave, and continue the process later, once we receive it.
-
-    forever {
-        if (loadRequests.isEmpty()) {
-            // We have nothing more load requests pending, but check if we
-            // the view port moved since we started processing the first
-            // load requests, and if so, add or remove items at the edges.
-            // This migh cause new load requests to be queued.
-            Q_TABLEVIEW_ASSERT(!loadedItem, itemToString(loadedItem));
-            unloadScrolledOutItems();
-            loadScrolledInItems();
-            if (loadRequests.isEmpty())
-                return;
-        }
-
-        if (!loadRequests.head().started)
-            beginExecuteCurrentLoadRequest();
-
-        if (loadedItem) {
-            continueExecuteCurrentLoadRequest();
-            loadedItem = nullptr;
-        }
-
-        if (!loadRequests.head().done)
-            return;
-
-        dequeueCurrentLoadRequest();
-
-        qCDebug(lcItemViewDelegateLifecycle()) << QString(40, '*');
-        qCDebug(lcTableViewLayout()) << tableGeometryToString();
-        qCDebug(lcItemViewDelegateLifecycle()) << QString(40, '*');
-    }
 }
 
 void QQuickTableViewPrivate::unloadScrolledOutItems()
