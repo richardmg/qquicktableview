@@ -187,7 +187,7 @@ protected:
 
     void updateViewportContentWidth();
     void updateViewportContentHeight();
-    void updateCurrentTableGeometry(int addedIndex);
+    void calculateTableGeometry(const FxTableItemSG *fxTableItem);
 
     void loadTableItem(const QPoint &cellCoord);
     void showTableItem(FxTableItemSG *fxViewItem);
@@ -400,9 +400,9 @@ void QQuickTableViewPrivate::updateViewportContentHeight()
     q->setContentHeight(8000);
 }
 
-void QQuickTableViewPrivate::updateCurrentTableGeometry(int addedIndex)
+void QQuickTableViewPrivate::calculateTableGeometry(const FxTableItemSG *fxTableItem)
 {
-    QPoint addedCoord = coordAt(addedIndex);
+    QPoint addedCoord = coordAt(fxTableItem);
 
     if (topLeft.x() == kNullValue) {
         setTopLeftCoord(addedCoord);
@@ -702,7 +702,7 @@ void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *tableItem)
     qCDebug(lcItemViewDelegateLifecycle) << itemToString(tableItem);
     modified = true;
     visibleItems.append(tableItem);
-    updateCurrentTableGeometry(tableItem->index);
+    calculateTableGeometry(tableItem);
     calculateItemGeometry(tableItem);
     showTableItem(tableItem);
 }
