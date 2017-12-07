@@ -980,10 +980,10 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     if (!viewportRect().isValid())
         return false;
 
-    modified = false;
-
     if (loadTableFromScratch)
         loadInitialItems();
+
+    modified = false;
 
     processLoadRequests();
 
