@@ -90,7 +90,6 @@ public:
     int requestedItemCount = 0;
     bool started = false;
     bool done = false;
-
     bool onlyOneItemRequested() const { return fillDirection.isNull(); }
 };
 
@@ -733,6 +732,12 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
     switch (request.loadMode) {
     case TableSectionLoadRequest::LoadOneByOne:
         loadTableItem(request.startCell);
+        if (loadedItem && request.onlyOneItemRequested()) {
+            // Since we got the item sync, and we're not
+            // supposed to fill in any direction, we're done.
+            loadedItem = nullptr;
+            request.done = true;
+        }
         break;
     case TableSectionLoadRequest::LoadInParallel: {
         // Note: TableSectionLoadRequest::LoadInParallel can only work when we
