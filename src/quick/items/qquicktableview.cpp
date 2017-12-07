@@ -762,8 +762,12 @@ void QQuickTableViewPrivate::beginExecuteCurrentLoadRequest()
                         loadRequests.head().requestedItemCount--;
                 }
             }
+            if (request.requestedItemCount == 0) {
+                // All items were loaded synchronously
+                loadedItem = nullptr;
+                request.done = true;
+            }
         }
-
         break; }
     }
 }
@@ -789,7 +793,7 @@ void QQuickTableViewPrivate::continueExecuteCurrentLoadRequest()
         }
         break;
     case TableSectionLoadRequest::LoadInParallel:
-        request.done = --request.requestedItemCount <= 0;
+        request.done = --request.requestedItemCount == 0;
         break;
     }
 }
