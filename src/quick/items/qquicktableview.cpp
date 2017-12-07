@@ -635,7 +635,7 @@ qreal QQuickTableViewPrivate::calculateItemWidth(const FxTableItemSG *fxTableIte
 qreal QQuickTableViewPrivate::calculateItemHeight(const FxTableItemSG *fxTableItem) const
 {
     if (visibleItems.size() == 1) {
-        return fxTableItem->rect().width();
+        return fxTableItem->rect().height();
     }
 
     bool isEdgeItem = coordAt(fxTableItem).x() == topLeft.x();
