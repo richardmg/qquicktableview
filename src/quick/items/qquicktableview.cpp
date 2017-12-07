@@ -152,7 +152,7 @@ protected:
     FxTableItemSG *loadedItem;
 
     bool modified;
-    bool modifiedAtLeastOnce;
+    bool itemsUnloaded;
     bool loadTableFromScratch;
     bool blockCreatedItemsSyncCallback;
     bool forceSynchronousMode;
@@ -230,7 +230,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , loadRequests(QQueue<TableSectionLoadRequest>())
     , loadedItem(nullptr)
     , modified(false)
-    , modifiedAtLeastOnce(false)
+    , itemsUnloaded(false)
     , loadTableFromScratch(true)
     , blockCreatedItemsSyncCallback(false)
     , forceSynchronousMode(qEnvironmentVariable("QT_TABLEVIEW_SYNC_MODE") == QLatin1String("true"))
@@ -497,8 +497,8 @@ void QQuickTableViewPrivate::loadTableItem(const QPoint &cellCoord)
 void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &toCell)
 {
     qCDebug(lcItemViewDelegateLifecycle) << fromCell << "->" << toCell;
-    modifiedAtLeastOnce = true;
     modified = true;
+    itemsUnloaded = true;
 
     for (int y = fromCell.y(); y <= toCell.y(); ++y) {
         for (int x = fromCell.x(); x <= toCell.x(); ++x) {
@@ -700,7 +700,6 @@ void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *tableItem)
 {
     qCDebug(lcItemViewDelegateLifecycle) << itemToString(tableItem);
     modified = true;
-    modifiedAtLeastOnce = true;
     loadRequests.head().requestedItemCount--;
     visibleItems.append(tableItem);
     updateCurrentTableGeometry(tableItem->index);
@@ -859,8 +858,8 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
 {
     layoutRect = viewportRect();
 
-    while (modified) {
-        modified = false;
+    do {
+        itemsUnloaded = false;
 
         const QRectF &topLeftRect = visibleTableItem(topLeft)->rect();
         const QRectF &bottomRightRect = visibleTableItem(bottomRight)->rect();
@@ -897,7 +896,8 @@ void QQuickTableViewPrivate::unloadScrolledOutItems()
                 unloadItems(from, to);
             }
         }
-    }
+
+    } while (itemsUnloaded);
 }
 
 void QQuickTableViewPrivate::loadScrolledInItems()
@@ -952,14 +952,14 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     if (!viewportRect().isValid())
         return false;
 
-    modifiedAtLeastOnce = false;
+    modified = false;
 
     if (loadTableFromScratch)
         loadInitialItems();
 
     processLoadRequests();
 
-    return modifiedAtLeastOnce;
+    return modified;
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
