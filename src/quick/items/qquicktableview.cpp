@@ -827,8 +827,19 @@ void QQuickTableViewPrivate::loadInitialItems()
 
 void QQuickTableViewPrivate::processLoadRequests()
 {
+    // Either start to process the next pending load request, or continue
+    // with the current one when an item was received async. In either case
+    // we load as many items as possible, and handle all pending load requests
+    // if we can, before we leave. If one of the items we try to load ends up
+    // loading async, we need to wait for it before we can continue. In that
+    // case we just leave, and continue the process later, once we receive it.
+
     forever {
         if (loadRequests.isEmpty()) {
+            // We have nothing more load requests pending, but check if we
+            // the view port moved since we started processing the first
+            // load requests, and if so, add or remove items at the edges.
+            // This migh cause new load requests to be queued.
             Q_TABLEVIEW_ASSERT(!loadedItem, itemToString(loadedItem));
             unloadScrolledOutItems();
             loadScrolledInItems();
