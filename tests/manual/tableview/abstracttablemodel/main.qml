@@ -63,12 +63,15 @@ Window {
                 // But it should probably be the opposite, so that we always use columns and rows?
                 // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
                 columns: 20
-                rows: 50
+                rows: 30
 
                 columnSpacing: 1
                 rowSpacing: 1
 
                 delegate: cellComponent
+
+//                onContentWidthChanged: print("content width:", contentWidth)
+//                Component.onCompleted: print("content width:", contentWidth)
             }
         }
 

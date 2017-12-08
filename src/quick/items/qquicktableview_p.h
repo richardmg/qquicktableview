@@ -59,6 +59,8 @@ QT_REQUIRE_CONFIG(quick_tableview);
 
 QT_BEGIN_NAMESPACE
 
+static const int kNullValue = -1;
+
 class QQuickTableViewAttached;
 class QQuickTableViewPrivate;
 
@@ -108,9 +110,11 @@ Q_SIGNALS:
 
 protected Q_SLOTS:
     void initItem(int index, QObject *item) override;
+    void createdItem(int index, QObject *object) override;
 
 protected:
     void componentComplete() override;
+    void viewportMoved(Qt::Orientations orient) override;
 
 private:
     Q_DISABLE_COPY(QQuickTableView)
