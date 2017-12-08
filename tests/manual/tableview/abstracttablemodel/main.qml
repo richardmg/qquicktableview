@@ -84,8 +84,8 @@ Window {
         Component {
             id: cellComponent
             Rectangle {
-                width: 100//row === 1 ? 100 : 50//(row + column) % 2 ? 100 : 50
-                height: 50//index % 2 ? 100 : index % 3 ? 50 : 30
+                width: column % 3 ? 300 : 100
+                height: row % 3 ? 300 : 50
                 color: model.display ? "white" : Qt.rgba(0.96, 0.96, 0.96, 1)
 
                 Text {
