@@ -76,6 +76,7 @@ public:
     inline qreal itemHeight() const { return item ? item->height() : 0; }
 
     void moveTo(const QPointF &pos, bool immediate);
+    void setSize(const QSizeF &size, bool immediate);
     void setVisible(bool visible);
     void trackGeometry(bool track);
 
@@ -141,6 +142,7 @@ public:
     enum MovementReason { Other, SetIndex, Mouse };
 
     bool isValid() const;
+    int findFirstVisibleIndex(int defaultValue = -1) const;
     int findLastVisibleIndex(int defaultValue = -1) const;
     FxViewItem *visibleItem(int modelIndex) const;
 
@@ -285,8 +287,6 @@ protected:
     virtual void visibleItemsChanged() {}
 
     virtual FxViewItem *newViewItem(int index, QQuickItem *item) = 0;
-    virtual void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) = 0;
-    virtual void repositionPackageItemAt(QQuickItem *item, int index) = 0;
 
     virtual void layoutVisibleItems(int fromModelIndex = 0) = 0;
     virtual void changedVisibleIndex(int newIndex) = 0;
@@ -300,6 +300,10 @@ protected:
     virtual void updateSections() {}
 
     void itemGeometryChanged(QQuickItem *item, QQuickGeometryChange change, const QRectF &) override;
+
+public:
+    virtual void repositionItemAt(FxViewItem *item, int index, qreal sizeBuffer) = 0;
+    virtual void repositionPackageItemAt(QQuickItem *item, int index) = 0;
 };
 
 QT_END_NAMESPACE
