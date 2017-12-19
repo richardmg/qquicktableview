@@ -56,14 +56,15 @@ Window {
                 anchors.topMargin: 20//tableHeader.height + rowSpacing
                 anchors.fill: parent
 
-                cacheBuffer: 0
+                cacheBuffer: 500
+
                 model: tableModel
 
                 // Setting columns and rows is not really needed, since the model contains the info.
                 // But it should probably be the opposite, so that we always use columns and rows?
                 // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
                 columns: 20
-                rows: 30
+                rows: 20
 
                 columnSpacing: 1
                 rowSpacing: 1
@@ -87,8 +88,8 @@ Window {
         Component {
             id: cellComponent
             Rectangle {
-                width: column % 3 ? 300 : 100
-                height: row % 3 ? 300 : 50
+                width: column % 3 ? 80 : 50
+                height: row % 3 ? 80 : 50
                 color: model.display ? "white" : Qt.rgba(0.96, 0.96, 0.96, 1)
 
                 Text {
