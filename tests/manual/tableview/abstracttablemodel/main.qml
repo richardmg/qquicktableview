@@ -56,15 +56,15 @@ Window {
                 anchors.topMargin: 20//tableHeader.height + rowSpacing
                 anchors.fill: parent
 
-                cacheBuffer: 500
+                cacheBuffer: 10
 
                 model: tableModel
 
                 // Setting columns and rows is not really needed, since the model contains the info.
                 // But it should probably be the opposite, so that we always use columns and rows?
                 // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
-                columns: 20
-                rows: 20
+                columns: 2000
+                rows: 2000
 
                 columnSpacing: 1
                 rowSpacing: 1

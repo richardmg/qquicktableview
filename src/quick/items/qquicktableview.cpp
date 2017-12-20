@@ -956,7 +956,7 @@ void QQuickTableViewPrivate::loadMoreItemsInsideRect(const QRectF &fillRect)
     // if the model has more items, load new rows and columns on the outside of those items.
 
     // Since a load request might change top left, we need to take this
-    // into account when scheduling several requests in one go
+    // into account when scheduling several requests in one go.
     QPoint scheduledNewTopLeft = topLeft;
 
     if (canHaveMoreItemsInDirection(topLeft, kLeft, fillRect)) {
