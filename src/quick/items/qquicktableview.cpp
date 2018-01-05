@@ -82,9 +82,7 @@ public:
     QPoint startCell;
     QPoint fillDirection;
     QPoint requestedCell = kNullCell;
-    QRectF fillRect;
     QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested;
-    bool loadingToBuffer = false;
 };
 
 QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
@@ -94,7 +92,6 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     dbg << "start:" << request.startCell;
     dbg << " direction:" << request.fillDirection;
     dbg << " incubation:" << request.incubationMode;
-    dbg << " buffering:" << request.loadingToBuffer;
     dbg << ')';
     return dbg;
 }
@@ -197,7 +194,6 @@ protected:
 
     void loadInitialItems();
     void loadMoreItemsInsideRect(const QRectF &fillRect);
-    void loadVisibleRowOrColumn(const QPoint &startCell, const QPoint &fillDirection, const QRectF &fillRect);
     void unloadItemsOutsideRect(const QRectF &rect);
     void unloadItems(const QPoint &fromCell, const QPoint &toCell);
 
@@ -757,6 +753,8 @@ bool QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
     TableSectionLoadRequest &request = loadRequests.head();
     QPoint horizontalFillDirection = QPoint(request.fillDirection.x(), 0);
     QPoint verticalFillDirection = QPoint(0, request.fillDirection.y());
+    bool loadHorizontal = !horizontalFillDirection.isNull();
+    bool loadVertical = !verticalFillDirection.isNull();
 
     if (!loadedItem) {
         // (Re)load the next item in the request
@@ -770,14 +768,17 @@ bool QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
         // Continue loading items in the request (first horizontally, then
         // vertically), until one of them ends up loading async. If so, we just return, and
         // wait for this function to be called again with the requested item as argument.
+        const QRect tableCellRect = QRect(topLeft, bottomRight);
         const QPoint loadedItemCoord = coordAt(loadedItem);
 
-        if (canHaveMoreItemsInDirection(loadedItemCoord, horizontalFillDirection, request.fillRect))
+        if (loadHorizontal && tableCellRect.contains(loadedItemCoord + horizontalFillDirection))
             request.requestedCell = loadedItemCoord + horizontalFillDirection;
-        else if (canHaveMoreItemsInDirection(loadedItemCoord, verticalFillDirection, request.fillRect))
+        else if (loadVertical && tableCellRect.contains(loadedItemCoord + verticalFillDirection))
             request.requestedCell = QPoint(request.startCell.x(), loadedItemCoord.y() + 1);
         else
             return true;
+
+        qDebug() << tableCellRect << loadedItemCoord << request.requestedCell << tableCellRect.contains(loadedItemCoord + horizontalFillDirection);
 
         loadedItem = loadTableItem(request.requestedCell, request.incubationMode);
     }
@@ -840,21 +841,7 @@ void QQuickTableViewPrivate::loadInitialItems()
 
     TableSectionLoadRequest requestEdgeRow;
     requestEdgeRow.startCell = topLeftCoord;
-    requestEdgeRow.fillDirection = kRight;
-    requestEdgeRow.fillRect = viewportRect();
     enqueueLoadRequest(requestEdgeRow);
-
-    TableSectionLoadRequest requestEdgeColumn;
-    requestEdgeColumn.startCell = topLeftCoord + kDown;
-    requestEdgeColumn.fillDirection = kDown;
-    requestEdgeColumn.fillRect = viewportRect();
-    enqueueLoadRequest(requestEdgeColumn);
-
-    TableSectionLoadRequest requestInnerItems;
-    requestInnerItems.startCell = topLeftCoord + kRight + kDown;
-    requestInnerItems.fillDirection = kRight + kDown;
-    requestInnerItems.fillRect = viewportRect();
-    enqueueLoadRequest(requestInnerItems);
 }
 
 void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
@@ -909,45 +896,38 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 
 void QQuickTableViewPrivate::loadMoreItemsInsideRect(const QRectF &fillRect)
 {
-    // For each corner item, check if it's more available space on the outside.
-    // We limit the fill rect of requests loading columns to not load below current
-    // bottomRight, otherwise we end up loading items that has no item on the right
-    // edge, which will fail layouting.
-    auto bottomRightItem = visibleTableItem(bottomRight);
-    Q_TABLEVIEW_ASSERT(bottomRightItem, bottomRight);
-    QRectF fillRectColumns = fillRect;
-    fillRectColumns.setBottom(bottomRightItem->rect().bottom());
+    bool loadingToBuffer = fillRect.width() > viewportRect().width();
+    auto incubationMode = loadingToBuffer ? QQmlIncubator::Asynchronous : QQmlIncubator::AsynchronousIfNested;
 
-    if (canHaveMoreItemsInDirection(topLeft, kLeft, fillRectColumns)) {
-        QPoint startCell = topLeft + kLeft;
-        qCDebug(lcTableViewLayout()) << "load left column" << startCell.x() << "fillRect:" << fillRectColumns;
-        loadVisibleRowOrColumn(startCell, kDown, fillRectColumns);
-    } else if (canHaveMoreItemsInDirection(topRight(), kRight, fillRectColumns)) {
-        QPoint startCell = topRight() + kRight;
-        qCDebug(lcTableViewLayout()) << "load right column" << startCell.x() << "fillRect:" << fillRectColumns;
-        loadVisibleRowOrColumn(startCell, kDown, fillRectColumns);
+    if (canHaveMoreItemsInDirection(topLeft, kLeft, fillRect)) {
+        TableSectionLoadRequest request;
+        request.startCell = topLeft + kLeft;
+        request.fillDirection = kDown;
+        request.incubationMode = incubationMode;
+        qCDebug(lcTableViewLayout()) << "load left column" << request.startCell.x();
+        enqueueLoadRequest(request);
+    } else if (canHaveMoreItemsInDirection(topRight(), kRight, fillRect)) {
+        TableSectionLoadRequest request;
+        request.startCell = topRight() + kRight;
+        request.fillDirection = kDown;
+        request.incubationMode = incubationMode;
+        qCDebug(lcTableViewLayout()) << "load right column" << request.startCell.x();
+        enqueueLoadRequest(request);
     } else if (canHaveMoreItemsInDirection(topLeft, kUp, fillRect)) {
-        QPoint startCell = topLeft + kUp;
-        qCDebug(lcTableViewLayout()) << "load top row" << startCell.y() << "fillRect:" << fillRect;
-        loadVisibleRowOrColumn(startCell, kRight, fillRect);
+        TableSectionLoadRequest request;
+        request.startCell = topLeft + kUp;
+        request.fillDirection = kRight;
+        request.incubationMode = incubationMode;
+        qCDebug(lcTableViewLayout()) << "load top row" << request.startCell.y();
+        enqueueLoadRequest(request);
     } else if (canHaveMoreItemsInDirection(bottomLeft(), kDown, fillRect)) {
-        QPoint startCell = QPoint(topLeft.x(), bottomLeft().y()) + kDown;
-        qCDebug(lcTableViewLayout()) << "load bottom row" << startCell.y() << "fillRect:" << fillRect;
-        loadVisibleRowOrColumn(startCell, kRight, fillRect);
+        TableSectionLoadRequest request;
+        request.startCell = QPoint(topLeft.x(), bottomLeft().y()) + kDown;
+        request.fillDirection = kRight;
+        request.incubationMode = incubationMode;
+        qCDebug(lcTableViewLayout()) << "load bottom row" << request.startCell.y();
+        enqueueLoadRequest(request);
     }
-}
-
-void QQuickTableViewPrivate::loadVisibleRowOrColumn(const QPoint &startCell, const QPoint &fillDirection, const QRectF &fillRect)
-{
-    // When we load a new row or column, we begin by loading the start cell to determine the new
-    // row/column size. Once that information is known we can load the rest of the items in parallel.
-    TableSectionLoadRequest edgeItemRequest;
-    edgeItemRequest.startCell = startCell;
-    edgeItemRequest.fillDirection = fillDirection;
-    edgeItemRequest.fillRect = fillRect;
-    edgeItemRequest.loadingToBuffer = fillRect.width() > viewportRect().width();
-    edgeItemRequest.incubationMode = edgeItemRequest.loadingToBuffer ? QQmlIncubator::Asynchronous : QQmlIncubator::AsynchronousIfNested;
-    enqueueLoadRequest(edgeItemRequest);
 }
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
@@ -969,14 +949,14 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
         loadTableFromScratch = false;
         loadInitialItems();
     } else if (!loadRequests.isEmpty()) {
-        const TableSectionLoadRequest &currentRequest = loadRequests.head();
-        if (!currentRequest.loadingToBuffer) {
-            // We don't accept any new requests before we
-            // have finished all the current ones that are still requested sync.
-            static int foo = 0;
-            qDebug() << "still loading sync" << foo++;
-            return false;
-        }
+//        const TableSectionLoadRequest &currentRequest = loadRequests.head();
+//        if (!currentRequest.loadingToBuffer) {
+//            // We don't accept any new requests before we
+//            // have finished all the current ones that are still requested sync.
+//            static int foo = 0;
+//            qDebug() << "still loading sync" << foo++;
+//            return false;
+//        }
 
 //        // We are currently loading one or two rows to buffer. Complete
 //        // loading them immediatly so that we can continue loading new items
@@ -990,7 +970,7 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 //        }
 
 //        // We still need to wait for the active requests
-//        return false;
+        return false;
     }
 
     modified = false;
