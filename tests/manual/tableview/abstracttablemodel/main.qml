@@ -56,15 +56,15 @@ Window {
                 anchors.topMargin: 20//tableHeader.height + rowSpacing
                 anchors.fill: parent
 
-                cacheBuffer: 10
+                cacheBuffer: 0
 
                 model: tableModel
 
                 // Setting columns and rows is not really needed, since the model contains the info.
                 // But it should probably be the opposite, so that we always use columns and rows?
                 // OTHOH, should we support ListModel, or only TableModel (and what should TableModel look like?)?
-                columns: 2000
-                rows: 2000
+                columns: 100
+                rows: 100
 
                 columnSpacing: 1
                 rowSpacing: 1
@@ -97,7 +97,7 @@ Window {
                     text: model.display ? model.display : ""
                 }
 
-//                Component.onCompleted: if (row === 1) wait(500)
+//                Component.onCompleted: wait(100)
             }
         }
 

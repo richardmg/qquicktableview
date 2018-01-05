@@ -564,23 +564,24 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const QPoint &cellCoord
 
     Q_TABLEVIEW_ASSERT(visibleTableItem(cellCoord), cellCoord);
     const QRectF itemRect = visibleTableItem(cellCoord)->rect();
+    const qreal wholePixelMargin = -1.0;
 
     if (direction == kRight) {
         if (cellCoord.x() == columnCount - 1)
             return false;
-        return itemRect.topRight().x() < fillRect.topRight().x();
+        return itemRect.topRight().x() - fillRect.topRight().x() < wholePixelMargin;
     } else if (direction == kLeft) {
         if (cellCoord.x() == 0)
             return false;
-        return itemRect.topLeft().x() > fillRect.topLeft().x();
+        return fillRect.topLeft().x() - itemRect.topLeft().x() < wholePixelMargin;
     } else if (direction == kDown) {
         if (cellCoord.y() == rowCount - 1)
             return false;
-        return itemRect.bottomLeft().y() < fillRect.bottomLeft().y();
+        return itemRect.bottomLeft().y() - fillRect.bottomLeft().y() < wholePixelMargin;
     } else if (direction == kUp) {
         if (cellCoord.y() == 0)
             return false;
-        return itemRect.topLeft().y() > fillRect.topLeft().y();
+        return fillRect.topLeft().y() - itemRect.topLeft().y() < wholePixelMargin;
     } else {
         Q_TABLEVIEW_UNREACHABLE(cellCoord << direction);
     }
