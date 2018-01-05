@@ -79,17 +79,11 @@ public:
 class TableSectionLoadRequest
 {
 public:
-    enum FillStrategy {
-        LoadOneByOne,
-        LoadInParallel
-    };
-
     QPoint startCell;
     QPoint fillDirection;
+    QPoint requestedCell = kNullCell;
     QRectF fillRect;
-    FillStrategy fillStrategy = LoadOneByOne;
     QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested;
-    int numberOfAsyncItemsToWaitFor = 0;
     bool loadingToBuffer = false;
 };
 
@@ -99,8 +93,8 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     dbg << "TableSectionLoadRequest(";
     dbg << "start:" << request.startCell;
     dbg << " direction:" << request.fillDirection;
-    dbg << " strategy:" << request.fillStrategy;
     dbg << " incubation:" << request.incubationMode;
+    dbg << " buffering:" << request.loadingToBuffer;
     dbg << ')';
     return dbg;
 }
@@ -212,7 +206,6 @@ protected:
     inline bool processCurrentLoadRequest(FxTableItemSG *loadedItem);
     void processLoadRequests(FxTableItemSG *loadedItem);
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
-    bool loadTableItemsInParallel(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
     void insertItemIntoTable(FxTableItemSG *fxTableItem);
 
     inline QString indexToString(int index) const;
@@ -224,8 +217,8 @@ protected:
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
-    : topLeft(QPoint(kNullValue, kNullValue))
-    , bottomRight(QPoint(kNullValue, kNullValue))
+    : topLeft(kNullCell)
+    , bottomRight(kNullCell)
     , rowCount(-1)
     , columnCount(-1)
     , orientation(QQuickTableView::Vertical)
@@ -439,7 +432,7 @@ void QQuickTableViewPrivate::calculateTopLeftAndBottomRightCoords(const FxTableI
 {
     QPoint addedCoord = coordAt(fxTableItem);
 
-    if (topLeft.x() == kNullValue) {
+    if (topLeft == kNullCell) {
         setTopLeftCoord(addedCoord);
     } else {
         int minX = qMin(addedCoord.x(), topLeft.x());
@@ -447,7 +440,7 @@ void QQuickTableViewPrivate::calculateTopLeftAndBottomRightCoords(const FxTableI
         setTopLeftCoord(QPoint(minX, minY));
     }
 
-    if (bottomRight.x() == kNullValue) {
+    if (bottomRight == kNullCell) {
         setBottomRightCoord(addedCoord);
     } else {
         int maxX = qMax(addedCoord.x(), bottomRight.x());
@@ -758,85 +751,52 @@ void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
     qCDebug(lcItemViewDelegateLifecycle) << request;
 }
 
-bool QQuickTableViewPrivate::loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem)
-{
-    if (!loadedItem) {
-        // Load the first item in the request
-        loadedItem = loadTableItem(request.startCell, request.incubationMode);
-    }
-
-    while (loadedItem) {
-        // Continue loading the next items in the request
-        // until one of them ends up loading async
-        insertItemIntoTable(loadedItem);
-        const QPoint cellCoord = coordAt(loadedItem);
-        if (!canHaveMoreItemsInDirection(cellCoord, request.fillDirection, request.fillRect))
-            return true;
-        loadedItem = loadTableItem(cellCoord + request.fillDirection, request.incubationMode);
-    }
-
-    // Return false since we're still waiting for more async items
-    return false;
-}
-
-bool QQuickTableViewPrivate::loadTableItemsInParallel(TableSectionLoadRequest &request, FxTableItemSG *loadedItem)
-{
-    if (!loadedItem) {
-        // No items loaded yet. Load all items in the request in one go.
-        // Note: loading items in parallel can only work when we know the
-        // column widths and row heights of the items we try to load. And
-        // this information is found by looking at the table edge items. So
-        // those items must have been loaded first.
-        const QPoint &startCell = request.startCell;
-        const QPoint &direction = request.fillDirection;
-        Q_TABLEVIEW_ASSERT(direction.x() >= 0, "only construct table from left to right");
-        Q_TABLEVIEW_ASSERT(direction.y() >= 0, "only construct table from top to bottom");
-
-        int endX = direction.x() == 1 ? bottomRight.x() : startCell.x();
-        int endY = direction.y() == 1 ? bottomRight.y() : startCell.y();
-
-        for (int y = startCell.y(); y <= endY; ++y) {
-            for (int x = startCell.x(); x <= endX; ++x) {
-                auto loadedItem = loadTableItem(QPoint(x, y), request.incubationMode);
-                if (loadedItem)
-                    insertItemIntoTable(loadedItem);
-                else
-                    request.numberOfAsyncItemsToWaitFor++;
-            }
-        }
-    } else {
-        // loadedItem received async
-        insertItemIntoTable(loadedItem);
-        request.numberOfAsyncItemsToWaitFor--;
-    }
-
-    // Return true if all items have been loaded
-    return request.numberOfAsyncItemsToWaitFor == 0;
-}
-
 bool QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem)
 {
     TableSectionLoadRequest &request = loadRequests.head();
+    QPoint horizontalFillDirection = QPoint(request.fillDirection.x(), 0);
+    QPoint verticalFillDirection = QPoint(0, request.fillDirection.y());
 
-    switch (request.fillStrategy) {
-    case TableSectionLoadRequest::LoadOneByOne:
-        return loadTableItemsOneByOne(request, loadedItem);
-    case TableSectionLoadRequest::LoadInParallel:
-        return loadTableItemsInParallel(request, loadedItem);
-    default:
-        Q_TABLEVIEW_UNREACHABLE(itemToString(loadedItem));
+    if (!loadedItem) {
+        // (Re)load the next item in the request
+        request.requestedCell = request.requestedCell == kNullCell ? request.startCell : request.requestedCell;
+        loadedItem = loadTableItem(request.requestedCell, request.incubationMode);
     }
+
+    while (loadedItem) {
+        insertItemIntoTable(loadedItem);
+
+        // Continue loading items in the request (first horizontally, then
+        // vertically), until one of them ends up loading async. If so, we just return, and
+        // wait for this function to be called again with the requested item as argument.
+        const QPoint cellCoord = coordAt(loadedItem);
+
+        if (canHaveMoreItemsInDirection(cellCoord, horizontalFillDirection, request.fillRect)) {
+            request.requestedCell = cellCoord + horizontalFillDirection;
+        } else if (canHaveMoreItemsInDirection(cellCoord, verticalFillDirection, request.fillRect)) {
+            request.requestedCell = QPoint(request.startCell.x(), cellCoord.y() + 1);
+        } else {
+            // Request is completed
+            return true;
+        }
+
+        loadedItem = loadTableItem(request.requestedCell, request.incubationMode);
+    }
+
+    return false;
 }
 
 void QQuickTableViewPrivate::processLoadRequests(FxTableItemSG *loadedItem)
 {
-    // Either start to process the next queued load request, or continue with the current
-    // one. We do the latter if loadedItem != null, which means that a previously requested
-    // item that we have been waiting for now has been received async.
-    // In either case we load as many items as possible, and handle all pending load requests
-    // if we can, before we leave. If one of the items we try to load ends up loading async, we
-    // need to wait for it before we can continue. In that case we just leave, and continue the
-    // process later, once we receive it.
+    // This function will continue processing the current load request, which is the
+    // one that is head in the loadRequests que. We load as many items as possible, and
+    // handle as many pending load requests we can, before we leave. If one of the items
+    // we try to load ends up loading async, we need to wait for it before we can continue.
+    // In that case we just leave, and continue the process later, once we receive it.
+    // This function will then be called again, but now with loadedItem pointing to the
+    // asynchronously loaded item. It is also fine to change the incubation mode of the
+    // load request and call this function again while we're waiting for an async item, in
+    // case something has changed, and we cannot affort to wait anymore.
 
     forever {
         if (loadRequests.isEmpty()) {
@@ -875,9 +835,7 @@ void QQuickTableViewPrivate::loadInitialItems()
     // of rows and columns that fit inside the view. Once that is knows, we
     // can load all the remaining items in parallel.
     Q_TABLEVIEW_ASSERT(visibleItems.isEmpty(), visibleItems.count());
-    Q_TABLEVIEW_ASSERT(topLeft.x() == kNullValue, topLeft);
-
-    loadTableFromScratch = false;
+    Q_TABLEVIEW_ASSERT(topLeft == kNullCell, topLeft);
 
     QPoint topLeftCoord(0, 0);
 
@@ -885,21 +843,18 @@ void QQuickTableViewPrivate::loadInitialItems()
     requestEdgeRow.startCell = topLeftCoord;
     requestEdgeRow.fillDirection = kRight;
     requestEdgeRow.fillRect = viewportRect();
-    requestEdgeRow.fillStrategy = TableSectionLoadRequest::LoadOneByOne;
     enqueueLoadRequest(requestEdgeRow);
 
     TableSectionLoadRequest requestEdgeColumn;
     requestEdgeColumn.startCell = topLeftCoord + kDown;
     requestEdgeColumn.fillDirection = kDown;
     requestEdgeColumn.fillRect = viewportRect();
-    requestEdgeColumn.fillStrategy = TableSectionLoadRequest::LoadOneByOne;
     enqueueLoadRequest(requestEdgeColumn);
 
     TableSectionLoadRequest requestInnerItems;
     requestInnerItems.startCell = topLeftCoord + kRight + kDown;
     requestInnerItems.fillDirection = kRight + kDown;
     requestInnerItems.fillRect = viewportRect();
-    requestInnerItems.fillStrategy = TableSectionLoadRequest::LoadInParallel;
     enqueueLoadRequest(requestInnerItems);
 }
 
@@ -990,20 +945,11 @@ void QQuickTableViewPrivate::loadVisibleRowOrColumn(const QPoint &startCell, con
     // row/column size. Once that information is known we can load the rest of the items in parallel.
     TableSectionLoadRequest edgeItemRequest;
     edgeItemRequest.startCell = startCell;
+    edgeItemRequest.fillDirection = fillDirection;
     edgeItemRequest.fillRect = fillRect;
-    edgeItemRequest.fillStrategy = TableSectionLoadRequest::LoadOneByOne;
     edgeItemRequest.loadingToBuffer = fillRect.width() > viewportRect().width();
     edgeItemRequest.incubationMode = edgeItemRequest.loadingToBuffer ? QQmlIncubator::Asynchronous : QQmlIncubator::AsynchronousIfNested;
     enqueueLoadRequest(edgeItemRequest);
-
-    TableSectionLoadRequest trailingItemsRequest;
-    trailingItemsRequest.startCell = startCell + fillDirection;
-    trailingItemsRequest.fillDirection = fillDirection;
-    trailingItemsRequest.fillRect = fillRect;
-    trailingItemsRequest.fillStrategy = TableSectionLoadRequest::LoadInParallel;
-    trailingItemsRequest.loadingToBuffer = edgeItemRequest.loadingToBuffer;
-    trailingItemsRequest.incubationMode = edgeItemRequest.incubationMode;
-    enqueueLoadRequest(trailingItemsRequest);
 }
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
@@ -1016,18 +962,38 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 //        Men da må jeg passe på å ikke legge til duplikater.
 //    4. Jeg bør nok ikke laste ut items før alle load requests er prosessert, i tilfelle jeg da
 //        kan ende opp med å laste ut deler av en async lastet kolonne.
-
-    if (!loadRequests.isEmpty()) {
-        // We don't accept any new requests before we
-        // have finished all the current ones.
-        return false;
-    }
+    //    5. Vent med å buffere items til flickable står stille
 
     if (!viewportRect().isValid())
         return false;
 
-    if (loadTableFromScratch)
+    if (loadTableFromScratch) {
+        loadTableFromScratch = false;
         loadInitialItems();
+    } else if (!loadRequests.isEmpty()) {
+        const TableSectionLoadRequest &currentRequest = loadRequests.head();
+        if (!currentRequest.loadingToBuffer) {
+            // We don't accept any new requests before we
+            // have finished all the current ones that are still requested sync.
+            static int foo = 0;
+            qDebug() << "still loading sync" << foo++;
+            return false;
+        }
+
+        // We are currently loading one or two rows to buffer. Complete
+        // loading them immediatly so that we can continue loading new items
+        // that may have been flicked into view. Optimally we should only only
+        // do this if the flicking really results in new items being exposed.
+        // I can probably get rid of loadingToBuffer and just use incubation mode.
+
+        for (TableSectionLoadRequest &request : loadRequests) {
+            qDebug() << "speedup:" << request;
+            request.incubationMode = QQmlIncubator::AsynchronousIfNested;
+        }
+
+        // We still need to wait for the active requests
+        return false;
+    }
 
     modified = false;
 

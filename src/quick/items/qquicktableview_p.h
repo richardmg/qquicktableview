@@ -60,6 +60,7 @@ QT_REQUIRE_CONFIG(quick_tableview);
 QT_BEGIN_NAMESPACE
 
 static const int kNullValue = -1;
+static const QPoint kNullCell = QPoint(kNullValue, kNullValue);
 
 class QQuickTableViewAttached;
 class QQuickTableViewPrivate;
