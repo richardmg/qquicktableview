@@ -193,7 +193,7 @@ protected:
     void calculateTopLeftAndBottomRightCoords(const FxTableItemSG *fxTableItem);
 
     void loadInitialItems();
-    void loadMoreItemsInsideRect(const QRectF &fillRect);
+    void loadMoreItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
     void unloadItemsOutsideRect(const QRectF &rect);
     void unloadItems(const QPoint &fromCell, const QPoint &toCell);
 
@@ -767,18 +767,16 @@ bool QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
 
         // Continue loading items in the request (first horizontally, then
         // vertically), until one of them ends up loading async. If so, we just return, and
-        // wait for this function to be called again with the requested item as argument.
-        const QRect tableCellRect = QRect(topLeft, bottomRight);
-        const QPoint loadedItemCoord = coordAt(loadedItem);
+        // wait for this function to be called again once the requested item is ready.
+        const QRect tableRect = QRect(topLeft, bottomRight);
+        const QPoint loadedCoord = coordAt(loadedItem);
 
-        if (loadHorizontal && tableCellRect.contains(loadedItemCoord + horizontalFillDirection))
-            request.requestedCell = loadedItemCoord + horizontalFillDirection;
-        else if (loadVertical && tableCellRect.contains(loadedItemCoord + verticalFillDirection))
-            request.requestedCell = QPoint(request.startCell.x(), loadedItemCoord.y() + 1);
+        if (loadHorizontal && tableRect.contains(loadedCoord + horizontalFillDirection))
+            request.requestedCell = loadedCoord + horizontalFillDirection;
+        else if (loadVertical && tableRect.contains(loadedCoord + verticalFillDirection))
+            request.requestedCell = QPoint(request.startCell.x(), loadedCoord.y() + 1);
         else
             return true;
-
-        qDebug() << tableCellRect << loadedItemCoord << request.requestedCell << tableCellRect.contains(loadedItemCoord + horizontalFillDirection);
 
         loadedItem = loadTableItem(request.requestedCell, request.incubationMode);
     }
@@ -808,12 +806,12 @@ void QQuickTableViewPrivate::processLoadRequests(FxTableItemSG *loadedItem)
             QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 
             unloadItemsOutsideRect(bufferRect);
-            loadMoreItemsInsideRect(visibleRect);
+            loadMoreItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
             if (loadRequests.isEmpty()) {
                 // There is no visible part of the view that is not covered with items, so
                 // we can spend time loading items into buffer for quick flick response later.
-                loadMoreItemsInsideRect(bufferRect);
+                loadMoreItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
             }
 
             if (loadRequests.isEmpty())
@@ -827,21 +825,6 @@ void QQuickTableViewPrivate::processLoadRequests(FxTableItemSG *loadedItem)
         dequeueCurrentLoadRequest();
         dumpTableGeometry();
     }
-}
-
-void QQuickTableViewPrivate::loadInitialItems()
-{
-    // Load top row and left column one-by-one first to determine the number
-    // of rows and columns that fit inside the view. Once that is knows, we
-    // can load all the remaining items in parallel.
-    Q_TABLEVIEW_ASSERT(visibleItems.isEmpty(), visibleItems.count());
-    Q_TABLEVIEW_ASSERT(topLeft == kNullCell, topLeft);
-
-    QPoint topLeftCoord(0, 0);
-
-    TableSectionLoadRequest requestEdgeRow;
-    requestEdgeRow.startCell = topLeftCoord;
-    enqueueLoadRequest(requestEdgeRow);
 }
 
 void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
@@ -894,11 +877,23 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
     } while (itemsUnloaded);
 }
 
-void QQuickTableViewPrivate::loadMoreItemsInsideRect(const QRectF &fillRect)
+void QQuickTableViewPrivate::loadInitialItems()
 {
-    bool loadingToBuffer = fillRect.width() > viewportRect().width();
-    auto incubationMode = loadingToBuffer ? QQmlIncubator::Asynchronous : QQmlIncubator::AsynchronousIfNested;
+    // Load top-left item. After loaded, processLoadRequest() will take
+    // care of filling out the rest of the table.
+    Q_TABLEVIEW_ASSERT(visibleItems.isEmpty(), visibleItems.count());
+    Q_TABLEVIEW_ASSERT(topLeft == kNullCell, topLeft);
 
+    QPoint topLeftCoord(0, 0);
+
+    TableSectionLoadRequest requestTopLeftItem;
+    requestTopLeftItem.startCell = topLeftCoord;
+    qCDebug(lcTableViewLayout()) << "load top-left:" << requestTopLeftItem.startCell;
+    enqueueLoadRequest(requestTopLeftItem);
+}
+
+void QQuickTableViewPrivate::loadMoreItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
+{
     if (canHaveMoreItemsInDirection(topLeft, kLeft, fillRect)) {
         TableSectionLoadRequest request;
         request.startCell = topLeft + kLeft;
