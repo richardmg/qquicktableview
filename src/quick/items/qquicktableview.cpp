@@ -193,7 +193,7 @@ protected:
     void calculateTopLeftAndBottomRightCoords(const FxTableItemSG *fxTableItem);
 
     void loadInitialItems();
-    void loadMoreItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
+    void refillItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
     void unloadItemsOutsideRect(const QRectF &rect);
     void unloadItems(const QPoint &fromCell, const QPoint &toCell);
 
@@ -801,17 +801,17 @@ void QQuickTableViewPrivate::processLoadRequests(FxTableItemSG *loadedItem)
             // We have nothing more load requests pending, but check if we
             // the view port moved since we started processing the first
             // load requests, and if so, add or remove items at the edges.
-            // This migh cause new load requests to be queued.
+            // This might cause new load requests to be queued.
             QRectF visibleRect = viewportRect();
             QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 
             unloadItemsOutsideRect(bufferRect);
-            loadMoreItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
+            refillItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
             if (loadRequests.isEmpty()) {
                 // There is no visible part of the view that is not covered with items, so
                 // we can spend time loading items into buffer for quick flick response later.
-                loadMoreItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
+                refillItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
             }
 
             if (loadRequests.isEmpty())
@@ -892,7 +892,7 @@ void QQuickTableViewPrivate::loadInitialItems()
     enqueueLoadRequest(requestTopLeftItem);
 }
 
-void QQuickTableViewPrivate::loadMoreItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
+void QQuickTableViewPrivate::refillItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
 {
     if (canHaveMoreItemsInDirection(topLeft, kLeft, fillRect)) {
         TableSectionLoadRequest request;
