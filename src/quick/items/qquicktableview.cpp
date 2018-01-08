@@ -128,6 +128,8 @@ public:
 protected:
     QPoint topLeft;
     QPoint bottomRight;
+    QPoint visibleBottomRight;
+    QRectF visibleBottomRightRect;
 
     int rowCount;
     int columnCount;
@@ -208,6 +210,8 @@ protected:
     inline QString itemToString(const FxTableItemSG *tableItem) const;
     inline QString tableGeometryToString() const;
 
+    void viewportMoved();
+
     void dumpTable() const;
     inline void dumpTableGeometry();
 };
@@ -215,6 +219,8 @@ protected:
 QQuickTableViewPrivate::QQuickTableViewPrivate()
     : topLeft(kNullCell)
     , bottomRight(kNullCell)
+    , visibleBottomRight(kNullCell)
+    , visibleBottomRightRect(QRectF())
     , rowCount(-1)
     , columnCount(-1)
     , orientation(QQuickTableView::Vertical)
@@ -733,6 +739,17 @@ void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
     calculateItemGeometry(fxTableItem);
     calculateContentSize(fxTableItem);
 
+    QPoint addedCoord = coordAt(fxTableItem);
+
+    if (auto bottomRightItem = visibleTableItem(bottomRight)) {
+        QRectF bottomRightRect = bottomRightItem->rect();
+        if (viewportRect().intersects(bottomRightRect)) {
+            visibleBottomRight = addedCoord;
+            visibleBottomRightRect = bottomRightRect;
+            qDebug() << "visibleBottomRightRect:" << visibleBottomRightRect;
+        }
+    }
+
     showTableItem(fxTableItem);
 }
 
@@ -808,7 +825,7 @@ void QQuickTableViewPrivate::processLoadRequests(FxTableItemSG *loadedItem)
             unloadItemsOutsideRect(bufferRect);
             refillItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-            if (loadRequests.isEmpty()) {
+            if (buffer > 0 && loadRequests.isEmpty()) {
                 // There is no visible part of the view that is not covered with items, so
                 // we can spend time loading items into buffer for quick flick response later.
                 refillItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
@@ -927,16 +944,6 @@ void QQuickTableViewPrivate::refillItemsInsideRect(const QRectF &fillRect, QQmlI
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
-//    1. Sjekk om vi allerede laster ikke-buffer items. I så fall, returner som før.
-//    2. Deretter må jeg sjekke om nye kolonner er scrollet inn. Om ikke, så kan det være som det er
-//    3. I motsatt fall bør jeg begynne å laste inn de nye kolonnene med asyncIfNested, ved
-//        å legge de først i køen. Men la de gamle requestene ligge igjen, så vi ikke ender med
-//        "hull" i tabellen. De gamle vil prosesseres etter de nye, før nye buffer items legges til.
-//        Men da må jeg passe på å ikke legge til duplikater.
-//    4. Jeg bør nok ikke laste ut items før alle load requests er prosessert, i tilfelle jeg da
-//        kan ende opp med å laste ut deler av en async lastet kolonne.
-    //    5. Vent med å buffere items til flickable står stille
-
     if (!viewportRect().isValid())
         return false;
 
@@ -944,28 +951,19 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
         loadTableFromScratch = false;
         loadInitialItems();
     } else if (!loadRequests.isEmpty()) {
-//        const TableSectionLoadRequest &currentRequest = loadRequests.head();
-//        if (!currentRequest.loadingToBuffer) {
-//            // We don't accept any new requests before we
-//            // have finished all the current ones that are still requested sync.
-//            static int foo = 0;
-//            qDebug() << "still loading sync" << foo++;
-//            return false;
-//        }
+        // When a new flick starts, we fast-forward loading of the current
+        // load request in case it loads to buffer
 
-//        // We are currently loading one or two rows to buffer. Complete
-//        // loading them immediatly so that we can continue loading new items
-//        // that may have been flicked into view. Optimally we should only only
-//        // do this if the flicking really results in new items being exposed.
-//        // I can probably get rid of loadingToBuffer and just use incubation mode.
+        //TODO: if we're here, doesn't it always mean that the current request
+        // is loading async (is asyncIfnested possible? meaning, is it possible
+        // to start a flick if we're still inside an async loader?)
 
-//        for (TableSectionLoadRequest &request : loadRequests) {
-//            qDebug() << "speedup:" << request;
-//            request.incubationMode = QQmlIncubator::AsynchronousIfNested;
-//        }
-
-//        // We still need to wait for the active requests
-        return false;
+        for (TableSectionLoadRequest &request : loadRequests) {
+            if (request.incubationMode == QQmlIncubator::Asynchronous) {
+                qDebug() << "speedup:" << request;
+                request.incubationMode = QQmlIncubator::AsynchronousIfNested;
+            }
+        }
     }
 
     modified = false;
@@ -980,12 +978,43 @@ QQuickTableView::QQuickTableView(QQuickItem *parent)
 {
 }
 
+void QQuickTableViewPrivate::viewportMoved()
+{
+    Q_Q(const QQuickTableView);
+
+    QPoint newVisibleBottomRight = visibleBottomRight;
+
+    if (viewportRect().right() > visibleBottomRightRect.right()) {
+        // Bottom-right completely inside visible area on the right
+        newVisibleBottomRight += kRight;
+    } else if (viewportRect().right() < visibleBottomRightRect.left()) {
+        // Bottom-right completly outside visible area on the right
+        newVisibleBottomRight += kLeft;
+    }
+
+    if (viewportRect().bottom() > visibleBottomRightRect.bottom()) {
+        // Bottom-right completely inside visible area at the bottom
+        newVisibleBottomRight += kDown;
+    } else if (viewportRect().bottom() < visibleBottomRightRect.top()) {
+        // Bottom-right completly outside visible area at the bottom
+        newVisibleBottomRight += kUp;
+    }
+
+    if (newVisibleBottomRight != visibleBottomRight) {
+        if (auto newVisibleBottomRightItem = visibleTableItem(newVisibleBottomRight)) {
+            visibleBottomRight = newVisibleBottomRight;
+            visibleBottomRightRect = newVisibleBottomRightItem->rect();
+            qDebug() << "new visible bottom right:" << newVisibleBottomRight;
+        }
+    }
+
+    addRemoveVisibleItems();
+}
+
 void QQuickTableView::viewportMoved(Qt::Orientations orient)
 {
-    Q_D(QQuickTableView);
     QQuickAbstractItemView::viewportMoved(orient);
-
-    d->addRemoveVisibleItems();
+    d_func()->viewportMoved();
 }
 
 int QQuickTableView::rows() const
