@@ -129,7 +129,6 @@ protected:
     QPoint topLeft;
     QPoint bottomRight;
     QPoint visibleBottomRight;
-    QRectF visibleBottomRightRect;
 
     int rowCount;
     int columnCount;
@@ -192,7 +191,9 @@ protected:
 
     void calculateItemGeometry(FxTableItemSG *fxTableItem);
     void calculateContentSize(const FxTableItemSG *fxTableItem);
-    void calculateTopLeftAndBottomRightCoords(const FxTableItemSG *fxTableItem);
+    void adjustTopLeftAndBottomRightCoords(const FxTableItemSG *fxTableItem);
+    void adjustVisibleTopLeftAndBottomRightCoord(const FxTableItemSG *fxTableItem);
+    bool adjustVisibleBottomRight();
 
     void loadInitialItems();
     void refillItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
@@ -220,7 +221,6 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     : topLeft(kNullCell)
     , bottomRight(kNullCell)
     , visibleBottomRight(kNullCell)
-    , visibleBottomRightRect(QRectF())
     , rowCount(-1)
     , columnCount(-1)
     , orientation(QQuickTableView::Vertical)
@@ -281,6 +281,80 @@ bool QQuickTableViewPrivate::setBottomRightCoord(const QPoint &cellCoord)
         return false;
 
     bottomRight = newBottomRight;
+    return true;
+}
+
+void QQuickTableViewPrivate::adjustVisibleTopLeftAndBottomRightCoord(const FxTableItemSG *fxTableItem)
+{
+    const QPoint addedCoord = coordAt(fxTableItem);
+
+    if (addedCoord.x() < visibleBottomRight.x() || addedCoord.y() < visibleBottomRight.y()) {
+        // The new item is no better in at least one direction, so we can just keep
+        // the one we already got.
+        return;
+    }
+
+    auto bottomRightItem = visibleTableItem(bottomRight);
+    if (!bottomRightItem)
+        return;
+
+    QRectF bottomRightRect = bottomRightItem->rect();
+    if (!viewportRect().intersects(bottomRightRect))
+        return;
+
+    visibleBottomRight = addedCoord;
+    qDebug() << "new visible bottom right:" << visibleBottomRight;
+}
+
+bool QQuickTableViewPrivate::adjustVisibleBottomRight()
+{
+    if (visibleBottomRight == kNullCell)
+        return false;
+
+    bool visibleBottomRightChanged = false;
+    const qreal wholePixelMargin = -1.0;
+    QRectF visibleRect = viewportRect();
+
+    // todo: remove forever, and ajust when we remove rows/columns!
+    forever {
+        QPoint newVisibleBottomRight = visibleBottomRight;
+        auto visibleBottomRightItem = visibleTableItem(newVisibleBottomRight);
+        QRectF visibleBottomRightRect = visibleBottomRightItem ? visibleBottomRightItem->rect() : visibleRect;
+
+        if (visibleBottomRightRect.right() - visibleRect.right() < wholePixelMargin) {
+            // Bottom-right completely inside visible area on the right, or non-existing
+            newVisibleBottomRight += kRight;
+        } else if (visibleRect.right() - visibleBottomRightRect.left() < wholePixelMargin) {
+            // Bottom-right completly outside visible area on the right, or non-existing
+            newVisibleBottomRight += kLeft;
+        }
+
+        //        if (visibleRect.bottom() > visibleBottomRightRect.bottom()) {
+        //            // Bottom-right completely inside visible area at the bottom
+        //            newVisibleBottomRight += kDown;
+        //        } else if (visibleRect.bottom() < visibleBottomRightRect.top()) {
+        //            // Bottom-right completly outside visible area at the bottom
+        //            newVisibleBottomRight += kUp;
+        //        }
+
+        // Ensure that new visible bottom right is equal to, or in front of, top-left
+        int maxX = qMax(newVisibleBottomRight.x(), topLeft.x());
+        int maxY = qMax(newVisibleBottomRight.y(), topLeft.y());
+        newVisibleBottomRight = QPoint(maxX, maxY);
+
+        if (newVisibleBottomRight == visibleBottomRight)
+            break;
+        if (newVisibleBottomRight == bottomRight)
+            break;
+
+        visibleBottomRight = newVisibleBottomRight;
+        visibleBottomRightChanged = true;
+    }
+
+    if (!visibleBottomRightChanged)
+        return false;
+
+    qDebug() << "new visible bottom right from flick:" << visibleBottomRight;
     return true;
 }
 
@@ -430,25 +504,25 @@ void QQuickTableViewPrivate::calculateContentSize(const FxTableItemSG *fxTableIt
     }
 }
 
-void QQuickTableViewPrivate::calculateTopLeftAndBottomRightCoords(const FxTableItemSG *fxTableItem)
+void QQuickTableViewPrivate::adjustTopLeftAndBottomRightCoords(const FxTableItemSG *fxTableItem)
 {
     QPoint addedCoord = coordAt(fxTableItem);
 
     if (topLeft == kNullCell) {
-        setTopLeftCoord(addedCoord);
-    } else {
-        int minX = qMin(addedCoord.x(), topLeft.x());
-        int minY = qMin(addedCoord.y(), topLeft.y());
-        setTopLeftCoord(QPoint(minX, minY));
+        // First time
+        topLeft = addedCoord;
+        bottomRight = addedCoord;
+        visibleBottomRight = bottomRight;
+        return;
     }
 
-    if (bottomRight == kNullCell) {
-        setBottomRightCoord(addedCoord);
-    } else {
-        int maxX = qMax(addedCoord.x(), bottomRight.x());
-        int maxY = qMax(addedCoord.y(), bottomRight.y());
-        setBottomRightCoord(QPoint(maxX, maxY));
-    }
+    int newTopLeftX = qMin(addedCoord.x(), topLeft.x());
+    int newTopLeftY = qMin(addedCoord.y(), topLeft.y());
+    setTopLeftCoord(QPoint(newTopLeftX, newTopLeftY));
+
+    int newBottomRightX = qMax(addedCoord.x(), bottomRight.x());
+    int newBottomRightY = qMax(addedCoord.y(), bottomRight.y());
+    setBottomRightCoord(QPoint(newBottomRightX, newBottomRightY));
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -735,20 +809,10 @@ void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
     modified = true;
     visibleItems.append(fxTableItem);
 
-    calculateTopLeftAndBottomRightCoords(fxTableItem);
+    adjustTopLeftAndBottomRightCoords(fxTableItem);
     calculateItemGeometry(fxTableItem);
     calculateContentSize(fxTableItem);
-
-    QPoint addedCoord = coordAt(fxTableItem);
-
-    if (auto bottomRightItem = visibleTableItem(bottomRight)) {
-        QRectF bottomRightRect = bottomRightItem->rect();
-        if (viewportRect().intersects(bottomRightRect)) {
-            visibleBottomRight = addedCoord;
-            visibleBottomRightRect = bottomRightRect;
-            qDebug() << "visibleBottomRightRect:" << visibleBottomRightRect;
-        }
-    }
+    adjustVisibleTopLeftAndBottomRightCoord(fxTableItem);
 
     showTableItem(fxTableItem);
 }
@@ -949,8 +1013,15 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 
     if (loadTableFromScratch) {
         loadTableFromScratch = false;
+        modified = false;
         loadInitialItems();
-    } else if (!loadRequests.isEmpty()) {
+        processLoadRequests(nullptr);
+        return modified;
+    }
+
+    bool visibleRowsOrColumnsChanged = adjustVisibleBottomRight();
+
+    if (!loadRequests.isEmpty()) {
         // When a new flick starts, we fast-forward loading of the current
         // load request in case it loads to buffer
 
@@ -958,12 +1029,14 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
         // is loading async (is asyncIfnested possible? meaning, is it possible
         // to start a flick if we're still inside an async loader?)
 
-        for (TableSectionLoadRequest &request : loadRequests) {
-            if (request.incubationMode == QQmlIncubator::Asynchronous) {
-                qDebug() << "speedup:" << request;
-                request.incubationMode = QQmlIncubator::AsynchronousIfNested;
-            }
-        }
+        return false;
+
+//        for (TableSectionLoadRequest &request : loadRequests) {
+//            if (request.incubationMode == QQmlIncubator::Asynchronous) {
+//                qDebug() << "speedup:" << request;
+//                request.incubationMode = QQmlIncubator::AsynchronousIfNested;
+//            }
+//        }
     }
 
     modified = false;
@@ -980,34 +1053,6 @@ QQuickTableView::QQuickTableView(QQuickItem *parent)
 
 void QQuickTableViewPrivate::viewportMoved()
 {
-    Q_Q(const QQuickTableView);
-
-    QPoint newVisibleBottomRight = visibleBottomRight;
-
-    if (viewportRect().right() > visibleBottomRightRect.right()) {
-        // Bottom-right completely inside visible area on the right
-        newVisibleBottomRight += kRight;
-    } else if (viewportRect().right() < visibleBottomRightRect.left()) {
-        // Bottom-right completly outside visible area on the right
-        newVisibleBottomRight += kLeft;
-    }
-
-    if (viewportRect().bottom() > visibleBottomRightRect.bottom()) {
-        // Bottom-right completely inside visible area at the bottom
-        newVisibleBottomRight += kDown;
-    } else if (viewportRect().bottom() < visibleBottomRightRect.top()) {
-        // Bottom-right completly outside visible area at the bottom
-        newVisibleBottomRight += kUp;
-    }
-
-    if (newVisibleBottomRight != visibleBottomRight) {
-        if (auto newVisibleBottomRightItem = visibleTableItem(newVisibleBottomRight)) {
-            visibleBottomRight = newVisibleBottomRight;
-            visibleBottomRightRect = newVisibleBottomRightItem->rect();
-            qDebug() << "new visible bottom right:" << newVisibleBottomRight;
-        }
-    }
-
     addRemoveVisibleItems();
 }
 
