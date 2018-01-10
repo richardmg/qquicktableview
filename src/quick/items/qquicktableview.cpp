@@ -513,24 +513,23 @@ bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const QPoint &cellCoord
 
     Q_TABLEVIEW_ASSERT(visibleTableItem(cellCoord), cellCoord);
     const QRectF itemRect = visibleTableItem(cellCoord)->rect();
-    const qreal wholePixelMargin = -1.0;
 
     if (direction == kRight) {
         if (cellCoord.x() == columnCount - 1)
             return false;
-        return itemRect.topRight().x() - fillRect.topRight().x() < wholePixelMargin;
+        return itemRect.right() < fillRect.right();
     } else if (direction == kLeft) {
         if (cellCoord.x() == 0)
             return false;
-        return fillRect.topLeft().x() - itemRect.topLeft().x() < wholePixelMargin;
+        return itemRect.left() > fillRect.left();
     } else if (direction == kDown) {
         if (cellCoord.y() == rowCount - 1)
             return false;
-        return itemRect.bottomLeft().y() - fillRect.bottomLeft().y() < wholePixelMargin;
+        return itemRect.bottom() < fillRect.bottom();
     } else if (direction == kUp) {
         if (cellCoord.y() == 0)
             return false;
-        return fillRect.topLeft().y() - itemRect.topLeft().y() < wholePixelMargin;
+        return itemRect.top() > fillRect.top();
     } else {
         Q_TABLEVIEW_UNREACHABLE(cellCoord << direction);
     }
@@ -788,15 +787,15 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 
         const QRectF &topLeftRect = visibleTableItem(topLeft)->rect();
         const QRectF &bottomRightRect = visibleTableItem(bottomRight)->rect();
-        const qreal wholePixelMargin = -1.0;
+        const qreal floatingPointMargin = 1;
 
-        if (topLeftRect.right() - rect.left() < wholePixelMargin) {
+        if (rect.left() > topLeftRect.right() + floatingPointMargin) {
             if (visibleTableItem(topLeft + kRight)) {
                 qCDebug(lcTableViewLayout()) << "unload left column" << topLeft.x();
                 unloadItems(topLeft, bottomLeft());
                 topLeft += kRight;
             }
-        } else if (rect.right() - bottomRightRect.left() < wholePixelMargin) {
+        } else if (bottomRightRect.left() > rect.right() + floatingPointMargin) {
             if (isValidBottomRight(bottomRight + kLeft)) {
                 qCDebug(lcTableViewLayout()) << "unload right column" << bottomRight.x();
                 unloadItems(topRight(), bottomRight);
@@ -804,13 +803,13 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
             }
         }
 
-        if (topLeftRect.bottom() - rect.top() < wholePixelMargin) {
+        if (rect.top() > topLeftRect.bottom() + floatingPointMargin) {
             if (visibleTableItem(topLeft + kDown)) {
                 qCDebug(lcTableViewLayout()) << "unload top row" << topLeft.y();
                 unloadItems(topLeft, topRight());
                 topLeft += kDown;
             }
-        } else if (rect.bottom() - bottomRightRect.top() < wholePixelMargin) {
+        } else if (bottomRightRect.top() > rect.bottom() + floatingPointMargin) {
             if (isValidBottomRight(bottomRight + kUp)) {
                 qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomRight.y();
                 unloadItems(bottomLeft(), bottomRight);
