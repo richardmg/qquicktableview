@@ -183,7 +183,7 @@ protected:
     FxTableItemSG *loadTableItem(const QPoint &cellCoord, QQmlIncubator::IncubationMode incubationMode);
     inline void showTableItem(FxTableItemSG *fxViewItem);
 
-    bool canHaveMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const;
+    bool canFitMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const;
     QPoint adjusted(const QRectF &cellRect, const QPointF &corner);
     void adjustVisibleTopLeftAndBottomRight();
 
@@ -509,7 +509,7 @@ FxTableItemSG *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewIte
     return loadedTableItem(coordAt(fxViewItem) + direction);
 }
 
-bool QQuickTableViewPrivate::canHaveMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const
+bool QQuickTableViewPrivate::canFitMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const
 {
     if (direction.isNull())
         return false;
@@ -567,7 +567,6 @@ QPoint QQuickTableViewPrivate::adjusted(const QRectF &cellRect, const QPointF &c
 
 void QQuickTableViewPrivate::adjustVisibleTopLeftAndBottomRight()
 {
-    return;
     const QRectF &visibleRect = viewportRect();
 
     auto topLeftItem = loadedTableItem(visibleTopLeft);
@@ -873,12 +872,16 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
             if (loadedTableSize().width() > 1) {
                 qCDebug(lcTableViewLayout()) << "unload left column" << topLeft.x();
                 unloadItems(topLeft, bottomLeft());
+                if (visibleTopLeft.x() == topLeft.x())
+                    visibleTopLeft += kRight;
                 topLeft += kRight;
             }
         } else if (bottomRightRect.left() > rect.right() + floatingPointMargin) {
             if (loadedTableSize().width() > 1) {
                 qCDebug(lcTableViewLayout()) << "unload right column" << bottomRight.x();
                 unloadItems(topRight(), bottomRight);
+                if (visibleBottomRight.x() == bottomRight.x())
+                    visibleBottomRight += kLeft;
                 bottomRight += kLeft;
             }
         }
@@ -887,12 +890,16 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
             if (loadedTableSize().height() > 1) {
                 qCDebug(lcTableViewLayout()) << "unload top row" << topLeft.y();
                 unloadItems(topLeft, topRight());
+                if (visibleTopLeft.y() == topLeft.y())
+                    visibleTopLeft += kDown;
                 topLeft += kDown;
             }
         } else if (bottomRightRect.top() > rect.bottom() + floatingPointMargin) {
             if (loadedTableSize().height() > 1) {
                 qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomRight.y();
                 unloadItems(bottomLeft(), bottomRight);
+                if (visibleBottomRight.y() == bottomRight.y())
+                    visibleBottomRight += kUp;
                 bottomRight += kUp;
             }
         }
@@ -922,7 +929,7 @@ void QQuickTableViewPrivate::refillItemsInsideRect(const QRectF &fillRect, QQmlI
 {
     bool intersectsWithViewport = fillRect == viewportRect();
 
-    if (canHaveMoreItemsInDirection(topLeft, kLeft, fillRect)) {
+    if (canFitMoreItemsInDirection(topLeft, kLeft, fillRect)) {
         topLeft += kLeft;
         TableSectionLoadRequest request;
         request.startCell = topLeft;
@@ -932,7 +939,7 @@ void QQuickTableViewPrivate::refillItemsInsideRect(const QRectF &fillRect, QQmlI
         enqueueLoadRequest(request);
         if (intersectsWithViewport)
             visibleTopLeft = topLeft;
-    } else if (canHaveMoreItemsInDirection(topRight(), kRight, fillRect)) {
+    } else if (canFitMoreItemsInDirection(topRight(), kRight, fillRect)) {
         bottomRight += kRight;
         TableSectionLoadRequest request;
         request.startCell = topRight();
@@ -942,7 +949,7 @@ void QQuickTableViewPrivate::refillItemsInsideRect(const QRectF &fillRect, QQmlI
         enqueueLoadRequest(request);
         if (intersectsWithViewport)
             visibleBottomRight = bottomRight;
-    } else if (canHaveMoreItemsInDirection(topLeft, kUp, fillRect)) {
+    } else if (canFitMoreItemsInDirection(topLeft, kUp, fillRect)) {
         topLeft += kUp;
         TableSectionLoadRequest request;
         request.startCell = topLeft;
@@ -952,7 +959,7 @@ void QQuickTableViewPrivate::refillItemsInsideRect(const QRectF &fillRect, QQmlI
         enqueueLoadRequest(request);
         if (intersectsWithViewport)
             visibleTopLeft = topLeft;
-    } else if (canHaveMoreItemsInDirection(bottomLeft(), kDown, fillRect)) {
+    } else if (canFitMoreItemsInDirection(bottomLeft(), kDown, fillRect)) {
         bottomRight += kDown;
         TableSectionLoadRequest request;
         request.startCell = bottomLeft();
