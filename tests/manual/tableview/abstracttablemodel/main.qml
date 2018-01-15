@@ -56,7 +56,7 @@ Window {
                 anchors.topMargin: 20//tableHeader.height + rowSpacing
                 anchors.fill: parent
 
-                cacheBuffer: 100
+                cacheBuffer: 0//100
 
                 model: tableModel
 
