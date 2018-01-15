@@ -170,7 +170,6 @@ protected:
     inline QPoint coordAt(const FxTableItemSG *tableItem) const;
     inline QPoint topRight() const;
     inline QPoint bottomLeft() const;
-    QPoint boundToTopLeftBottomRight(const QPoint &cellCoord);
 
     FxTableItemSG *loadedTableItem(int modelIndex) const;
     inline FxTableItemSG *loadedTableItem(const QPoint &cellCoord) const;
@@ -186,7 +185,7 @@ protected:
 
     bool canFitMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const;
     QPoint oneStepCloserToEdge(const QRectF &cellRect, const QPointF &edge);
-    void adjustVisibleTopLeftAndBottomRight();
+    bool viewportIsAtEdgeOfLoadedTableItems();
 
     qreal calculateItemX(const FxTableItemSG *fxTableItem) const;
     qreal calculateItemY(const FxTableItemSG *fxTableItem) const;
@@ -316,23 +315,6 @@ QPoint QQuickTableViewPrivate::topRight() const
 QPoint QQuickTableViewPrivate::bottomLeft() const
 {
     return QPoint(topLeft.x(), bottomRight.y());
-}
-
-QPoint QQuickTableViewPrivate::boundToTopLeftBottomRight(const QPoint &cellCoord)
-{
-    QPoint boundedCoord = cellCoord;
-
-    if (cellCoord.x() < topLeft.x())
-        boundedCoord.setX(topLeft.x());
-    else if (cellCoord.x() > bottomRight.x())
-        boundedCoord.setX(bottomRight.x());
-
-    if (cellCoord.y() < topLeft.y())
-        boundedCoord.setY(topLeft.y());
-    else if (cellCoord.y() > bottomRight.y())
-        boundedCoord.setY(bottomRight.y());
-
-    return boundedCoord;
 }
 
 FxTableItemSG *QQuickTableViewPrivate::loadedTableItem(int modelIndex) const
@@ -583,72 +565,42 @@ QPoint QQuickTableViewPrivate::oneStepCloserToEdge(const QRectF &cellRect, const
     return adjustment;
 }
 
-void QQuickTableViewPrivate::adjustVisibleTopLeftAndBottomRight()
+bool QQuickTableViewPrivate::viewportIsAtEdgeOfLoadedTableItems()
 {
     const QRectF &visibleRect = viewportRect();
 
-    auto topLeftItem = loadedTableItem(visibleTopLeft);
-    auto bottomRightItem = loadedTableItem(visibleBottomRight);
+    // Hmm. Ikke sikker på om vi er på edgen bare fordi vi
+    // venter på top-left. Den kan jo være loaded til cachen.
+    // Men ettersom jeg jeg skal bruke dette til å finne ut som jeg
+    // må fullføre loadingen, så kan jeg ikke teste på dette.
+    // Kanskje jeg bør ta vare på previous top-left
+    // og teste på denne dersom topLeft ikke er loaded.
+    // eller flick-direction? dersom jeg flicker mot topLeft, så
+    // må jeg speed up. Men hva om jeg flicker mot topRight?
 
-    // Note that we cannot force async anymore, since I now assume
-    // that visible items are always loaded sync, and as such, will
-    // be available at this point.
-    Q_TABLEVIEW_ASSERT(topLeftItem, visibleTopLeft);
-    Q_TABLEVIEW_ASSERT(bottomRightItem, visibleBottomRight);
+    // Men kanskje loadedTopLeft eller prevTopLeft er en bra strategi. Koster lite.
+    // topLeft ikke er lastet, og loadedTopLeft.rect er helt innenfor, så kan
+    // vi anta topLeft.rect vil havne innenfor viewport.
 
-    QRectF visibleTopLeftRect = topLeftItem->rect();
-    QRectF visibleBottomRightRect = bottomRightItem->rect();
+    dersom top-left ikke er loaded. Eventuelt
+    // teste på topLeft + kDown og/eller topLeft + kRight. Hvis
+    // topLeft ikke er lastet enda, så
 
-    forever {
-        bool tryOneMoreStep = false;
-        QPoint topLeftStep = oneStepCloserToEdge(visibleTopLeftRect, visibleRect.topLeft());
-        QPoint bottomRightStep = oneStepCloserToEdge(visibleBottomRightRect, visibleRect.bottomRight());
-        QPoint newVisibleTopLeft = boundToTopLeftBottomRight(visibleTopLeft + topLeftStep);
-        QPoint newVisibleBottomRight = boundToTopLeftBottomRight(visibleBottomRight + bottomRightStep);
-        auto newTopLeftItem = loadedTableItem(newVisibleTopLeft);
-        auto newBottomRightItem = loadedTableItem(newVisibleBottomRight);
+    auto topLeftItem = loadedTableItem(topLeft);
+    if (!topLeftItem)
+        return true;
 
-        qDebug()
-                << "vtl" << visibleTopLeft
-                << "vbr" << visibleBottomRight
-                << "new vtl:" <<  newVisibleTopLeft
-                << "new vbr:" <<  newVisibleBottomRight
-                << "topLeftStep:" <<  topLeftStep
-                << "bottomRightStep:" <<  bottomRightStep
-                << "nvtlitem:" << newTopLeftItem
-                << "nvbritem:" << newBottomRightItem;
+    if (visibleRect.contains(topLeftItem->rect()))
+        return true;
 
-        if (newVisibleTopLeft != visibleTopLeft) {
-            visibleTopLeft = newVisibleTopLeft;
-            qCDebug(lcTableViewLayout()) << tableGeometryToString();
-            if ((topLeftItem = loadedTableItem(visibleTopLeft))) {
-                // If topLeftItem is nullptr, it means that we're still waiting
-                // for it. But it also means that we don't need to search any
-                // further since we're already at the edge of the table
+    auto bottomRightItem = loadedTableItem(bottomRight);
+    if (!bottomRightItem)
+        return true;
 
-                // Hmm, this will probably fail if we need to try more steps in
-                // one direction, but are on the edge on the other direction.
+    if (visibleRect.contains(bottomRightItem->rect()))
+        return true;
 
-                visibleTopLeftRect = topLeftItem->rect();
-                tryOneMoreStep = true;
-            }
-        }
-
-        if (newVisibleBottomRight != visibleBottomRight) {
-            visibleBottomRight = newVisibleBottomRight;
-            qCDebug(lcTableViewLayout()) << tableGeometryToString();
-            if ((bottomRightItem = loadedTableItem(visibleBottomRight))) {
-                visibleBottomRightRect = bottomRightItem->rect();
-                tryOneMoreStep = true;
-            }
-        }
-
-        Q_TABLEVIEW_ASSERT(visibleTopLeft.x() <= visibleBottomRight.x(), "");
-        Q_TABLEVIEW_ASSERT(visibleTopLeft.y() <= visibleBottomRight.y(), "");
-
-        if (!tryOneMoreStep)
-            break;
-    }
+    return false;
 }
 
 qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem) const
@@ -1072,7 +1024,9 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     Q_D(QQuickTableView);
     QQuickAbstractItemView::viewportMoved(orient);
 
-    d->adjustVisibleTopLeftAndBottomRight();
+    bool speedUp = d->viewportIsAtEdgeOfLoadedTableItems();
+    if (speedUp)
+        qDebug() << "speedup" << d->tableGeometryToString();
     d->addRemoveVisibleItems();
 }
 
