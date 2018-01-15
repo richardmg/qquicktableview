@@ -170,6 +170,7 @@ protected:
     inline QPoint coordAt(const FxTableItemSG *tableItem) const;
     inline QPoint topRight() const;
     inline QPoint bottomLeft() const;
+    QPoint boundToTopLeftBottomRight(const QPoint &cellCoord);
 
     FxTableItemSG *loadedTableItem(int modelIndex) const;
     inline FxTableItemSG *loadedTableItem(const QPoint &cellCoord) const;
@@ -184,7 +185,7 @@ protected:
     inline void showTableItem(FxTableItemSG *fxViewItem);
 
     bool canFitMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const;
-    QPoint directionToEdge(const QRectF &cellRect, const QPointF &edge);
+    QPoint oneStepCloserToEdge(const QRectF &cellRect, const QPointF &edge);
     void adjustVisibleTopLeftAndBottomRight();
 
     qreal calculateItemX(const FxTableItemSG *fxTableItem) const;
@@ -317,6 +318,23 @@ QPoint QQuickTableViewPrivate::bottomLeft() const
     return QPoint(topLeft.x(), bottomRight.y());
 }
 
+QPoint QQuickTableViewPrivate::boundToTopLeftBottomRight(const QPoint &cellCoord)
+{
+    QPoint boundedCoord = cellCoord;
+
+    if (cellCoord.x() < topLeft.x())
+        boundedCoord.setX(topLeft.x());
+    else if (cellCoord.x() > bottomRight.x())
+        boundedCoord.setX(bottomRight.x());
+
+    if (cellCoord.y() < topLeft.y())
+        boundedCoord.setY(topLeft.y());
+    else if (cellCoord.y() > bottomRight.y())
+        boundedCoord.setY(bottomRight.y());
+
+    return boundedCoord;
+}
+
 FxTableItemSG *QQuickTableViewPrivate::loadedTableItem(int modelIndex) const
 {
     // TODO: this is an overload of visibleItems, since the other version
@@ -439,7 +457,7 @@ QString QQuickTableViewPrivate::itemToString(const FxTableItemSG *tableItem) con
 
 QString QQuickTableViewPrivate::tableGeometryToString() const
 {
-    return QString(QLatin1String("count: %1, visible: (%2,%3) -> (%4,%5), cached: (%6,%7) -> (%8->%9)"))
+    return QString(QLatin1String("count: %1, visible: (%2,%3) -> (%4,%5), cached: (%6,%7) -> (%8,%9)"))
             .arg(visibleItems.count())
             .arg(visibleTopLeft.x()).arg(visibleTopLeft.y())
             .arg(visibleBottomRight.x()).arg(visibleBottomRight.y())
@@ -540,7 +558,7 @@ bool QQuickTableViewPrivate::canFitMoreItemsInDirection(const QPoint &cellCoord,
     return false;
 }
 
-QPoint QQuickTableViewPrivate::directionToEdge(const QRectF &cellRect, const QPointF &edge)
+QPoint QQuickTableViewPrivate::oneStepCloserToEdge(const QRectF &cellRect, const QPointF &edge)
 {
     QPoint adjustment;
 
@@ -582,31 +600,53 @@ void QQuickTableViewPrivate::adjustVisibleTopLeftAndBottomRight()
     QRectF visibleBottomRightRect = bottomRightItem->rect();
 
     forever {
-        bool changed = false;
-        QPoint topLeftAdjustments = directionToEdge(visibleTopLeftRect, visibleRect.topLeft());
-        QPoint bottomRightAdjustments = directionToEdge(visibleBottomRightRect, visibleRect.bottomRight());
+        bool tryOneMoreStep = false;
+        QPoint topLeftStep = oneStepCloserToEdge(visibleTopLeftRect, visibleRect.topLeft());
+        QPoint bottomRightStep = oneStepCloserToEdge(visibleBottomRightRect, visibleRect.bottomRight());
+        QPoint newVisibleTopLeft = boundToTopLeftBottomRight(visibleTopLeft + topLeftStep);
+        QPoint newVisibleBottomRight = boundToTopLeftBottomRight(visibleBottomRight + bottomRightStep);
+        auto newTopLeftItem = loadedTableItem(newVisibleTopLeft);
+        auto newBottomRightItem = loadedTableItem(newVisibleBottomRight);
 
-        if (!topLeftAdjustments.isNull()) {
-            QPoint newVisibleTopLeft = visibleTopLeft + topLeftAdjustments;
-            if (auto newVisibleTopLeftItem = loadedTableItem(newVisibleTopLeft)) {
-                changed = true;
-                visibleTopLeft = newVisibleTopLeft;
-                visibleTopLeftRect = loadedTableItem(visibleTopLeft)->rect();
-                qCDebug(lcTableViewLayout()) << tableGeometryToString();
+        qDebug()
+                << "vtl" << visibleTopLeft
+                << "vbr" << visibleBottomRight
+                << "new vtl:" <<  newVisibleTopLeft
+                << "new vbr:" <<  newVisibleBottomRight
+                << "topLeftStep:" <<  topLeftStep
+                << "bottomRightStep:" <<  bottomRightStep
+                << "nvtlitem:" << newTopLeftItem
+                << "nvbritem:" << newBottomRightItem;
+
+        if (newVisibleTopLeft != visibleTopLeft) {
+            visibleTopLeft = newVisibleTopLeft;
+            qCDebug(lcTableViewLayout()) << tableGeometryToString();
+            if ((topLeftItem = loadedTableItem(visibleTopLeft))) {
+                // If topLeftItem is nullptr, it means that we're still waiting
+                // for it. But it also means that we don't need to search any
+                // further since we're already at the edge of the table
+
+                // Hmm, this will probably fail if we need to try more steps in
+                // one direction, but are on the edge on the other direction.
+
+                visibleTopLeftRect = topLeftItem->rect();
+                tryOneMoreStep = true;
             }
         }
 
-        if (!bottomRightAdjustments.isNull()) {
-            QPoint newVisibleBottomRight = visibleBottomRight + bottomRightAdjustments;
-            if (auto newVisibleBottomRightItem = loadedTableItem(newVisibleBottomRight)) {
-                changed = true;
-                visibleBottomRight = newVisibleBottomRight;
-                visibleBottomRightRect = loadedTableItem(visibleBottomRight)->rect();
-                qCDebug(lcTableViewLayout()) << tableGeometryToString();
+        if (newVisibleBottomRight != visibleBottomRight) {
+            visibleBottomRight = newVisibleBottomRight;
+            qCDebug(lcTableViewLayout()) << tableGeometryToString();
+            if ((bottomRightItem = loadedTableItem(visibleBottomRight))) {
+                visibleBottomRightRect = bottomRightItem->rect();
+                tryOneMoreStep = true;
             }
         }
 
-        if (!changed)
+        Q_TABLEVIEW_ASSERT(visibleTopLeft.x() <= visibleBottomRight.x(), "");
+        Q_TABLEVIEW_ASSERT(visibleTopLeft.y() <= visibleBottomRight.y(), "");
+
+        if (!tryOneMoreStep)
             break;
     }
 }
