@@ -184,7 +184,7 @@ protected:
     inline void showTableItem(FxTableItemSG *fxViewItem);
 
     bool canFitMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const;
-    QPoint adjusted(const QRectF &cellRect, const QPointF &corner);
+    QPoint directionToEdge(const QRectF &cellRect, const QPointF &edge);
     void adjustVisibleTopLeftAndBottomRight();
 
     qreal calculateItemX(const FxTableItemSG *fxTableItem) const;
@@ -540,24 +540,24 @@ bool QQuickTableViewPrivate::canFitMoreItemsInDirection(const QPoint &cellCoord,
     return false;
 }
 
-QPoint QQuickTableViewPrivate::adjusted(const QRectF &cellRect, const QPointF &corner)
+QPoint QQuickTableViewPrivate::directionToEdge(const QRectF &cellRect, const QPointF &edge)
 {
     QPoint adjustment;
 
     const qreal floatingPointMargin = 1;
 
-    if (cellRect.right() < corner.x() - floatingPointMargin) {
+    if (cellRect.right() < edge.x() - floatingPointMargin) {
         // cell completely outside visible rect horizontally
         adjustment += kRight;
-    } else if (cellRect.left() > corner.x()) {
+    } else if (cellRect.left() > edge.x()) {
         // cell completely inside visible rect horizontally
         adjustment += kLeft;
     }
 
-    if (cellRect.bottom() < corner.y() - floatingPointMargin) {
+    if (cellRect.bottom() < edge.y() - floatingPointMargin) {
         // cell completly outside visible rect vertically
         adjustment += kDown;
-    } else if (cellRect.top() > corner.y()) {
+    } else if (cellRect.top() > edge.y()) {
         // cell completely inside visible rect vertically
         adjustment += kUp;
     }
@@ -583,8 +583,8 @@ void QQuickTableViewPrivate::adjustVisibleTopLeftAndBottomRight()
 
     forever {
         bool changed = false;
-        QPoint topLeftAdjustments = adjusted(visibleTopLeftRect, visibleRect.topLeft());
-        QPoint bottomRightAdjustments = adjusted(visibleBottomRightRect, visibleRect.bottomRight());
+        QPoint topLeftAdjustments = directionToEdge(visibleTopLeftRect, visibleRect.topLeft());
+        QPoint bottomRightAdjustments = directionToEdge(visibleBottomRightRect, visibleRect.bottomRight());
 
         if (!topLeftAdjustments.isNull()) {
             QPoint newVisibleTopLeft = visibleTopLeft + topLeftAdjustments;
