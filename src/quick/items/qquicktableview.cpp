@@ -84,6 +84,7 @@ public:
     QPoint requestedCell = kNullCell;
     QRect targetTableLayout;
     QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested;
+    bool completed = false;
 };
 
 QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
@@ -94,6 +95,7 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     dbg << " direction:" << request.fillDirection;
     dbg << " incubation:" << request.incubationMode;
     dbg << " newTableRect:" << request.targetTableLayout;
+    dbg << " completed:" << request.completed;
     dbg << ')';
     return dbg;
 }
@@ -136,7 +138,7 @@ protected:
     QQuickTableView::Orientation orientation;
     qreal rowSpacing;
     qreal columnSpacing;
-    QQueue<TableSectionLoadRequest> loadRequests;
+    TableSectionLoadRequest loadRequest;
 
     QSizeF accurateContentSize;
     bool contentWidthSetExplicit;
@@ -144,7 +146,6 @@ protected:
 
     bool modified;
     bool itemsUnloaded;
-    bool loadTableFromScratch;
     bool blockCreatedItemsSyncCallback;
 
     QString forcedIncubationMode;
@@ -179,7 +180,7 @@ protected:
     inline void showTableItem(FxTableItemSG *fxViewItem);
 
     bool canFitMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const;
-    bool viewportIsAtEdgeOfLoadedTableItems();
+    bool viewportIsAtTableLayoutEdge();
 
     qreal calculateItemX(const FxTableItemSG *fxTableItem, const QRect &tableLayout) const;
     qreal calculateItemY(const FxTableItemSG *fxTableItem, const QRect &tableLayout) const;
@@ -189,15 +190,14 @@ protected:
     void calculateItemGeometry(FxTableItemSG *fxTableItem, const QRect &tableLayout);
     void calculateContentSize(const FxTableItemSG *fxTableItem);
 
-    void loadInitialItems();
+    void loadInitialTopLeftItem();
     void refillItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
     void unloadItemsOutsideRect(const QRectF &rect);
     void unloadItems(const QPoint &fromCell, const QPoint &toCell);
 
-    inline void enqueueLoadRequest(const TableSectionLoadRequest &request);
-    inline void dequeueCurrentLoadRequest();
-    inline bool processCurrentLoadRequest(FxTableItemSG *loadedItem);
-    void processLoadRequests(FxTableItemSG *loadedItem);
+    void forceCompleteCurrentLoadRequest();
+    inline void processCurrentLoadRequest(FxTableItemSG *loadedItem);
+    void loadAndUnloadTableItems(FxTableItemSG *loadedItem);
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
     void insertItemIntoTable(FxTableItemSG *fxTableItem);
 
@@ -215,13 +215,12 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , orientation(QQuickTableView::Vertical)
     , rowSpacing(0)
     , columnSpacing(0)
-    , loadRequests(QQueue<TableSectionLoadRequest>())
+    , loadRequest(TableSectionLoadRequest())
     , accurateContentSize(QSizeF(-1, -1))
     , contentWidthSetExplicit(false)
     , contentHeightSetExplicit(false)
     , modified(false)
     , itemsUnloaded(false)
-    , loadTableFromScratch(true)
     , blockCreatedItemsSyncCallback(false)
     , forcedIncubationMode(qEnvironmentVariable("QT_TABLEVIEW_INCUBATION_MODE"))
 {
@@ -514,26 +513,23 @@ bool QQuickTableViewPrivate::canFitMoreItemsInDirection(const QPoint &cellCoord,
     return false;
 }
 
-bool QQuickTableViewPrivate::viewportIsAtEdgeOfLoadedTableItems()
+bool QQuickTableViewPrivate::viewportIsAtTableLayoutEdge()
 {
     const QRectF &visibleRect = viewportRect();
 
     auto topLeftItem = loadedTableItem(tableLayout.topLeft());
-    if (!topLeftItem)
-        return true;
-
+    Q_TABLEVIEW_ASSERT(topLeftItem, tableLayout.topLeft());
     if (visibleRect.contains(topLeftItem->rect()))
         return true;
 
     auto bottomRightItem = loadedTableItem(tableLayout.bottomRight());
-    if (!bottomRightItem)
-        return true;
-
+    Q_TABLEVIEW_ASSERT(bottomRightItem, tableLayout.bottomRight());
     if (visibleRect.contains(bottomRightItem->rect()))
         return true;
 
     return false;
 }
+
 
 qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem, const QRect &tableRect) const
 {
@@ -670,7 +666,7 @@ void QQuickTableView::createdItem(int index, QObject*)
     Q_ASSERT(item);
     Q_ASSERT(item->item);
 
-    d->processLoadRequests(item);
+    d->loadAndUnloadTableItems(item);
 }
 
 void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
@@ -679,35 +675,36 @@ void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
     modified = true;
 
     visibleItems.append(fxTableItem);
-    calculateItemGeometry(fxTableItem, loadRequests.head().targetTableLayout);
+    calculateItemGeometry(fxTableItem, loadRequest.targetTableLayout);
     calculateContentSize(fxTableItem);
     showTableItem(fxTableItem);
 }
 
-void QQuickTableViewPrivate::enqueueLoadRequest(const TableSectionLoadRequest &request)
+void QQuickTableViewPrivate::forceCompleteCurrentLoadRequest()
 {
-    loadRequests.enqueue(request);
-    qCDebug(lcItemViewDelegateLifecycle) << request;
+    // Try to force complete the current load request. This can fail if
+    // we're still incubating inside an async incubator.
+    if (loadRequest.completed)
+        return;
+    if (loadRequest.incubationMode == QQmlIncubator::AsynchronousIfNested)
+        return;
+
+    qDebug() << "force complete:" << loadRequest;
+    loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
+    processCurrentLoadRequest(nullptr);
 }
 
-void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
+void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem)
 {
-    const TableSectionLoadRequest request = loadRequests.dequeue();
-    qCDebug(lcItemViewDelegateLifecycle) << request;
-}
-
-bool QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem)
-{
-    TableSectionLoadRequest &request = loadRequests.head();
-    QPoint horizontalFillDirection = QPoint(request.fillDirection.x(), 0);
-    QPoint verticalFillDirection = QPoint(0, request.fillDirection.y());
+    QPoint horizontalFillDirection = QPoint(loadRequest.fillDirection.x(), 0);
+    QPoint verticalFillDirection = QPoint(0, loadRequest.fillDirection.y());
     bool loadHorizontal = !horizontalFillDirection.isNull();
     bool loadVertical = !verticalFillDirection.isNull();
 
     if (!loadedItem) {
         // (Re)load the next item in the request
-        request.requestedCell = request.requestedCell == kNullCell ? request.startCell : request.requestedCell;
-        loadedItem = loadTableItem(request.requestedCell, request.incubationMode);
+        loadRequest.requestedCell = loadRequest.requestedCell == kNullCell ? loadRequest.startCell : loadRequest.requestedCell;
+        loadedItem = loadTableItem(loadRequest.requestedCell, loadRequest.incubationMode);
     }
 
     while (loadedItem) {
@@ -718,60 +715,58 @@ bool QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
         // wait for this function to be called again once the requested item is ready.
         const QPoint loadedCoord = coordAt(loadedItem);
 
-        if (loadHorizontal && request.targetTableLayout.contains(loadedCoord + horizontalFillDirection))
-            request.requestedCell = loadedCoord + horizontalFillDirection;
-        else if (loadVertical && request.targetTableLayout.contains(loadedCoord + verticalFillDirection))
-            request.requestedCell = QPoint(request.startCell.x(), loadedCoord.y() + 1);
-        else
-            return true;
+        if (loadHorizontal && loadRequest.targetTableLayout.contains(loadedCoord + horizontalFillDirection)) {
+            loadRequest.requestedCell = loadedCoord + horizontalFillDirection;
+        } else if (loadVertical && loadRequest.targetTableLayout.contains(loadedCoord + verticalFillDirection)) {
+            loadRequest.requestedCell = QPoint(loadRequest.startCell.x(), loadedCoord.y() + 1);
+        } else {
+            loadRequest.completed = true;
+            tableLayout = loadRequest.targetTableLayout;
+            return;
+        }
 
-        loadedItem = loadTableItem(request.requestedCell, request.incubationMode);
+        loadedItem = loadTableItem(loadRequest.requestedCell, loadRequest.incubationMode);
     }
-
-    return false;
 }
 
-void QQuickTableViewPrivate::processLoadRequests(FxTableItemSG *loadedItem)
+void QQuickTableViewPrivate::loadAndUnloadTableItems(FxTableItemSG *loadedItem)
 {
-    // This function will continue processing the current load request, which is the
-    // one that is head in the loadRequests que. We load as many items as possible, and
-    // handle as many pending load requests we can, before we leave. If one of the items
-    // we try to load ends up loading async, we need to wait for it before we can continue.
-    // In that case we just leave, and continue the process later, once we receive it.
-    // This function will then be called again, but now with loadedItem pointing to the
-    // asynchronously loaded item. It is also fine to change the incubation mode of the
-    // load request and call this function again while we're waiting for an async item, in
-    // case something has changed, and we cannot affort to wait anymore.
+    // This function will continue filling up, and unloade, items in the table.
+    // We load as many items as possible, and schedule as many load requests we can, before
+    // we leave. If one of the items we try to load ends up loading async, we need to wait
+    // for it before we can continue. In that case we just leave, and continue the process
+    // later, once we receive it. This function will then be called again, but now with
+    // loadedItem pointing to the asynchronously loaded item. It is also fine to change the
+    // incubation mode of the load request and call this function again while we're waiting
+    // for an async item, in case something has changed, and we cannot affort to wait anymore.
 
     forever {
-        if (loadRequests.isEmpty()) {
+        if (loadRequest.completed) {
             // We have nothing more load requests pending, but check if we
             // the view port moved since we started processing the first
             // load requests, and if so, add or remove items at the edges.
             // This might cause new load requests to be queued.
+            loadedItem = nullptr;
             QRectF visibleRect = viewportRect();
             QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 
             unloadItemsOutsideRect(bufferRect);
             refillItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-            if (loadRequests.isEmpty()) {
+            if (loadRequest.completed) {
                 // There is no visible part of the view that is not covered with items, so
                 // we can spend time loading items into buffer for quick flick response later.
                 refillItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
             }
 
-            if (loadRequests.isEmpty())
+            if (loadRequest.completed)
                 return;
         }
 
-        if (!processCurrentLoadRequest(loadedItem))
+        processCurrentLoadRequest(loadedItem);
+        if (!loadRequest.completed)
             return;
 
-        loadedItem = nullptr;
-        tableLayout = loadRequests.head().targetTableLayout;
-
-        dequeueCurrentLoadRequest();
         qCDebug(lcTableViewLayout()) << tableGeometryToString();
     }
 }
@@ -823,104 +818,70 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
     } while (itemsUnloaded);
 }
 
-void QQuickTableViewPrivate::loadInitialItems()
+void QQuickTableViewPrivate::loadInitialTopLeftItem()
 {
     // Load top-left item. After loaded, processLoadRequest() will take
     // care of filling out the rest of the table.
     Q_TABLEVIEW_ASSERT(visibleItems.isEmpty(), visibleItems.count());
-    Q_TABLEVIEW_ASSERT(tableLayout.isNull(), tableLayout);
+    Q_TABLEVIEW_ASSERT(tableLayout.isEmpty(), tableLayout);
 
     QPoint newTopLeft(0, 0);
-    TableSectionLoadRequest requestTopLeftItem;
-    requestTopLeftItem.startCell = newTopLeft;
-    requestTopLeftItem.targetTableLayout = QRect(newTopLeft, newTopLeft);
+
+    loadRequest = TableSectionLoadRequest();
+    loadRequest.targetTableLayout = QRect(newTopLeft, newTopLeft);
+    loadRequest.startCell = newTopLeft;
+    loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
+
     qCDebug(lcTableViewLayout()) << "load top-left:" << newTopLeft;
-    enqueueLoadRequest(requestTopLeftItem);
 }
 
 void QQuickTableViewPrivate::refillItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
-{
+{    
     if (canFitMoreItemsInDirection(tableLayout.topLeft(), kLeft, fillRect)) {
-        TableSectionLoadRequest request;
-        request.targetTableLayout = tableLayout.adjusted(-1, 0, 0, 0);
-        request.startCell = request.targetTableLayout.topLeft();
-        request.fillDirection = kDown;
-        request.incubationMode = incubationMode;
-        qCDebug(lcTableViewLayout()) << "load left column" << request.startCell.x();
-        enqueueLoadRequest(request);
+        loadRequest = TableSectionLoadRequest();
+        loadRequest.targetTableLayout = tableLayout.adjusted(-1, 0, 0, 0);
+        loadRequest.startCell = loadRequest.targetTableLayout.topLeft();
+        loadRequest.fillDirection = kDown;
+        loadRequest.incubationMode = incubationMode;
+        qCDebug(lcTableViewLayout()) << "load left column" << loadRequest.startCell.x();
     } else if (canFitMoreItemsInDirection(tableLayout.topRight(), kRight, fillRect)) {
-        TableSectionLoadRequest request;
-        request.targetTableLayout = tableLayout.adjusted(0, 0, 1, 0);
-        request.startCell = request.targetTableLayout.topRight();
-        request.fillDirection = kDown;
-        request.incubationMode = incubationMode;
-        qCDebug(lcTableViewLayout()) << "load right column" << request.startCell.x();
-        enqueueLoadRequest(request);
+        loadRequest = TableSectionLoadRequest();
+        loadRequest.targetTableLayout = tableLayout.adjusted(0, 0, 1, 0);
+        loadRequest.startCell = loadRequest.targetTableLayout.topRight();
+        loadRequest.fillDirection = kDown;
+        loadRequest.incubationMode = incubationMode;
+        qCDebug(lcTableViewLayout()) << "load right column" << loadRequest.startCell.x();
     } else if (canFitMoreItemsInDirection(tableLayout.topLeft(), kUp, fillRect)) {
-        TableSectionLoadRequest request;
-        request.targetTableLayout = tableLayout.adjusted(0, -1, 0, 0);
-        request.startCell = request.targetTableLayout.topLeft();
-        request.fillDirection = kRight;
-        request.incubationMode = incubationMode;
-        qCDebug(lcTableViewLayout()) << "load top row" << request.startCell.y();
-        enqueueLoadRequest(request);
+        loadRequest = TableSectionLoadRequest();
+        loadRequest.targetTableLayout = tableLayout.adjusted(0, -1, 0, 0);
+        loadRequest.startCell = loadRequest.targetTableLayout.topLeft();
+        loadRequest.fillDirection = kRight;
+        loadRequest.incubationMode = incubationMode;
+        qCDebug(lcTableViewLayout()) << "load top row" << loadRequest.startCell.y();
     } else if (canFitMoreItemsInDirection(tableLayout.bottomLeft(), kDown, fillRect)) {
-        TableSectionLoadRequest request;
-        request.targetTableLayout = tableLayout.adjusted(0, 0, 0, 1);
-        request.startCell = request.targetTableLayout.bottomLeft();
-        request.fillDirection = kRight;
-        request.incubationMode = incubationMode;
-        qCDebug(lcTableViewLayout()) << "load bottom row" << request.startCell.y();
-        enqueueLoadRequest(request);
+        loadRequest = TableSectionLoadRequest();
+        loadRequest.targetTableLayout = tableLayout.adjusted(0, 0, 0, 1);
+        loadRequest.startCell = loadRequest.targetTableLayout.bottomLeft();
+        loadRequest.fillDirection = kRight;
+        loadRequest.incubationMode = incubationMode;
+        qCDebug(lcTableViewLayout()) << "load bottom row" << loadRequest.startCell.y();
     }
 }
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
-//    1. Sjekk om vi allerede laster ikke-buffer items. I så fall, returner som før.
-//    2. Deretter må jeg sjekke om nye kolonner er scrollet inn. Om ikke, så kan det være som det er
-//    3. I motsatt fall bør jeg begynne å laste inn de nye kolonnene med asyncIfNested, ved
-//        å legge de først i køen. Men la de gamle requestene ligge igjen, så vi ikke ender med
-//        "hull" i tabellen. De gamle vil prosesseres etter de nye, før nye buffer items legges til.
-//        Men da må jeg passe på å ikke legge til duplikater.
-//    4. Jeg bør nok ikke laste ut items før alle load requests er prosessert, i tilfelle jeg da
-//        kan ende opp med å laste ut deler av en async lastet kolonne.
-    //    5. Vent med å buffere items til flickable står stille
-
     if (!viewportRect().isValid())
         return false;
 
-    if (loadTableFromScratch) {
-        loadTableFromScratch = false;
-        loadInitialItems();
-    } else if (!loadRequests.isEmpty()) {
-//        const TableSectionLoadRequest &currentRequest = loadRequests.head();
-//        if (!currentRequest.loadingToBuffer) {
-//            // We don't accept any new requests before we
-//            // have finished all the current ones that are still requested sync.
-//            static int foo = 0;
-//            qDebug() << "still loading sync" << foo++;
-//            return false;
-//        }
-
-//        // We are currently loading one or two rows to buffer. Complete
-//        // loading them immediatly so that we can continue loading new items
-//        // that may have been flicked into view. Optimally we should only only
-//        // do this if the flicking really results in new items being exposed.
-//        // I can probably get rid of loadingToBuffer and just use incubation mode.
-
-//        for (TableSectionLoadRequest &request : loadRequests) {
-//            qDebug() << "speedup:" << request;
-//            request.incubationMode = QQmlIncubator::AsynchronousIfNested;
-//        }
-
-//        // We still need to wait for the active requests
+    if (tableLayout.isEmpty()) {
+        // consider moving this to e.g component completed?
+        loadInitialTopLeftItem();
+    } else if (!loadRequest.completed)
         return false;
-    }
 
     modified = false;
 
-    processLoadRequests(nullptr);
+    loadAndUnloadTableItems(nullptr);
 
     return modified;
 }
@@ -935,9 +896,9 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     Q_D(QQuickTableView);
     QQuickAbstractItemView::viewportMoved(orient);
 
-//    bool speedUp = d->viewportIsAtEdgeOfLoadedTableItems();
-//    if (speedUp)
-//        qDebug() << "speedup" << d->tableGeometryToString();
+    if (d->viewportIsAtTableLayoutEdge())
+        d->forceCompleteCurrentLoadRequest();
+
     d->addRemoveVisibleItems();
 }
 
