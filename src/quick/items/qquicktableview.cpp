@@ -145,7 +145,6 @@ protected:
     bool contentHeightSetExplicit;
 
     bool modified;
-    bool itemsUnloaded;
     bool blockCreatedItemsSyncCallback;
 
     QString forcedIncubationMode;
@@ -220,7 +219,6 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , contentWidthSetExplicit(false)
     , contentHeightSetExplicit(false)
     , modified(false)
-    , itemsUnloaded(false)
     , blockCreatedItemsSyncCallback(false)
     , forcedIncubationMode(qEnvironmentVariable("QT_TABLEVIEW_INCUBATION_MODE"))
 {
@@ -461,7 +459,6 @@ void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &t
 {
     qCDebug(lcItemViewDelegateLifecycle) << fromCell << "->" << toCell;
     modified = true;
-    itemsUnloaded = true;
 
     for (int y = fromCell.y(); y <= toCell.y(); ++y) {
         for (int x = fromCell.x(); x <= toCell.x(); ++x) {
@@ -529,7 +526,6 @@ bool QQuickTableViewPrivate::viewportIsAtTableLayoutEdge()
 
     return false;
 }
-
 
 qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem, const QRect &tableRect) const
 {
@@ -687,12 +683,12 @@ void QQuickTableViewPrivate::forceCompleteCurrentLoadRequest()
 {
     // Try to force complete the current load request. This can fail if
     // we're still incubating inside an async incubator.
+    qDebug() << "**************** force complete:" << loadRequest;
     if (loadRequest.completed)
         return;
     if (loadRequest.incubationMode == QQmlIncubator::AsynchronousIfNested)
         return;
 
-    qDebug() << "force complete:" << loadRequest;
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     processCurrentLoadRequest(nullptr);
     Q_TABLEVIEW_ASSERT(loadRequest.completed, loadRequest);
@@ -734,6 +730,7 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
             loadRequest.completed = true;
             tableLayout = loadRequest.targetTableLayout;
             qCDebug(lcItemViewDelegateLifecycle()) << "completed:" << loadRequest;
+            qCDebug(lcTableViewLayout()) << tableGeometryToString();
             return;
         }
 
@@ -765,6 +762,8 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
     // user flicks at the end of the table), since then we would lose our
     // anchor point for layouting, which we need once rows and columns are
     // flicked back into view again.
+    bool itemsUnloaded;
+
     do {
         itemsUnloaded = false;
 
@@ -780,10 +779,12 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
                 qCDebug(lcTableViewLayout()) << "unload left column" << tableLayout.topLeft().x();
                 unloadItems(tableLayout.topLeft(), tableLayout.bottomLeft());
                 tableLayout.adjust(1, 0, 0, 0);
+                itemsUnloaded = true;
             } else if (bottomRightRect.left() > rect.right() + floatingPointMargin) {
                 qCDebug(lcTableViewLayout()) << "unload right column" << tableLayout.topRight().x();
                 unloadItems(tableLayout.topRight(), tableLayout.bottomRight());
                 tableLayout.adjust(0, 0, -1, 0);
+                itemsUnloaded = true;
             }
         }
 
@@ -792,10 +793,12 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
                 qCDebug(lcTableViewLayout()) << "unload top row" << tableLayout.topLeft().y();
                 unloadItems(tableLayout.topLeft(), tableLayout.topRight());
                 tableLayout.adjust(0, 1, 0, 0);
+                itemsUnloaded = true;
             } else if (bottomRightRect.top() > rect.bottom() + floatingPointMargin) {
                 qCDebug(lcTableViewLayout()) << "unload bottom row" << tableLayout.bottomLeft().y();
                 unloadItems(tableLayout.bottomLeft(), tableLayout.bottomRight());
                 tableLayout.adjust(0, 0, 0, -1);
+                itemsUnloaded = true;
             }
         }
 
