@@ -197,7 +197,7 @@ protected:
 
     void forceCompleteCurrentLoadRequest();
     inline void processCurrentLoadRequest(FxTableItemSG *loadedItem);
-    void loadAndUnloadTableItems(FxTableItemSG *loadedItem);
+    void loadAndUnloadTableItems();
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
     void insertItemIntoTable(FxTableItemSG *fxTableItem);
 
@@ -666,7 +666,10 @@ void QQuickTableView::createdItem(int index, QObject*)
     Q_ASSERT(item);
     Q_ASSERT(item->item);
 
-    d->loadAndUnloadTableItems(item);
+    d->processCurrentLoadRequest(item);
+
+    if (d->loadRequest.completed)
+        d->loadAndUnloadTableItems();
 }
 
 void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
@@ -730,40 +733,25 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
     }
 }
 
-void QQuickTableViewPrivate::loadAndUnloadTableItems(FxTableItemSG *loadedItem)
+void QQuickTableViewPrivate::loadAndUnloadTableItems()
 {
-    // This function will continue to fill up, and unloade, items in the table.
-    // We load as many items as possible before we leave. If one of the items we try to
-    // load ends up loading async, we need to wait
-    // for it before we can continue. In that case we just leave, and continue the process
-    // later, once we receive it. This function will then be called again, but now with
-    // loadedItem pointing to the asynchronously loaded item. It is also fine to change the
-    // incubation mode of the load request and call this function again while we're waiting
-    // for an async item, in case something has changed, and we cannot affort to wait anymore.
+    QRectF visibleRect = viewportRect();
+    QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
+
+    unloadItemsOutsideRect(bufferRect);
 
     forever {
+        loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
+
         if (loadRequest.completed) {
-            // We're done with the current load request. But since we return early when
-            // the viewport moves when we have an active load request, we need to
-            // check now if there are more rows/columns to load/unload.
-            loadedItem = nullptr;
-            QRectF visibleRect = viewportRect();
-            QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
-
-            unloadItemsOutsideRect(bufferRect);
-            loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
-
-            if (loadRequest.completed) {
-                // There is no visible part of the view that is not covered with items, so
-                // we can spend time loading items into buffer for quick flick response later.
-                loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
-            }
-
+            // There is no visible part of the view that is not covered with items, so
+            // we can spend time loading items into buffer for quick flick response later.
+            loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
             if (loadRequest.completed)
                 return;
         }
 
-        processCurrentLoadRequest(loadedItem);
+        processCurrentLoadRequest(nullptr);
 
         if (!loadRequest.completed)
             return;
@@ -834,6 +822,8 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
 
     qCDebug(lcTableViewLayout()) << "load top-left:" << newTopLeft;
+
+    processCurrentLoadRequest(nullptr);
 }
 
 void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
@@ -877,12 +867,14 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     if (tableLayout.isEmpty()) {
         // consider moving this to e.g component completed?
         loadInitialTopLeftItem();
-    } else if (!loadRequest.completed)
+    }
+
+    if (!loadRequest.completed)
         return false;
 
     modified = false;
 
-    loadAndUnloadTableItems(nullptr);
+    loadAndUnloadTableItems();
 
     return modified;
 }
