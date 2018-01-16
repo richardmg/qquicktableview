@@ -128,8 +128,7 @@ public:
     void translateAndTransitionFilledItems() override { }
 
 protected:
-    QPoint topLeft;
-    QPoint bottomRight;
+    QRect tableRect;
 
     int rowCount;
     int columnCount;
@@ -160,16 +159,12 @@ protected:
     bool isRightToLeft() const;
     bool isBottomToTop() const;
 
-    inline QSize loadedTableSize();
-
     int rowAtIndex(int index) const;
     int columnAtIndex(int index) const;
     int indexAt(const QPoint &cellCoord) const;
 
     inline QPoint coordAt(int index) const;
     inline QPoint coordAt(const FxTableItemSG *tableItem) const;
-    inline QPoint topRight() const;
-    inline QPoint bottomLeft() const;
 
     FxTableItemSG *loadedTableItem(int modelIndex) const;
     inline FxTableItemSG *loadedTableItem(const QPoint &cellCoord) const;
@@ -205,7 +200,6 @@ protected:
     void processLoadRequests(FxTableItemSG *loadedItem);
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
     void insertItemIntoTable(FxTableItemSG *fxTableItem);
-    void updateTopLeftAndBottomRight();
 
     inline QString indexToString(int index) const;
     inline QString itemToString(const FxTableItemSG *tableItem) const;
@@ -215,8 +209,7 @@ protected:
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
-    : topLeft(kNullCell)
-    , bottomRight(kNullCell)
+    : tableRect(QRect())
     , rowCount(-1)
     , columnCount(-1)
     , orientation(QQuickTableView::Vertical)
@@ -249,11 +242,6 @@ bool QQuickTableViewPrivate::isRightToLeft() const
 bool QQuickTableViewPrivate::isBottomToTop() const
 {
     return orientation == QQuickTableView::Vertical && verticalLayoutDirection == QQuickAbstractItemView::BottomToTop;
-}
-
-QSize QQuickTableViewPrivate::loadedTableSize()
-{
-    return QSize(bottomRight.x() - topLeft.x() + 1, bottomRight.y() - topLeft.y() + 1);
 }
 
 int QQuickTableViewPrivate::rowAtIndex(int index) const
@@ -305,16 +293,6 @@ int QQuickTableViewPrivate::indexAt(const QPoint& cellCoord) const
     return cellCoord.x() + cellCoord.y() * columns;
 }
 
-QPoint QQuickTableViewPrivate::topRight() const
-{
-    return QPoint(bottomRight.x(), topLeft.y());
-}
-
-QPoint QQuickTableViewPrivate::bottomLeft() const
-{
-    return QPoint(topLeft.x(), bottomRight.y());
-}
-
 FxTableItemSG *QQuickTableViewPrivate::loadedTableItem(int modelIndex) const
 {
     // TODO: this is an overload of visibleItems, since the other version
@@ -340,12 +318,12 @@ FxTableItemSG *QQuickTableViewPrivate::loadedTableItem(const QPoint &cellCoord) 
 
 FxTableItemSG *QQuickTableViewPrivate::topRightItem() const
 {
-    return loadedTableItem(topRight());
+    return loadedTableItem(tableRect.topRight());
 }
 
 FxTableItemSG *QQuickTableViewPrivate::bottomLeftItem() const
 {
-    return loadedTableItem(bottomLeft());
+    return loadedTableItem(tableRect.bottomLeft());
 }
 
 FxTableItemSG *QQuickTableViewPrivate::edgeItem(const FxTableItemSG *fxTableItem, const QRect &tableRect, Qt::Orientation orientation) const
@@ -370,10 +348,10 @@ void QQuickTableViewPrivate::calculateContentSize(const FxTableItemSG *fxTableIt
     Q_Q(QQuickTableView);
 
     if (!contentWidthSetExplicit && accurateContentSize.width() == -1) {
-        if (bottomRight.x() == columnCount - 1) {
+        if (tableRect.topRight().x() == columnCount - 1) {
             // We are at the end, and can determine accurate content width
-            if (const FxTableItemSG *bottomRightItem = loadedTableItem(bottomRight)) {
-                accurateContentSize.setWidth(bottomRightItem->rect().right());
+            if (const FxTableItemSG *topRightItem = loadedTableItem(tableRect.topRight())) {
+                accurateContentSize.setWidth(topRightItem->rect().right());
                 q->setContentWidth(accurateContentSize.width());
             }
         } else {
@@ -388,9 +366,9 @@ void QQuickTableViewPrivate::calculateContentSize(const FxTableItemSG *fxTableIt
     }
 
     if (!contentHeightSetExplicit && accurateContentSize.height() == -1) {
-        if (bottomRight.y() == rowCount - 1) {
-            if (const FxTableItemSG *bottomRightItem = loadedTableItem(bottomRight)) {
-                accurateContentSize.setHeight(bottomRightItem->rect().bottom());
+        if (tableRect.bottomRight().y() == rowCount - 1) {
+            if (const FxTableItemSG *bottomLeftItem = loadedTableItem(tableRect.bottomLeft())) {
+                accurateContentSize.setHeight(bottomLeftItem->rect().bottom());
                 q->setContentHeight(accurateContentSize.height());
             }
         } else {
@@ -438,8 +416,8 @@ QString QQuickTableViewPrivate::itemToString(const FxTableItemSG *tableItem) con
 QString QQuickTableViewPrivate::tableGeometryToString() const
 {
     return QString(QLatin1String("current table: (%1,%2) -> (%3,%4), item count: %5"))
-            .arg(topLeft.x()).arg(topLeft.y())
-            .arg(bottomRight.x()).arg(bottomRight.y())
+            .arg(tableRect.topLeft().x()).arg(tableRect.topLeft().y())
+            .arg(tableRect.bottomRight().x()).arg(tableRect.bottomRight().y())
             .arg(visibleItems.count());
 }
 
@@ -540,14 +518,14 @@ bool QQuickTableViewPrivate::viewportIsAtEdgeOfLoadedTableItems()
 {
     const QRectF &visibleRect = viewportRect();
 
-    auto topLeftItem = loadedTableItem(topLeft);
+    auto topLeftItem = loadedTableItem(tableRect.topLeft());
     if (!topLeftItem)
         return true;
 
     if (visibleRect.contains(topLeftItem->rect()))
         return true;
 
-    auto bottomRightItem = loadedTableItem(bottomRight);
+    auto bottomRightItem = loadedTableItem(tableRect.bottomRight());
     if (!bottomRightItem)
         return true;
 
@@ -718,13 +696,6 @@ void QQuickTableViewPrivate::dequeueCurrentLoadRequest()
     qCDebug(lcItemViewDelegateLifecycle) << request;
 }
 
-void QQuickTableViewPrivate::updateTopLeftAndBottomRight()
-{
-    TableSectionLoadRequest &request = loadRequests.head();
-    topLeft = request.newTableRect.topLeft();
-    bottomRight = request.newTableRect.bottomRight();
-}
-
 bool QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem)
 {
     TableSectionLoadRequest &request = loadRequests.head();
@@ -798,7 +769,8 @@ void QQuickTableViewPrivate::processLoadRequests(FxTableItemSG *loadedItem)
             return;
 
         loadedItem = nullptr;
-        updateTopLeftAndBottomRight();
+        tableRect = loadRequests.head().newTableRect;
+
         dequeueCurrentLoadRequest();
         qCDebug(lcTableViewLayout()) << tableGeometryToString();
     }
@@ -814,34 +786,34 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
     do {
         itemsUnloaded = false;
 
-        Q_TABLEVIEW_ASSERT(loadedTableItem(topLeft), rect);
-        Q_TABLEVIEW_ASSERT(loadedTableItem(bottomRight), rect);
+        Q_TABLEVIEW_ASSERT(loadedTableItem(tableRect.topLeft()), rect);
+        Q_TABLEVIEW_ASSERT(loadedTableItem(tableRect.bottomRight()), rect);
 
-        const QRectF &topLeftRect = loadedTableItem(topLeft)->rect();
-        const QRectF &bottomRightRect = loadedTableItem(bottomRight)->rect();
+        const QRectF &topLeftRect = loadedTableItem(tableRect.topLeft())->rect();
+        const QRectF &bottomRightRect = loadedTableItem(tableRect.bottomRight())->rect();
         const qreal floatingPointMargin = 1;
 
-        if (loadedTableSize().width() > 1) {
+        if (tableRect.width() > 1) {
             if (rect.left() > topLeftRect.right() + floatingPointMargin) {
-                qCDebug(lcTableViewLayout()) << "unload left column" << topLeft.x();
-                unloadItems(topLeft, bottomLeft());
-                topLeft += kRight;
+                qCDebug(lcTableViewLayout()) << "unload left column" << tableRect.topLeft().x();
+                unloadItems(tableRect.topLeft(), tableRect.bottomLeft());
+                tableRect.adjust(1, 0, 0, 0);
             } else if (bottomRightRect.left() > rect.right() + floatingPointMargin) {
-                qCDebug(lcTableViewLayout()) << "unload right column" << bottomRight.x();
-                unloadItems(topRight(), bottomRight);
-                bottomRight += kLeft;
+                qCDebug(lcTableViewLayout()) << "unload right column" << tableRect.topRight().x();
+                unloadItems(tableRect.topRight(), tableRect.bottomRight());
+                tableRect.adjust(0, 0, -1, 0);
             }
         }
 
-        if (loadedTableSize().height() > 1) {
+        if (tableRect.height() > 1) {
             if (rect.top() > topLeftRect.bottom() + floatingPointMargin) {
-                qCDebug(lcTableViewLayout()) << "unload top row" << topLeft.y();
-                unloadItems(topLeft, topRight());
-                topLeft += kDown;
+                qCDebug(lcTableViewLayout()) << "unload top row" << tableRect.topLeft().y();
+                unloadItems(tableRect.topLeft(), tableRect.topRight());
+                tableRect.adjust(0, 1, 0, 0);
             } else if (bottomRightRect.top() > rect.bottom() + floatingPointMargin) {
-                qCDebug(lcTableViewLayout()) << "unload bottom row" << bottomRight.y();
-                unloadItems(bottomLeft(), bottomRight);
-                bottomRight += kUp;
+                qCDebug(lcTableViewLayout()) << "unload bottom row" << tableRect.bottomLeft().y();
+                unloadItems(tableRect.bottomLeft(), tableRect.bottomRight());
+                tableRect.adjust(0, 0, 0, -1);
             }
         }
 
@@ -856,7 +828,7 @@ void QQuickTableViewPrivate::loadInitialItems()
     // Load top-left item. After loaded, processLoadRequest() will take
     // care of filling out the rest of the table.
     Q_TABLEVIEW_ASSERT(visibleItems.isEmpty(), visibleItems.count());
-    Q_TABLEVIEW_ASSERT(topLeft == kNullCell, topLeft);
+    Q_TABLEVIEW_ASSERT(tableRect.isNull(), tableRect);
 
     QPoint newTopLeft(0, 0);
     TableSectionLoadRequest requestTopLeftItem;
@@ -868,35 +840,35 @@ void QQuickTableViewPrivate::loadInitialItems()
 
 void QQuickTableViewPrivate::refillItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
 {
-    if (canFitMoreItemsInDirection(topLeft, kLeft, fillRect)) {
+    if (canFitMoreItemsInDirection(tableRect.topLeft(), kLeft, fillRect)) {
         TableSectionLoadRequest request;
-        request.startCell = topLeft + kLeft;
+        request.newTableRect = tableRect.adjusted(-1, 0, 0, 0);
+        request.startCell = request.newTableRect.topLeft();
         request.fillDirection = kDown;
-        request.newTableRect = QRect(request.startCell, bottomRight);
         request.incubationMode = incubationMode;
         qCDebug(lcTableViewLayout()) << "load left column" << request.startCell.x();
         enqueueLoadRequest(request);
-    } else if (canFitMoreItemsInDirection(topRight(), kRight, fillRect)) {
+    } else if (canFitMoreItemsInDirection(tableRect.topRight(), kRight, fillRect)) {
         TableSectionLoadRequest request;
-        request.startCell = QPoint(bottomRight.x() + 1, topLeft.y());
+        request.newTableRect = tableRect.adjusted(0, 0, 1, 0);
+        request.startCell = request.newTableRect.topRight();
         request.fillDirection = kDown;
-        request.newTableRect = QRect(topLeft, bottomRight + kRight);
         request.incubationMode = incubationMode;
         qCDebug(lcTableViewLayout()) << "load right column" << request.startCell.x();
         enqueueLoadRequest(request);
-    } else if (canFitMoreItemsInDirection(topLeft, kUp, fillRect)) {
+    } else if (canFitMoreItemsInDirection(tableRect.topLeft(), kUp, fillRect)) {
         TableSectionLoadRequest request;
-        request.startCell = topLeft + kUp;
+        request.newTableRect = tableRect.adjusted(0, -1, 0, 0);
+        request.startCell = request.newTableRect.topLeft();
         request.fillDirection = kRight;
-        request.newTableRect = QRect(request.startCell, bottomRight);
         request.incubationMode = incubationMode;
         qCDebug(lcTableViewLayout()) << "load top row" << request.startCell.y();
         enqueueLoadRequest(request);
-    } else if (canFitMoreItemsInDirection(bottomLeft(), kDown, fillRect)) {
+    } else if (canFitMoreItemsInDirection(tableRect.bottomLeft(), kDown, fillRect)) {
         TableSectionLoadRequest request;
-        request.startCell = QPoint(topLeft.x(), bottomRight.y() + 1);
+        request.newTableRect = tableRect.adjusted(0, 0, 0, 1);
+        request.startCell = request.newTableRect.bottomLeft();
         request.fillDirection = kRight;
-        request.newTableRect = QRect(topLeft, bottomRight + kDown);
         request.incubationMode = incubationMode;
         qCDebug(lcTableViewLayout()) << "load bottom row" << request.startCell.y();
         enqueueLoadRequest(request);
