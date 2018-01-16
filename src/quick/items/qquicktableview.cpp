@@ -191,7 +191,7 @@ protected:
     void calculateContentSize(const FxTableItemSG *fxTableItem);
 
     void loadInitialTopLeftItem();
-    void refillItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
+    void loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
     void unloadItemsOutsideRect(const QRectF &rect);
     void unloadItems(const QPoint &fromCell, const QPoint &toCell);
 
@@ -692,6 +692,7 @@ void QQuickTableViewPrivate::forceCompleteCurrentLoadRequest()
     qDebug() << "force complete:" << loadRequest;
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     processCurrentLoadRequest(nullptr);
+    Q_TABLEVIEW_ASSERT(loadRequest.completed, loadRequest);
 }
 
 void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem)
@@ -731,9 +732,9 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
 
 void QQuickTableViewPrivate::loadAndUnloadTableItems(FxTableItemSG *loadedItem)
 {
-    // This function will continue filling up, and unloade, items in the table.
-    // We load as many items as possible, and schedule as many load requests we can, before
-    // we leave. If one of the items we try to load ends up loading async, we need to wait
+    // This function will continue to fill up, and unloade, items in the table.
+    // We load as many items as possible before we leave. If one of the items we try to
+    // load ends up loading async, we need to wait
     // for it before we can continue. In that case we just leave, and continue the process
     // later, once we receive it. This function will then be called again, but now with
     // loadedItem pointing to the asynchronously loaded item. It is also fine to change the
@@ -742,21 +743,20 @@ void QQuickTableViewPrivate::loadAndUnloadTableItems(FxTableItemSG *loadedItem)
 
     forever {
         if (loadRequest.completed) {
-            // We have nothing more load requests pending, but check if we
-            // the view port moved since we started processing the first
-            // load requests, and if so, add or remove items at the edges.
-            // This might cause new load requests to be queued.
+            // We're done with the current load request. But since we return early when
+            // the viewport moves when we have an active load request, we need to
+            // check now if there are more rows/columns to load/unload.
             loadedItem = nullptr;
             QRectF visibleRect = viewportRect();
             QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 
             unloadItemsOutsideRect(bufferRect);
-            refillItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
+            loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
             if (loadRequest.completed) {
                 // There is no visible part of the view that is not covered with items, so
                 // we can spend time loading items into buffer for quick flick response later.
-                refillItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
+                loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
             }
 
             if (loadRequest.completed)
@@ -764,6 +764,7 @@ void QQuickTableViewPrivate::loadAndUnloadTableItems(FxTableItemSG *loadedItem)
         }
 
         processCurrentLoadRequest(loadedItem);
+
         if (!loadRequest.completed)
             return;
 
@@ -835,7 +836,7 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
     qCDebug(lcTableViewLayout()) << "load top-left:" << newTopLeft;
 }
 
-void QQuickTableViewPrivate::refillItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
+void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
 {    
     if (canFitMoreItemsInDirection(tableLayout.topLeft(), kLeft, fillRect)) {
         loadRequest = TableSectionLoadRequest();
