@@ -516,12 +516,18 @@ bool QQuickTableViewPrivate::viewportIsAtTableLayoutEdge()
 
     auto topLeftItem = loadedTableItem(tableLayout.topLeft());
     Q_TABLEVIEW_ASSERT(topLeftItem, tableLayout.topLeft());
-    if (visibleRect.contains(topLeftItem->rect()))
+    const QRectF topLeftRect = topLeftItem->rect();
+    if (visibleRect.contains(topLeftRect.bottomLeft()))
+        return true;
+    if (visibleRect.contains(topLeftRect.topRight()))
         return true;
 
     auto bottomRightItem = loadedTableItem(tableLayout.bottomRight());
     Q_TABLEVIEW_ASSERT(bottomRightItem, tableLayout.bottomRight());
-    if (visibleRect.contains(bottomRightItem->rect()))
+    const QRectF bottomRightRect = bottomRightItem->rect();
+    if (visibleRect.contains(bottomRightRect.bottomLeft()))
+        return true;
+    if (visibleRect.contains(bottomRightRect.topRight()))
         return true;
 
     return false;
