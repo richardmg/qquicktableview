@@ -758,17 +758,6 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
     processCurrentLoadRequest(nullptr);
 }
 
-void QQuickTableViewPrivate::loadAndUnloadTableItems()
-{
-    QRectF visibleRect = viewportRect();
-    QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
-
-    unloadItemsOutsideRect(bufferRect);
-    loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
-    if (loadRequest.completed)
-        loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
-}
-
 void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 {
     // Unload as many rows and columns as possible outside rect. But we
@@ -861,16 +850,23 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
     } while (loadRequest.completed);
 }
 
+void QQuickTableViewPrivate::loadAndUnloadTableItems()
+{
+    QRectF visibleRect = viewportRect();
+    QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
+
+    if (!visibleRect.isValid())
+        return;
+
+    unloadItemsOutsideRect(bufferRect);
+    loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
+
+    if (loadRequest.completed)
+        loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
+}
+
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
-    if (!viewportRect().isValid())
-        return false;
-
-    if (tableLayout.isEmpty()) {
-        // consider moving this to e.g component completed?
-        loadInitialTopLeftItem();
-    }
-
     if (!loadRequest.completed)
         return false;
 
@@ -1047,6 +1043,8 @@ void QQuickTableView::componentComplete()
     // Allow app to set content size explicitly, instead of us trying to guess as we go
     d->contentWidthSetExplicit = (contentWidth() != -1);
     d->contentHeightSetExplicit = (contentHeight() != -1);
+
+    d->loadInitialTopLeftItem();
 
     // NB: deliberatly skipping QQuickAbstractItemView, since it does so
     // many wierd things that I don't need or understand. That code is messy...
