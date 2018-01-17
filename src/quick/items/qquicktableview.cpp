@@ -200,9 +200,7 @@ protected:
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
     void insertItemIntoTable(FxTableItemSG *fxTableItem);
 
-    inline QString indexToString(int index) const;
-    inline QString itemToString(const FxTableItemSG *tableItem) const;
-    inline QString tableGeometryToString() const;
+    inline QString tableLayoutToString() const;
 
     void dumpTable() const;
 };
@@ -398,19 +396,7 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
     return new FxTableItemSG(item, q, false);
 }
 
-QString QQuickTableViewPrivate::indexToString(int index) const
-{
-    if (index == kNullValue)
-        return QLatin1String("null index");
-    return QString::fromLatin1("index: %1 (x:%2, y:%3)").arg(index).arg(columnAtIndex(index)).arg(rowAtIndex(index));
-}
-
-QString QQuickTableViewPrivate::itemToString(const FxTableItemSG *tableItem) const
-{
-    return indexToString(tableItem->index);
-}
-
-QString QQuickTableViewPrivate::tableGeometryToString() const
+QString QQuickTableViewPrivate::tableLayoutToString() const
 {
     return QString(QLatin1String("current table: (%1,%2) -> (%3,%4), item count: %5"))
             .arg(tableLayout.topLeft().x()).arg(tableLayout.topLeft().y())
@@ -426,10 +412,10 @@ void QQuickTableViewPrivate::dumpTable() const
 
     for (int i = 0; i < listCopy.count(); ++i) {
         FxTableItemSG *item = static_cast<FxTableItemSG *>(listCopy.at(i));
-        qDebug() << itemToString(item);
+        qDebug() << coordAt(item);
     }
 
-    qDebug() << tableGeometryToString();
+    qDebug() << tableLayoutToString();
 
     QString filename = QStringLiteral("qquicktableview_dumptable_capture.png");
     if (q_func()->window()->grabWindow().save(filename))
@@ -518,7 +504,6 @@ bool QQuickTableViewPrivate::viewportIsAtTableLayoutEdge()
     Q_TABLEVIEW_ASSERT(topLeftItem, tableLayout.topLeft());
     const QRectF topLeftRect = topLeftItem->rect();
 
-    qDebug() << visibleRect << topLeftRect;
     if (visibleRect.contains(topLeftRect.bottomLeft()))
         return true;
     if (visibleRect.contains(topLeftRect.topRight()))
@@ -559,7 +544,7 @@ qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem, c
         Q_TABLEVIEW_UNREACHABLE(coordAt(fxTableItem));
     } else {
         auto edge = edgeItem(fxTableItem, tableRect, Qt::Horizontal);
-        Q_TABLEVIEW_ASSERT(edge, itemToString(fxTableItem));
+        Q_TABLEVIEW_ASSERT(edge, coordAt(fxTableItem));
         return edge->rect().x();
     }
 }
@@ -588,7 +573,7 @@ qreal QQuickTableViewPrivate::calculateItemY(const FxTableItemSG *fxTableItem, c
         Q_TABLEVIEW_UNREACHABLE(coordAt(fxTableItem));
     } else {
         auto edge = edgeItem(fxTableItem, tableRect, Qt::Vertical);
-        Q_TABLEVIEW_ASSERT(edge, itemToString(fxTableItem));
+        Q_TABLEVIEW_ASSERT(edge, coordAt(fxTableItem));
         return edge->rect().y();
     }
 }
@@ -607,7 +592,7 @@ qreal QQuickTableViewPrivate::calculateItemWidth(const FxTableItemSG *fxTableIte
         return fxTableItem->rect().width();
     } else {
         auto edge = edgeItem(fxTableItem, tableRect, Qt::Horizontal);
-        Q_TABLEVIEW_ASSERT(edge, itemToString(fxTableItem));
+        Q_TABLEVIEW_ASSERT(edge, coordAt(fxTableItem));
         return edge->rect().width();
     }
 }
@@ -626,7 +611,7 @@ qreal QQuickTableViewPrivate::calculateItemHeight(const FxTableItemSG *fxTableIt
         return fxTableItem->rect().height();
     } else {
         auto edge = edgeItem(fxTableItem, tableRect, Qt::Vertical);
-        Q_TABLEVIEW_ASSERT(edge, itemToString(fxTableItem));
+        Q_TABLEVIEW_ASSERT(edge, coordAt(fxTableItem));
         return edge->rect().height();
     }
 }
@@ -641,7 +626,7 @@ void QQuickTableViewPrivate::calculateItemGeometry(FxTableItemSG *fxTableItem, c
     qreal y = calculateItemY(fxTableItem, tableRect);
     fxTableItem->setPosition(QPointF(x, y));
 
-    qCDebug(lcItemViewDelegateLifecycle()) << itemToString(fxTableItem) << fxTableItem->rect();
+    qCDebug(lcItemViewDelegateLifecycle()) << coordAt(fxTableItem) << fxTableItem->rect();
 }
 
 void QQuickTableView::createdItem(int index, QObject*)
@@ -661,7 +646,7 @@ void QQuickTableView::createdItem(int index, QObject*)
         return;
     }
 
-    qCDebug(lcItemViewDelegateLifecycle) << "loaded asynchronously:" << d->indexToString(index);
+    qCDebug(lcItemViewDelegateLifecycle) << "loaded asynchronously:" << d->coordAt(index);
 
     // It's important to use createItem to get the item, and
     // not the object argument, since the former will ref-count it.
@@ -678,7 +663,7 @@ void QQuickTableView::createdItem(int index, QObject*)
 
 void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
 {
-    qCDebug(lcItemViewDelegateLifecycle) << itemToString(fxTableItem);
+    qCDebug(lcItemViewDelegateLifecycle) << coordAt(fxTableItem);
     modified = true;
 
     visibleItems.append(fxTableItem);
@@ -738,7 +723,7 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
             loadRequest.completed = true;
             tableLayout = loadRequest.targetTableLayout;
             qCDebug(lcItemViewDelegateLifecycle()) << "completed:" << loadRequest;
-            qCDebug(lcTableViewLayout()) << tableGeometryToString();
+            qCDebug(lcTableViewLayout()) << tableLayoutToString();
             return;
         }
 
@@ -811,7 +796,7 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
         }
 
         if (itemsUnloaded)
-            qCDebug(lcTableViewLayout()) << tableGeometryToString();
+            qCDebug(lcTableViewLayout()) << tableLayoutToString();
 
     } while (itemsUnloaded);
 }
