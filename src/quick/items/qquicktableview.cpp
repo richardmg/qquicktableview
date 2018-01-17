@@ -631,6 +631,17 @@ void QQuickTableViewPrivate::calculateItemGeometry(FxTableItemSG *fxTableItem, c
     qCDebug(lcItemViewDelegateLifecycle()) << coordAt(fxTableItem) << fxTableItem->rect();
 }
 
+void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
+{
+    qCDebug(lcItemViewDelegateLifecycle) << coordAt(fxTableItem);
+    modified = true;
+
+    visibleItems.append(fxTableItem);
+    calculateItemGeometry(fxTableItem, loadRequest.loadedTableWhenComplete);
+    calculateContentSize(fxTableItem);
+    showTableItem(fxTableItem);
+}
+
 void QQuickTableView::createdItem(int index, QObject*)
 {
     Q_D(QQuickTableView);
@@ -659,17 +670,6 @@ void QQuickTableView::createdItem(int index, QObject*)
 
     d->processCurrentLoadRequest(item);
     d->loadAndUnloadTableItems();
-}
-
-void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
-{
-    qCDebug(lcItemViewDelegateLifecycle) << coordAt(fxTableItem);
-    modified = true;
-
-    visibleItems.append(fxTableItem);
-    calculateItemGeometry(fxTableItem, loadRequest.loadedTableWhenComplete);
-    calculateContentSize(fxTableItem);
-    showTableItem(fxTableItem);
 }
 
 void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
@@ -892,7 +892,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     // focus on loading items that are entering the view instead.
     d->forceCompleteCurrentRequestIfNeeded();
 
-    d->addRemoveVisibleItems();
+    d->loadAndUnloadTableItems();
 }
 
 int QQuickTableView::rows() const
