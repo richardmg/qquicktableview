@@ -179,7 +179,7 @@ protected:
     inline void showTableItem(FxTableItemSG *fxViewItem);
 
     bool canFitMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const;
-    bool viewportIsAtTableLayoutEdge();
+    bool viewportIsAtLoadedTableEdge();
 
     qreal calculateItemX(const FxTableItemSG *fxTableItem, const QRect &loadedTable) const;
     qreal calculateItemY(const FxTableItemSG *fxTableItem, const QRect &loadedTable) const;
@@ -497,7 +497,7 @@ bool QQuickTableViewPrivate::canFitMoreItemsInDirection(const QPoint &cellCoord,
     return false;
 }
 
-bool QQuickTableViewPrivate::viewportIsAtTableLayoutEdge()
+bool QQuickTableViewPrivate::viewportIsAtLoadedTableEdge()
 {
     const QRectF &visibleRect = viewportRect();
 
@@ -680,7 +680,7 @@ void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
     if (loadRequest.incubationMode == QQmlIncubator::AsynchronousIfNested)
         return;
 
-    if (!viewportIsAtTableLayoutEdge())
+    if (!viewportIsAtLoadedTableEdge())
         return;
 
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
@@ -710,9 +710,8 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
     while (loadedItem) {
         insertItemIntoTable(loadedItem);
 
-        // Continue loading items in the request, until one of them ends up loading async.
-        // If so, we just return, and wait for this function to be called again once the
-        // requested item is ready.
+        // Continue loading items in the request, until one of them ends up loading async. If so, we
+        // just return, and wait for this function to be called again once the requested item is ready.
         const QPoint loadedCoord = coordAt(loadedItem);
 
         if (loadHorizontal && loadRequest.loadedTableWhenComplete.contains(loadedCoord + horizontalFillDirection)) {
