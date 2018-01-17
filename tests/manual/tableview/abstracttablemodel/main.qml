@@ -56,7 +56,7 @@ Window {
                 anchors.topMargin: 20//tableHeader.height + rowSpacing
                 anchors.fill: parent
 
-                cacheBuffer: 100
+                cacheBuffer: 300
 
                 model: tableModel
 
@@ -88,8 +88,8 @@ Window {
         Component {
             id: cellComponent
             Rectangle {
-                width: column % 3 ? 80 : 50
-                height: row % 3 ? 80 : 50
+                width: 30//column % 3 ? 80 : 50
+                height: 30//row % 3 ? 80 : 50
                 color: model.display ? "white" : Qt.rgba(0.96, 0.96, 0.96, 1)
 
                 Text {

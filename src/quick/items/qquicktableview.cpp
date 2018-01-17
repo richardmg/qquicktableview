@@ -504,17 +504,18 @@ bool QQuickTableViewPrivate::viewportIsAtTableLayoutEdge()
     Q_TABLEVIEW_ASSERT(topLeftItem, tableLayout.topLeft());
     const QRectF topLeftRect = topLeftItem->rect();
 
-    if (visibleRect.contains(topLeftRect.bottomLeft()))
+    if (visibleRect.left() < topLeftRect.left())
         return true;
-    if (visibleRect.contains(topLeftRect.topRight()))
+    if (visibleRect.top() < topLeftRect.top())
         return true;
 
     auto bottomRightItem = loadedTableItem(tableLayout.bottomRight());
     Q_TABLEVIEW_ASSERT(bottomRightItem, tableLayout.bottomRight());
     const QRectF bottomRightRect = bottomRightItem->rect();
-    if (visibleRect.contains(bottomRightRect.bottomLeft()))
+
+    if (visibleRect.right() > bottomRightRect.right())
         return true;
-    if (visibleRect.contains(bottomRightRect.topRight()))
+    if (visibleRect.bottom() > bottomRightRect.bottom())
         return true;
 
     return false;
@@ -656,9 +657,7 @@ void QQuickTableView::createdItem(int index, QObject*)
     Q_ASSERT(item->item);
 
     d->processCurrentLoadRequest(item);
-
-    if (d->loadRequest.completed)
-        d->loadAndUnloadTableItems();
+    d->loadAndUnloadTableItems();
 }
 
 void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
@@ -848,6 +847,9 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
 
 void QQuickTableViewPrivate::loadAndUnloadTableItems()
 {
+    if (!loadRequest.completed)
+        return;
+
     QRectF visibleRect = viewportRect();
     QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 
@@ -857,15 +859,12 @@ void QQuickTableViewPrivate::loadAndUnloadTableItems()
     unloadItemsOutsideRect(bufferRect);
     loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-    if (loadRequest.completed)
+    if (loadRequest.completed && !q_func()->isMoving())
         loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
 }
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
-    if (!loadRequest.completed)
-        return false;
-
     modified = false;
 
     loadAndUnloadTableItems();
@@ -876,6 +875,11 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 QQuickTableView::QQuickTableView(QQuickItem *parent)
     : QQuickAbstractItemView(*(new QQuickTableViewPrivate), parent)
 {
+    connect(this, &QQuickTableView::movingChanged, [=] {
+        // When moving stops, we call loadAndUnloadTableItems
+        // to start loading items into buffer.
+        d_func()->loadAndUnloadTableItems();
+    });
 }
 
 void QQuickTableView::viewportMoved(Qt::Orientations orient)
@@ -883,7 +887,11 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     Q_D(QQuickTableView);
     QQuickAbstractItemView::viewportMoved(orient);
 
+    // If the viewport moved all the way to the edge of the loaded table
+    // items, we need to complete any ongoing async buffer loading now, and
+    // focus on loading items that are entering the view instead.
     d->forceCompleteCurrentRequestIfNeeded();
+
     d->addRemoveVisibleItems();
 }
 
