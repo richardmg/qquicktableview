@@ -194,7 +194,7 @@ protected:
     void unloadItemsOutsideRect(const QRectF &rect);
     void unloadItems(const QPoint &fromCell, const QPoint &toCell);
 
-    void forceCompleteCurrentLoadRequest();
+    void forceCompleteCurrentRequestIfNeeded();
     inline void processCurrentLoadRequest(FxTableItemSG *loadedItem);
     void loadAndUnloadTableItems();
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
@@ -517,6 +517,8 @@ bool QQuickTableViewPrivate::viewportIsAtTableLayoutEdge()
     auto topLeftItem = loadedTableItem(tableLayout.topLeft());
     Q_TABLEVIEW_ASSERT(topLeftItem, tableLayout.topLeft());
     const QRectF topLeftRect = topLeftItem->rect();
+
+    qDebug() << visibleRect << topLeftRect;
     if (visibleRect.contains(topLeftRect.bottomLeft()))
         return true;
     if (visibleRect.contains(topLeftRect.topRight()))
@@ -685,19 +687,19 @@ void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
     showTableItem(fxTableItem);
 }
 
-void QQuickTableViewPrivate::forceCompleteCurrentLoadRequest()
+void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
 {
-    // Try to force complete the current load request. This can fail if
-    // we're still incubating inside an async incubator.
-    qDebug() << "**************** force complete:" << loadRequest;
     if (loadRequest.completed)
         return;
+
     if (loadRequest.incubationMode == QQmlIncubator::AsynchronousIfNested)
+        return;
+
+    if (!viewportIsAtTableLayoutEdge())
         return;
 
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     processCurrentLoadRequest(nullptr);
-    Q_TABLEVIEW_ASSERT(loadRequest.completed, loadRequest);
 }
 
 void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem)
@@ -896,9 +898,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     Q_D(QQuickTableView);
     QQuickAbstractItemView::viewportMoved(orient);
 
-    if (d->viewportIsAtTableLayoutEdge())
-        d->forceCompleteCurrentLoadRequest();
-
+    d->forceCompleteCurrentRequestIfNeeded();
     d->addRemoveVisibleItems();
 }
 
