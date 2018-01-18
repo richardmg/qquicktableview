@@ -83,7 +83,6 @@ public:
     QLine remainingSection = QLine(kNullCell, kNullCell);
     Qt::Edge edgeToLoad;
     QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested;
-    bool forceLoad = false;
     bool initialized = false;
     bool completed = false;
 };
@@ -661,7 +660,7 @@ void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
     if (!viewportIsAtLoadedTableEdge())
         return;
 
-    loadRequest.forceLoad = true;
+    loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     qCDebug(lcItemViewDelegateLifecycle()) << loadRequest;
     processCurrentLoadRequest(nullptr);
 }
@@ -670,8 +669,6 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
 {
     if (!loadRequest.initialized) {
         initLoadRequest();
-    } else if (loadRequest.forceLoad){
-        loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     } else if (loadedItem) {
         insertItemIntoTable(loadedItem);
 
@@ -688,8 +685,6 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
             // Only one item requested, so we're done
             loadRequest.remainingSection.setP2(kNullCell);
         }
-    } else {
-        Q_TABLEVIEW_UNREACHABLE(loadRequest);
     }
 
     const QPoint start = loadRequest.remainingSection.p1();
@@ -712,6 +707,8 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
         }
     }
 
+    // The load request is complete. Update
+    // loadedTable with the new geometry
     switch (loadRequest.edgeToLoad) {
     case Qt::LeftEdge:
     case Qt::TopEdge:
