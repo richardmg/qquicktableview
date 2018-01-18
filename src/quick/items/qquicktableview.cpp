@@ -660,8 +660,7 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
             qCDebug(lcItemViewDelegateLifecycle()) << "load bottom edge" << loadRequest.sectionToLoad.p1().y();
             break;
         default:
-            loadRequest.sectionToLoad = QLine(QPoint(0, 0), QPoint(0, 0));
-            qCDebug(lcItemViewDelegateLifecycle()) << "load top-left" << loadRequest.sectionToLoad.p1().x();
+            qCDebug(lcItemViewDelegateLifecycle()) << "load single item:" << loadRequest.sectionToLoad.p1();
             break;
         }
         remainingSection = loadRequest.sectionToLoad;
@@ -680,7 +679,8 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
             remainingSection.setP1(loadRequest.requestedCell + kRight);
             break;
         default:
-            remainingSection.setP1(remainingSection.p2() + kDown);
+            // Done loading single item
+            remainingSection.setP2(kNullCell);
         }
     } else {
         // Force load remaining items
@@ -712,7 +712,7 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
         loadedTable.setBottomRight(loadRequest.sectionToLoad.p2());
         break;
     default:
-        loadedTable = QRect(loadRequest.sectionToLoad.p1(), loadRequest.sectionToLoad.p2());
+        loadedTable = QRect(loadRequest.sectionToLoad.p1(), loadRequest.sectionToLoad.p1());
     }
 
     loadRequest.completed = true;
@@ -731,6 +731,7 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
     QPoint newTopLeft(0, 0);
 
     loadRequest = TableSectionLoadRequest();
+    loadRequest.sectionToLoad.setP1(newTopLeft);
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     qCDebug(lcTableViewLayout()) << "load top-left:" << newTopLeft;
     processCurrentLoadRequest(nullptr);
