@@ -172,9 +172,6 @@ protected:
     inline FxTableItemSG *topRightItem() const;
     inline FxTableItemSG *bottomLeftItem() const;
     inline FxTableItemSG *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
-    inline FxTableItemSG *edgeItem(const FxTableItemSG *fxTableItem, const QRect &loadedTable, Qt::Orientation orientation) const;
-
-    inline bool isEdgeItem(const FxTableItemSG *fxTableItem, const QRect &loadedTable, Qt::Orientation orientation) const;
 
     FxTableItemSG *loadTableItem(const QPoint &cellCoord, QQmlIncubator::IncubationMode incubationMode);
     inline void showTableItem(FxTableItemSG *fxViewItem);
@@ -182,12 +179,12 @@ protected:
     bool canFitMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const;
     bool viewportIsAtLoadedTableEdge();
 
-    qreal calculateItemX(const FxTableItemSG *fxTableItem, const QRect &loadedTable) const;
-    qreal calculateItemY(const FxTableItemSG *fxTableItem, const QRect &loadedTable) const;
-    qreal calculateItemWidth(const FxTableItemSG *fxTableItem, const QRect &loadedTable) const;
-    qreal calculateItemHeight(const FxTableItemSG *fxTableItem, const QRect &loadedTable) const;
+    qreal calculateItemX(const FxTableItemSG *fxTableItem) const;
+    qreal calculateItemY(const FxTableItemSG *fxTableItem) const;
+    qreal calculateItemWidth(const FxTableItemSG *fxTableItem) const;
+    qreal calculateItemHeight(const FxTableItemSG *fxTableItem) const;
 
-    void calculateItemGeometry(FxTableItemSG *fxTableItem, const QRect &loadedTable);
+    void calculateItemGeometry(FxTableItemSG *fxTableItem);
     void calculateContentSize(const FxTableItemSG *fxTableItem);
 
     void loadInitialTopLeftItem();
@@ -320,23 +317,6 @@ FxTableItemSG *QQuickTableViewPrivate::topRightItem() const
 FxTableItemSG *QQuickTableViewPrivate::bottomLeftItem() const
 {
     return loadedTableItem(loadedTable.bottomLeft());
-}
-
-FxTableItemSG *QQuickTableViewPrivate::edgeItem(const FxTableItemSG *fxTableItem, const QRect &tableRect, Qt::Orientation orientation) const
-{
-    return orientation == Qt::Horizontal
-        ? loadedTableItem(QPoint(coordAt(fxTableItem).x(), tableRect.topLeft().y()))
-        : loadedTableItem(QPoint(tableRect.topLeft().x(), coordAt(fxTableItem).y()));
-}
-
-bool QQuickTableViewPrivate::isEdgeItem(const FxTableItemSG *fxTableItem, const QRect &tableRect, Qt::Orientation orientation) const
-{
-    // An edge item is an item that is on the same row or column as the top left item. But
-    // depending on the information needed, we sometimes don't consider an item as en edge
-    // item horizontally when laying out vertically and vica versa.
-    return orientation == Qt::Vertical
-            ? coordAt(fxTableItem).x() == tableRect.topLeft().x()
-            : coordAt(fxTableItem).y() == tableRect.topLeft().y();
 }
 
 void QQuickTableViewPrivate::calculateContentSize(const FxTableItemSG *fxTableItem)
@@ -523,110 +503,62 @@ bool QQuickTableViewPrivate::viewportIsAtLoadedTableEdge()
     return false;
 }
 
-qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem, const QRect &tableRect) const
+qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem) const
 {
-    // Calculate the table position x of fxViewItem based on the position of the item on
-    // the horizontal edge, or otherwise the item directly next to it. This assumes that at
-    // least the item next to it has already been loaded. If the edge item has been
-    // loaded, we use that as reference instead, as it allows us to load several items in parallel.
-    if (visibleItems.size() == 1) {
-        // Special case: the first item will be at 0, 0 for now
-        return 0;
-    }
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
+        return neighborItem->rect().x();
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
+        return neighborItem->rect().x();
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
+        return neighborItem->rect().right() + columnSpacing;
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
+        return neighborItem->rect().left() - columnSpacing - fxTableItem->rect().width();
 
-    if (isEdgeItem(fxTableItem, tableRect, Qt::Horizontal)) {
-        // For edge items we can find the X position by looking at any adjacent item
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
-            return neighborItem->rect().x();
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
-            return neighborItem->rect().x();
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
-            return neighborItem->rect().right() + columnSpacing;
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
-            return neighborItem->rect().left() - columnSpacing - fxTableItem->rect().width();
-        Q_TABLEVIEW_UNREACHABLE(coordAt(fxTableItem));
-    } else {
-        auto edge = edgeItem(fxTableItem, tableRect, Qt::Horizontal);
-        Q_TABLEVIEW_ASSERT(edge, coordAt(fxTableItem));
-        return edge->rect().x();
-    }
+    return 0;
 }
 
-qreal QQuickTableViewPrivate::calculateItemY(const FxTableItemSG *fxTableItem, const QRect &tableRect) const
+qreal QQuickTableViewPrivate::calculateItemY(const FxTableItemSG *fxTableItem) const
 {
-    // Calculate the table position y of fxViewItem based on the position of the item on
-    // the vertical edge, or otherwise the item directly next to it. This assumes that at
-    // least the item next to it has already been loaded. If the edge item has been
-    // loaded, we use that as reference instead, as it allows us to load several items in parallel.
-    if (visibleItems.size() == 1) {
-        // Special case: the first item will be at 0, 0 for now
-        return 0;
-    }
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
+        return neighborItem->rect().y();
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
+        return neighborItem->rect().y();
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
+        return neighborItem->rect().bottom() + rowSpacing;
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
+        return neighborItem->rect().top() - rowSpacing - fxTableItem->rect().height();
 
-    if (isEdgeItem(fxTableItem, tableRect, Qt::Vertical)) {
-        // For edge items we can find the Y position by looking at any adjacent item
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
-            return neighborItem->rect().y();
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
-            return neighborItem->rect().y();
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
-            return neighborItem->rect().bottom() + rowSpacing;
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
-            return neighborItem->rect().top() - rowSpacing - fxTableItem->rect().height();
-        Q_TABLEVIEW_UNREACHABLE(coordAt(fxTableItem));
-    } else {
-        auto edge = edgeItem(fxTableItem, tableRect, Qt::Vertical);
-        Q_TABLEVIEW_ASSERT(edge, coordAt(fxTableItem));
-        return edge->rect().y();
-    }
+    return 0;
 }
 
-qreal QQuickTableViewPrivate::calculateItemWidth(const FxTableItemSG *fxTableItem, const QRect &tableRect) const
+qreal QQuickTableViewPrivate::calculateItemWidth(const FxTableItemSG *fxTableItem) const
 {
-    if (visibleItems.size() == 1) {
-        return fxTableItem->rect().width();
-    }
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
+        return neighborItem->rect().width();
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
+        return neighborItem->rect().width();
 
-    if (isEdgeItem(fxTableItem, tableRect, Qt::Horizontal)) {
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
-            return neighborItem->rect().width();
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
-            return neighborItem->rect().width();
-        return fxTableItem->rect().width();
-    } else {
-        auto edge = edgeItem(fxTableItem, tableRect, Qt::Horizontal);
-        Q_TABLEVIEW_ASSERT(edge, coordAt(fxTableItem));
-        return edge->rect().width();
-    }
+    return fxTableItem->rect().width();
 }
 
-qreal QQuickTableViewPrivate::calculateItemHeight(const FxTableItemSG *fxTableItem, const QRect &tableRect) const
+qreal QQuickTableViewPrivate::calculateItemHeight(const FxTableItemSG *fxTableItem) const
 {
-    if (visibleItems.size() == 1) {
-        return fxTableItem->rect().height();
-    }
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
+        return neighborItem->rect().height();
+    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
+        return neighborItem->rect().height();
 
-    if (isEdgeItem(fxTableItem, tableRect, Qt::Vertical)) {
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
-            return neighborItem->rect().height();
-        if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
-            return neighborItem->rect().height();
-        return fxTableItem->rect().height();
-    } else {
-        auto edge = edgeItem(fxTableItem, tableRect, Qt::Vertical);
-        Q_TABLEVIEW_ASSERT(edge, coordAt(fxTableItem));
-        return edge->rect().height();
-    }
+    return fxTableItem->rect().height();
 }
 
-void QQuickTableViewPrivate::calculateItemGeometry(FxTableItemSG *fxTableItem, const QRect &tableRect)
+void QQuickTableViewPrivate::calculateItemGeometry(FxTableItemSG *fxTableItem)
 {
-    qreal w = calculateItemWidth(fxTableItem, tableRect);
-    qreal h = calculateItemHeight(fxTableItem, tableRect);
+    qreal w = calculateItemWidth(fxTableItem);
+    qreal h = calculateItemHeight(fxTableItem);
     fxTableItem->setSize(QSizeF(w, h), true);
 
-    qreal x = calculateItemX(fxTableItem, tableRect);
-    qreal y = calculateItemY(fxTableItem, tableRect);
+    qreal x = calculateItemX(fxTableItem);
+    qreal y = calculateItemY(fxTableItem);
     fxTableItem->setPosition(QPointF(x, y));
 
     qCDebug(lcItemViewDelegateLifecycle()) << coordAt(fxTableItem) << fxTableItem->rect();
@@ -638,7 +570,7 @@ void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
     modified = true;
 
     visibleItems.append(fxTableItem);
-    calculateItemGeometry(fxTableItem, loadRequest.loadedTableWhenComplete);
+    calculateItemGeometry(fxTableItem);
     calculateContentSize(fxTableItem);
     showTableItem(fxTableItem);
 }
