@@ -79,10 +79,12 @@ public:
 class TableSectionLoadRequest
 {
 public:
-    QLine sectionToLoad;
-    QPoint requestedCell = kNullCell;
+    QLine section;
+    QLine remainingSection = QLine(kNullCell, kNullCell);
     Qt::Edge edgeToLoad;
     QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested;
+    bool forceLoad = false;
+    bool initialized = false;
     bool completed = false;
 };
 
@@ -90,7 +92,9 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     QDebugStateSaver saver(dbg);
     dbg.nospace();
     dbg << "TableSectionLoadRequest(";
-    dbg << " requested:" << request.requestedCell;
+    dbg << "edge:" << request.edgeToLoad;
+    dbg << " section:" << request.section;
+    dbg << " remaining:" << request.remainingSection;
     dbg << " incubation:" << request.incubationMode;
     dbg << " completed:" << request.completed;
     dbg << ')';
@@ -188,6 +192,7 @@ protected:
     void unloadItemsOutsideRect(const QRectF &rect);
     void unloadItems(const QPoint &fromCell, const QPoint &toCell);
 
+    void initLoadRequest();
     void forceCompleteCurrentRequestIfNeeded();
     void processCurrentLoadRequest(FxTableItemSG *loadedItem);
     void loadAndUnloadTableItems();
@@ -619,6 +624,32 @@ void QQuickTableView::createdItem(int index, QObject*)
     d->loadAndUnloadTableItems();
 }
 
+void QQuickTableViewPrivate::initLoadRequest()
+{
+    if (!loadRequest.edgeToLoad) {
+        qCDebug(lcItemViewDelegateLifecycle()) << "load single item:" << loadRequest.section.p1();
+    } else {
+        qCDebug(lcItemViewDelegateLifecycle()) << "load edge:" << loadRequest.edgeToLoad;
+        switch (loadRequest.edgeToLoad) {
+        case Qt::LeftEdge:
+            loadRequest.section = QLine(loadedTable.topLeft() + kLeft, loadedTable.bottomLeft() + kLeft);
+            break;
+        case Qt::RightEdge:
+            loadRequest.section = QLine(loadedTable.topRight() + kRight, loadedTable.bottomRight() + kRight);
+            break;
+        case Qt::TopEdge:
+            loadRequest.section = QLine(loadedTable.topLeft() + kUp, loadedTable.topRight() + kUp);
+            break;
+        case Qt::BottomEdge:
+            loadRequest.section = QLine(loadedTable.bottomLeft() + kDown, loadedTable.bottomRight() + kDown);
+            break;
+        }
+    }
+
+    loadRequest.remainingSection = loadRequest.section;
+    loadRequest.initialized = true;
+}
+
 void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
 {
     if (loadRequest.completed)
@@ -630,74 +661,53 @@ void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
     if (!viewportIsAtLoadedTableEdge())
         return;
 
-    loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
+    loadRequest.forceLoad = true;
+    qCDebug(lcItemViewDelegateLifecycle()) << loadRequest;
     processCurrentLoadRequest(nullptr);
 }
 
 void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem)
 {
-    QLine remainingSection;
-
-    if (loadRequest.requestedCell == kNullCell) {
-        // Begin loading new request
-        Q_TABLEVIEW_ASSERT(!loadedItem, loadedItem);
-
-        switch (loadRequest.edgeToLoad) {
-        case Qt::LeftEdge:
-            loadRequest.sectionToLoad = QLine(loadedTable.topLeft() + kLeft, loadedTable.bottomLeft() + kLeft);
-            qCDebug(lcItemViewDelegateLifecycle()) << "load left edge" << loadRequest.sectionToLoad.p1().x();
-            break;
-        case Qt::RightEdge:
-            loadRequest.sectionToLoad = QLine(loadedTable.topRight() + kRight, loadedTable.bottomRight() + kRight);
-            qCDebug(lcItemViewDelegateLifecycle()) << "load right edge" << loadRequest.sectionToLoad.p1().x();
-            break;
-        case Qt::TopEdge:
-            loadRequest.sectionToLoad = QLine(loadedTable.topLeft() + kUp, loadedTable.topRight() + kUp);
-            qCDebug(lcItemViewDelegateLifecycle()) << "load top edge" << loadRequest.sectionToLoad.p1().y();
-            break;
-        case Qt::BottomEdge:
-            loadRequest.sectionToLoad = QLine(loadedTable.bottomLeft() + kDown, loadedTable.bottomRight() + kDown);
-            qCDebug(lcItemViewDelegateLifecycle()) << "load bottom edge" << loadRequest.sectionToLoad.p1().y();
-            break;
-        default:
-            qCDebug(lcItemViewDelegateLifecycle()) << "load single item:" << loadRequest.sectionToLoad.p1();
-            break;
-        }
-        remainingSection = loadRequest.sectionToLoad;
+    if (!loadRequest.initialized) {
+        initLoadRequest();
+    } else if (loadRequest.forceLoad){
+        loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     } else if (loadedItem) {
-        // Continue loading request after receiving item async
         insertItemIntoTable(loadedItem);
 
-        remainingSection = loadRequest.sectionToLoad;
         switch (loadRequest.edgeToLoad) {
         case Qt::LeftEdge:
         case Qt::RightEdge:
-            remainingSection.setP1(loadRequest.requestedCell + kDown);
+            loadRequest.remainingSection.setP1(loadRequest.remainingSection.p1() + kDown);
             break;
         case Qt::TopEdge:
         case Qt::BottomEdge:
-            remainingSection.setP1(loadRequest.requestedCell + kRight);
+            loadRequest.remainingSection.setP1(loadRequest.remainingSection.p1() + kRight);
             break;
         default:
-            // Done loading single item
-            remainingSection.setP2(kNullCell);
+            // Only one item requested, so we're done
+            loadRequest.remainingSection.setP2(kNullCell);
         }
     } else {
-        // Force load remaining items
-        qCDebug(lcItemViewDelegateLifecycle()) << "force load:" << loadRequest;
-        remainingSection = loadRequest.sectionToLoad;
+        Q_TABLEVIEW_UNREACHABLE(loadRequest);
     }
 
-    for (int y = remainingSection.p1().y(); y <= remainingSection.p2().y(); ++y) {
-        for (int x = remainingSection.p1().x(); x <= remainingSection.p2().x(); ++x) {
-            loadRequest.requestedCell = QPoint(x, y);
-            loadedItem = loadTableItem(loadRequest.requestedCell, loadRequest.incubationMode);
+    const QPoint start = loadRequest.remainingSection.p1();
+    const QPoint end = loadRequest.remainingSection.p2();
+
+    for (int y = start.y(); y <= end.y(); ++y) {
+        for (int x = start.x(); x <= end.x(); ++x) {
+            QPoint cell(x, y);
+            loadedItem = loadTableItem(cell, loadRequest.incubationMode);
+
             if (!loadedItem) {
                 // Requested item is not yet ready. Just leave, and wait for this
                 // function to be called again with the item as argument once loaded.
                 // We can then continue where we left off.
+                loadRequest.remainingSection.setP1(cell);
                 return;
             }
+
             insertItemIntoTable(loadedItem);
         }
     }
@@ -705,14 +715,14 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
     switch (loadRequest.edgeToLoad) {
     case Qt::LeftEdge:
     case Qt::TopEdge:
-        loadedTable.setTopLeft(loadRequest.sectionToLoad.p1());
+        loadedTable.setTopLeft(loadRequest.section.p1());
         break;
     case Qt::RightEdge:
     case Qt::BottomEdge:
-        loadedTable.setBottomRight(loadRequest.sectionToLoad.p2());
+        loadedTable.setBottomRight(loadRequest.section.p2());
         break;
     default:
-        loadedTable = QRect(loadRequest.sectionToLoad.p1(), loadRequest.sectionToLoad.p1());
+        loadedTable = QRect(loadRequest.section.p1(), loadRequest.section.p1());
     }
 
     loadRequest.completed = true;
@@ -731,9 +741,8 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
     QPoint newTopLeft(0, 0);
 
     loadRequest = TableSectionLoadRequest();
-    loadRequest.sectionToLoad.setP1(newTopLeft);
+    loadRequest.section.setP1(newTopLeft);
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
-    qCDebug(lcTableViewLayout()) << "load top-left:" << newTopLeft;
     processCurrentLoadRequest(nullptr);
 }
 
