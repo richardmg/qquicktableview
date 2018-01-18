@@ -79,7 +79,6 @@ public:
 class TableSectionLoadRequest
 {
 public:
-    QPoint startCell;
     QPoint endCell;
     QPoint requestedCell = kNullCell;
     Qt::Edge edge;
@@ -92,7 +91,6 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     QDebugStateSaver saver(dbg);
     dbg.nospace();
     dbg << "TableSectionLoadRequest(";
-    dbg << "start:" << request.startCell;
     dbg << " end:" << request.endCell;
     dbg << " requested:" << request.requestedCell;
     dbg << " incubation:" << request.incubationMode;
@@ -647,7 +645,12 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
     if (loadRequest.requestedCell == kNullCell) {
         qCDebug(lcItemViewDelegateLifecycle()) << "begin:" << loadRequest;
         Q_TABLEVIEW_ASSERT(!loadedItem, loadedItem);
-        start = loadRequest.startCell;
+        switch (loadRequest.edge) {
+        case Qt::LeftEdge: start = loadedTable.topLeft() + kLeft; break;
+        case Qt::RightEdge: start = loadedTable.topRight() + kRight; break;
+        case Qt::TopEdge: start = loadedTable.topLeft() + kUp; break;
+        case Qt::BottomEdge: start = loadedTable.bottomLeft() + kDown; break;
+        }
     } else if (loadedItem) {
         qCDebug(lcItemViewDelegateLifecycle()) << "continue with item:" << coordAt(loadedItem);
         insertItemIntoTable(loadedItem);
@@ -695,7 +698,6 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
 
     loadRequest = TableSectionLoadRequest();
     loadRequest.loadedTableWhenComplete = QRect(newTopLeft, newTopLeft);
-    loadRequest.startCell = newTopLeft;
     loadRequest.endCell = newTopLeft;
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     qCDebug(lcTableViewLayout()) << "load top-left:" << newTopLeft;
@@ -764,37 +766,33 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
             loadRequest = TableSectionLoadRequest();
             loadRequest.loadedTableWhenComplete = loadedTable.adjusted(-1, 0, 0, 0);
             loadRequest.edge = Qt::LeftEdge;
-            loadRequest.startCell = loadRequest.loadedTableWhenComplete.topLeft();
             loadRequest.endCell = loadRequest.loadedTableWhenComplete.bottomLeft();
             loadRequest.incubationMode = incubationMode;
-            qCDebug(lcTableViewLayout()) << "load left column" << loadRequest.startCell.x();
+            qCDebug(lcTableViewLayout()) << "load left column" << loadedTable.left() - 1;
             processCurrentLoadRequest(nullptr);
         } else if (canFitMoreItemsInDirection(loadedTable.topRight(), kRight, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.loadedTableWhenComplete = loadedTable.adjusted(0, 0, 1, 0);
             loadRequest.edge = Qt::RightEdge;
-            loadRequest.startCell = loadRequest.loadedTableWhenComplete.topRight();
             loadRequest.endCell = loadRequest.loadedTableWhenComplete.bottomRight();
             loadRequest.incubationMode = incubationMode;
-            qCDebug(lcTableViewLayout()) << "load right column" << loadRequest.startCell.x();
+            qCDebug(lcTableViewLayout()) << "load right column" << loadedTable.right() + 1;
             processCurrentLoadRequest(nullptr);
         } else if (canFitMoreItemsInDirection(loadedTable.topLeft(), kUp, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.loadedTableWhenComplete = loadedTable.adjusted(0, -1, 0, 0);
             loadRequest.edge = Qt::TopEdge;
-            loadRequest.startCell = loadRequest.loadedTableWhenComplete.topLeft();
             loadRequest.endCell = loadRequest.loadedTableWhenComplete.topRight();
             loadRequest.incubationMode = incubationMode;
-            qCDebug(lcTableViewLayout()) << "load top row" << loadRequest.startCell.y();
+            qCDebug(lcTableViewLayout()) << "load top row" << loadedTable.top() - 1;
             processCurrentLoadRequest(nullptr);
         } else if (canFitMoreItemsInDirection(loadedTable.bottomLeft(), kDown, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.loadedTableWhenComplete = loadedTable.adjusted(0, 0, 0, 1);
             loadRequest.edge = Qt::BottomEdge;
-            loadRequest.startCell = loadRequest.loadedTableWhenComplete.bottomLeft();
             loadRequest.endCell = loadRequest.loadedTableWhenComplete.bottomRight();
             loadRequest.incubationMode = incubationMode;
-            qCDebug(lcTableViewLayout()) << "load bottom row" << loadRequest.startCell.y();
+            qCDebug(lcTableViewLayout()) << "load bottom row" << loadedTable.bottom() + 1;
             processCurrentLoadRequest(nullptr);
         } else {
             // Nothing more to load
