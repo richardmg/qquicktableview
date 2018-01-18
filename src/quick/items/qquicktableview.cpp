@@ -82,6 +82,7 @@ public:
     QPoint startCell;
     QPoint endCell;
     QPoint requestedCell = kNullCell;
+    Qt::Edge edge;
     QRect loadedTableWhenComplete;
     QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested;
     bool completed = false;
@@ -179,12 +180,12 @@ protected:
     bool canFitMoreItemsInDirection(const QPoint &cellCoord, const QPoint &direction, const QRectF fillRect) const;
     bool viewportIsAtLoadedTableEdge();
 
-    qreal calculateItemX(const FxTableItemSG *fxTableItem) const;
-    qreal calculateItemY(const FxTableItemSG *fxTableItem) const;
-    qreal calculateItemWidth(const FxTableItemSG *fxTableItem) const;
-    qreal calculateItemHeight(const FxTableItemSG *fxTableItem) const;
+    qreal calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
+    qreal calculateItemY(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
+    qreal calculateItemWidth(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
+    qreal calculateItemHeight(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
 
-    void calculateItemGeometry(FxTableItemSG *fxTableItem);
+    void calculateItemGeometry(FxTableItemSG *fxTableItem, Qt::Edge edge);
     void calculateContentSize(const FxTableItemSG *fxTableItem);
 
     void loadInitialTopLeftItem();
@@ -503,62 +504,80 @@ bool QQuickTableViewPrivate::viewportIsAtLoadedTableEdge()
     return false;
 }
 
-qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem) const
+qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge edge) const
 {
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
-        return neighborItem->rect().x();
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
-        return neighborItem->rect().x();
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
-        return neighborItem->rect().right() + columnSpacing;
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
-        return neighborItem->rect().left() - columnSpacing - fxTableItem->rect().width();
+    switch (edge) {
+    case Qt::LeftEdge:
+        return itemNextTo(fxTableItem, kRight)->rect().left() - columnSpacing - fxTableItem->rect().width();
+    case Qt::RightEdge:
+        return itemNextTo(fxTableItem, kLeft)->rect().right() + columnSpacing;
+    case Qt::TopEdge:
+        return itemNextTo(fxTableItem, kDown)->rect().left();
+    case Qt::BottomEdge:
+        return itemNextTo(fxTableItem, kUp)->rect().left();
+    }
 
     return 0;
 }
 
-qreal QQuickTableViewPrivate::calculateItemY(const FxTableItemSG *fxTableItem) const
+qreal QQuickTableViewPrivate::calculateItemY(const FxTableItemSG *fxTableItem, Qt::Edge edge) const
 {
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
-        return neighborItem->rect().y();
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
-        return neighborItem->rect().y();
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
-        return neighborItem->rect().bottom() + rowSpacing;
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
-        return neighborItem->rect().top() - rowSpacing - fxTableItem->rect().height();
+    switch (edge) {
+    case Qt::LeftEdge:
+        return itemNextTo(fxTableItem, kRight)->rect().top();
+    case Qt::RightEdge:
+        return itemNextTo(fxTableItem, kLeft)->rect().top();
+    case Qt::TopEdge:
+        return itemNextTo(fxTableItem, kDown)->rect().top() - rowSpacing - fxTableItem->rect().height();
+    case Qt::BottomEdge:
+        return itemNextTo(fxTableItem, kUp)->rect().bottom() + rowSpacing;
+    }
 
     return 0;
 }
 
-qreal QQuickTableViewPrivate::calculateItemWidth(const FxTableItemSG *fxTableItem) const
+qreal QQuickTableViewPrivate::calculateItemWidth(const FxTableItemSG *fxTableItem, Qt::Edge edge) const
 {
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kUp))
-        return neighborItem->rect().width();
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kDown))
-        return neighborItem->rect().width();
+    switch (edge) {
+    case Qt::LeftEdge:
+    case Qt::RightEdge:
+        if (coordAt(fxTableItem).y() > loadedTable.y())
+            return itemNextTo(fxTableItem, kUp)->rect().width();
+        break;
+    case Qt::TopEdge:
+        return itemNextTo(fxTableItem, kDown)->rect().width();
+    case Qt::BottomEdge:
+        return itemNextTo(fxTableItem, kUp)->rect().width();
+    }
 
     return fxTableItem->rect().width();
 }
 
-qreal QQuickTableViewPrivate::calculateItemHeight(const FxTableItemSG *fxTableItem) const
+qreal QQuickTableViewPrivate::calculateItemHeight(const FxTableItemSG *fxTableItem, Qt::Edge edge) const
 {
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kLeft))
-        return neighborItem->rect().height();
-    if (FxTableItemSG *neighborItem = itemNextTo(fxTableItem, kRight))
-        return neighborItem->rect().height();
+    switch (edge) {
+    case Qt::LeftEdge:
+        return itemNextTo(fxTableItem, kRight)->rect().height();
+    case Qt::RightEdge:
+        return itemNextTo(fxTableItem, kLeft)->rect().height();
+    case Qt::TopEdge:
+    case Qt::BottomEdge:
+        if (coordAt(fxTableItem).x() > loadedTable.x())
+            return itemNextTo(fxTableItem, kLeft)->rect().height();
+        break;
+    }
 
     return fxTableItem->rect().height();
 }
 
-void QQuickTableViewPrivate::calculateItemGeometry(FxTableItemSG *fxTableItem)
+void QQuickTableViewPrivate::calculateItemGeometry(FxTableItemSG *fxTableItem, Qt::Edge edge)
 {
-    qreal w = calculateItemWidth(fxTableItem);
-    qreal h = calculateItemHeight(fxTableItem);
+    qreal w = calculateItemWidth(fxTableItem, edge);
+    qreal h = calculateItemHeight(fxTableItem, edge);
     fxTableItem->setSize(QSizeF(w, h), true);
 
-    qreal x = calculateItemX(fxTableItem);
-    qreal y = calculateItemY(fxTableItem);
+    qreal x = calculateItemX(fxTableItem, edge);
+    qreal y = calculateItemY(fxTableItem, edge);
     fxTableItem->setPosition(QPointF(x, y));
 
     qCDebug(lcItemViewDelegateLifecycle()) << coordAt(fxTableItem) << fxTableItem->rect();
@@ -570,7 +589,7 @@ void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
     modified = true;
 
     visibleItems.append(fxTableItem);
-    calculateItemGeometry(fxTableItem);
+    calculateItemGeometry(fxTableItem, loadRequest.edge);
     calculateContentSize(fxTableItem);
     showTableItem(fxTableItem);
 }
@@ -744,6 +763,7 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
         if (canFitMoreItemsInDirection(loadedTable.topLeft(), kLeft, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.loadedTableWhenComplete = loadedTable.adjusted(-1, 0, 0, 0);
+            loadRequest.edge = Qt::LeftEdge;
             loadRequest.startCell = loadRequest.loadedTableWhenComplete.topLeft();
             loadRequest.endCell = loadRequest.loadedTableWhenComplete.bottomLeft();
             loadRequest.incubationMode = incubationMode;
@@ -752,6 +772,7 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
         } else if (canFitMoreItemsInDirection(loadedTable.topRight(), kRight, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.loadedTableWhenComplete = loadedTable.adjusted(0, 0, 1, 0);
+            loadRequest.edge = Qt::RightEdge;
             loadRequest.startCell = loadRequest.loadedTableWhenComplete.topRight();
             loadRequest.endCell = loadRequest.loadedTableWhenComplete.bottomRight();
             loadRequest.incubationMode = incubationMode;
@@ -760,6 +781,7 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
         } else if (canFitMoreItemsInDirection(loadedTable.topLeft(), kUp, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.loadedTableWhenComplete = loadedTable.adjusted(0, -1, 0, 0);
+            loadRequest.edge = Qt::TopEdge;
             loadRequest.startCell = loadRequest.loadedTableWhenComplete.topLeft();
             loadRequest.endCell = loadRequest.loadedTableWhenComplete.topRight();
             loadRequest.incubationMode = incubationMode;
@@ -768,6 +790,7 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
         } else if (canFitMoreItemsInDirection(loadedTable.bottomLeft(), kDown, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.loadedTableWhenComplete = loadedTable.adjusted(0, 0, 0, 1);
+            loadRequest.edge = Qt::BottomEdge;
             loadRequest.startCell = loadRequest.loadedTableWhenComplete.bottomLeft();
             loadRequest.endCell = loadRequest.loadedTableWhenComplete.bottomRight();
             loadRequest.incubationMode = incubationMode;
