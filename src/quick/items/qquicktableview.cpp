@@ -83,8 +83,7 @@ public:
     QLine remainingSection = QLine(kNullCell, kNullCell);
     Qt::Edge edgeToLoad;
     QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested;
-    bool initialized = false;
-    bool completed = false;
+    bool active = false;
 };
 
 QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
@@ -95,7 +94,7 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     dbg << " section:" << request.section;
     dbg << " remaining:" << request.remainingSection;
     dbg << " incubation:" << request.incubationMode;
-    dbg << " completed:" << request.completed;
+    dbg << " initialized:" << request.active;
     dbg << ')';
     return dbg;
 }
@@ -621,6 +620,8 @@ void QQuickTableView::createdItem(int index, QObject*)
 
 void QQuickTableViewPrivate::initLoadRequest()
 {
+    loadRequest.active = true;
+
     if (!loadRequest.edgeToLoad) {
         qCDebug(lcItemViewDelegateLifecycle()) << "load single item:" << loadRequest.section.p1();
     } else {
@@ -642,12 +643,11 @@ void QQuickTableViewPrivate::initLoadRequest()
     }
 
     loadRequest.remainingSection = loadRequest.section;
-    loadRequest.initialized = true;
 }
 
 void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
 {
-    if (loadRequest.completed)
+    if (!loadRequest.active)
         return;
 
     if (loadRequest.incubationMode == QQmlIncubator::AsynchronousIfNested)
@@ -663,7 +663,7 @@ void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
 
 void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem)
 {
-    if (!loadRequest.initialized) {
+    if (!loadRequest.active) {
         initLoadRequest();
     } else if (loadedItem) {
         insertItemIntoTable(loadedItem);
@@ -718,7 +718,8 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
         loadedTable = QRect(loadRequest.section.p1(), loadRequest.section.p1());
     }
 
-    loadRequest.completed = true;
+    // Clear load request / mark as done
+    loadRequest = TableSectionLoadRequest();
 
     qCDebug(lcItemViewDelegateLifecycle()) << "load requst completed";
     qCDebug(lcItemViewDelegateLifecycle()) << tableLayoutToString();
@@ -730,10 +731,10 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
     // care of filling out the rest of the table.
     Q_TABLEVIEW_ASSERT(visibleItems.isEmpty(), visibleItems.count());
     Q_TABLEVIEW_ASSERT(loadedTable.isEmpty(), loadedTable);
+    Q_TABLEVIEW_ASSERT(!loadRequest.active, loadRequest);
 
     QPoint newTopLeft(0, 0);
 
-    loadRequest = TableSectionLoadRequest();
     loadRequest.section.setP1(newTopLeft);
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     processCurrentLoadRequest(nullptr);
@@ -794,26 +795,22 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 
 void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
 {    
-    Q_TABLEVIEW_ASSERT(loadRequest.completed, loadRequest);
+    Q_TABLEVIEW_ASSERT(!loadRequest.active, loadRequest);
 
     do {
         if (canFitMoreItemsAtEdge(Qt::LeftEdge, fillRect)) {
-            loadRequest = TableSectionLoadRequest();
             loadRequest.edgeToLoad = Qt::LeftEdge;
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
         } else if (canFitMoreItemsAtEdge(Qt::RightEdge, fillRect)) {
-            loadRequest = TableSectionLoadRequest();
             loadRequest.edgeToLoad = Qt::RightEdge;
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
         } else if (canFitMoreItemsAtEdge(Qt::TopEdge, fillRect)) {
-            loadRequest = TableSectionLoadRequest();
             loadRequest.edgeToLoad = Qt::TopEdge;
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
         } else if (canFitMoreItemsAtEdge(Qt::BottomEdge, fillRect)) {
-            loadRequest = TableSectionLoadRequest();
             loadRequest.edgeToLoad = Qt::BottomEdge;
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
@@ -822,12 +819,12 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
             return;
         }
 
-    } while (loadRequest.completed);
+    } while (!loadRequest.active);
 }
 
 void QQuickTableViewPrivate::loadAndUnloadTableItems()
 {
-    if (!loadRequest.completed)
+    if (loadRequest.active)
         return;
 
     QRectF visibleRect = viewportRect();
@@ -839,7 +836,7 @@ void QQuickTableViewPrivate::loadAndUnloadTableItems()
     unloadItemsOutsideRect(bufferRect);
     loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-    if (loadRequest.completed && !q_func()->isMoving())
+    if (!loadRequest.active && !q_func()->isMoving())
         loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
 }
 
