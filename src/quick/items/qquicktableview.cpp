@@ -84,6 +84,18 @@ public:
     bool active = false;
 };
 
+QString incubationModeToString(QQmlIncubator::IncubationMode mode)
+{
+    switch (mode) {
+    case QQmlIncubator::Asynchronous:
+        return QLatin1String("Asynchronous");
+    case QQmlIncubator::AsynchronousIfNested:
+        return QLatin1String("AsynchronousIfNested");
+    case QQmlIncubator::Synchronous:
+        return QLatin1String("Synchronous");
+    }
+}
+
 QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     QDebugStateSaver saver(dbg);
     dbg.nospace();
@@ -91,7 +103,7 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     dbg << "edge:" << request.edgeToLoad;
     dbg << " section:" << request.itemsToLoad;
     dbg << " remaining:" << request.remainingItemsToLoad;
-    dbg << " incubation:" << request.incubationMode;
+    dbg << " incubation:" << incubationModeToString(request.incubationMode);
     dbg << " initialized:" << request.active;
     dbg << ')';
     return dbg;
