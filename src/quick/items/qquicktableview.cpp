@@ -47,8 +47,6 @@
 
 QT_BEGIN_NAMESPACE
 
-Q_LOGGING_CATEGORY(lcTableViewLayout, "qt.quick.tableview.layout")
-
 #define Q_TABLEVIEW_UNREACHABLE(output) { dumpTable(); qDebug() << "output:" << output; Q_UNREACHABLE(); }
 #define Q_TABLEVIEW_ASSERT(cond, output) Q_ASSERT(cond || [&](){ dumpTable(); qDebug() << "output:" << output; return false;}())
 
@@ -778,12 +776,12 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 
         if (loadedTable.width() > 1) {
             if (itemsAreOutsideRectAtEdge(Qt::LeftEdge, rect)) {
-                qCDebug(lcTableViewLayout()) << "unload left column" << loadedTable.topLeft().x();
+                qCDebug(lcItemViewDelegateLifecycle()) << "unload left column" << loadedTable.topLeft().x();
                 unloadItems(loadedTable.topLeft(), loadedTable.bottomLeft());
                 loadedTable.adjust(1, 0, 0, 0);
                 itemsUnloaded = true;
             } else if (itemsAreOutsideRectAtEdge(Qt::RightEdge, rect)) {
-                qCDebug(lcTableViewLayout()) << "unload right column" << loadedTable.topRight().x();
+                qCDebug(lcItemViewDelegateLifecycle()) << "unload right column" << loadedTable.topRight().x();
                 unloadItems(loadedTable.topRight(), loadedTable.bottomRight());
                 loadedTable.adjust(0, 0, -1, 0);
                 itemsUnloaded = true;
@@ -792,12 +790,12 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 
         if (loadedTable.height() > 1) {
             if (itemsAreOutsideRectAtEdge(Qt::TopEdge, rect)) {
-                qCDebug(lcTableViewLayout()) << "unload top row" << loadedTable.topLeft().y();
+                qCDebug(lcItemViewDelegateLifecycle()) << "unload top row" << loadedTable.topLeft().y();
                 unloadItems(loadedTable.topLeft(), loadedTable.topRight());
                 loadedTable.adjust(0, 1, 0, 0);
                 itemsUnloaded = true;
             } else if (itemsAreOutsideRectAtEdge(Qt::BottomEdge, rect)) {
-                qCDebug(lcTableViewLayout()) << "unload bottom row" << loadedTable.bottomLeft().y();
+                qCDebug(lcItemViewDelegateLifecycle()) << "unload bottom row" << loadedTable.bottomLeft().y();
                 unloadItems(loadedTable.bottomLeft(), loadedTable.bottomRight());
                 loadedTable.adjust(0, 0, 0, -1);
                 itemsUnloaded = true;
@@ -805,7 +803,7 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
         }
 
         if (itemsUnloaded)
-            qCDebug(lcTableViewLayout()) << tableLayoutToString();
+            qCDebug(lcItemViewDelegateLifecycle()) << tableLayoutToString();
 
     } while (itemsUnloaded);
 }
