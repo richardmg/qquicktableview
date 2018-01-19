@@ -669,7 +669,8 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
     if (!loadRequest.active) {
         loadRequest.active = true;
         loadRequest.remainingItemsToLoad = loadRequest.itemsToLoad;
-        qCDebug(lcItemViewDelegateLifecycle()) << "**** begin new request:" << loadRequest;
+        qCDebug(lcItemViewDelegateLifecycle()) << "begin:" << loadRequest;
+        Q_TABLEVIEW_ASSERT(!loadedItem, coordAt(loadedItem));
         Q_TABLEVIEW_ASSERT(loadRequest.edgeToLoad || loadRequest.itemsToLoad.p1() == loadRequest.itemsToLoad.p2(), loadRequest);
     } else if (loadedItem) {
         insertItemIntoTable(loadedItem);
@@ -723,8 +724,7 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
     // Clear load request / mark as done
     loadRequest = TableSectionLoadRequest();
 
-    qCDebug(lcItemViewDelegateLifecycle()) << "load requst completed";
-    qCDebug(lcItemViewDelegateLifecycle()) << tableLayoutToString();
+    qCDebug(lcItemViewDelegateLifecycle()) << "completed:" << tableLayoutToString();
 }
 
 void QQuickTableViewPrivate::loadInitialTopLeftItem()
