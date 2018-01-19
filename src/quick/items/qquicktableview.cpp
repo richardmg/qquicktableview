@@ -729,7 +729,7 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
 
 void QQuickTableViewPrivate::loadInitialTopLeftItem()
 {
-    // Load top-left item. After loaded, processLoadRequest() will take
+    // Load top-left item. After loaded, loadItemsInsideRect() will take
     // care of filling out the rest of the table.
     Q_TABLEVIEW_ASSERT(visibleItems.isEmpty(), visibleItems.count());
     Q_TABLEVIEW_ASSERT(loadedTable.isEmpty(), loadedTable);
