@@ -175,7 +175,7 @@ protected:
     FxTableItemSG *loadTableItem(const QPoint &cellCoord, QQmlIncubator::IncubationMode incubationMode);
     inline void showTableItem(FxTableItemSG *fxViewItem);
 
-    bool canFitMoreItemsInDirection(const QPoint &cellCoord, Qt::Edge edge, const QRectF fillRect) const;
+    bool canFitMoreItemsAtEdge(Qt::Edge edge, const QRectF fillRect) const;
     bool viewportIsAtLoadedTableEdge();
 
     qreal calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
@@ -447,28 +447,28 @@ FxTableItemSG *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewIte
     return loadedTableItem(coordAt(fxViewItem) + direction);
 }
 
-bool QQuickTableViewPrivate::canFitMoreItemsInDirection(const QPoint &cellCoord, Qt::Edge edge, const QRectF fillRect) const
+bool QQuickTableViewPrivate::canFitMoreItemsAtEdge(Qt::Edge edge, const QRectF fillRect) const
 {
-    Q_TABLEVIEW_ASSERT(loadedTableItem(cellCoord), cellCoord);
-    const QRectF itemRect = loadedTableItem(cellCoord)->rect();
+    QPoint topLeft = loadedTable.topLeft();
+    QPoint bottomRight = loadedTable.bottomRight();
 
     switch (edge) {
     case Qt::LeftEdge:
-        if (cellCoord.x() == 0)
+        if (topLeft.x() == 0)
             return false;
-        return itemRect.left() > fillRect.left();
+        return loadedTableItem(topLeft)->rect().left() > fillRect.left();
     case Qt::RightEdge:
-        if (cellCoord.x() == columnCount - 1)
+        if (bottomRight.x() == columnCount - 1)
             return false;
-        return itemRect.right() < fillRect.right();
+        return loadedTableItem(bottomRight)->rect().right() < fillRect.right();
     case Qt::TopEdge:
-        if (cellCoord.y() == 0)
+        if (topLeft.y() == 0)
             return false;
-        return itemRect.top() > fillRect.top();
+        return loadedTableItem(topLeft)->rect().top() > fillRect.top();
     case Qt::BottomEdge:
-        if (cellCoord.y() == rowCount - 1)
+        if (bottomRight.y() == rowCount - 1)
             return false;
-        return itemRect.bottom() < fillRect.bottom();
+        return loadedTableItem(bottomRight)->rect().bottom() < fillRect.bottom();
     }
 
     return false;
@@ -797,22 +797,22 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
     Q_TABLEVIEW_ASSERT(loadRequest.completed, loadRequest);
 
     do {
-        if (canFitMoreItemsInDirection(loadedTable.topLeft(), Qt::LeftEdge, fillRect)) {
+        if (canFitMoreItemsAtEdge(Qt::LeftEdge, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.edgeToLoad = Qt::LeftEdge;
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
-        } else if (canFitMoreItemsInDirection(loadedTable.topRight(), Qt::RightEdge, fillRect)) {
+        } else if (canFitMoreItemsAtEdge(Qt::RightEdge, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.edgeToLoad = Qt::RightEdge;
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
-        } else if (canFitMoreItemsInDirection(loadedTable.topLeft(), Qt::TopEdge, fillRect)) {
+        } else if (canFitMoreItemsAtEdge(Qt::TopEdge, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.edgeToLoad = Qt::TopEdge;
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
-        } else if (canFitMoreItemsInDirection(loadedTable.bottomLeft(), Qt::BottomEdge, fillRect)) {
+        } else if (canFitMoreItemsAtEdge(Qt::BottomEdge, fillRect)) {
             loadRequest = TableSectionLoadRequest();
             loadRequest.edgeToLoad = Qt::BottomEdge;
             loadRequest.incubationMode = incubationMode;
