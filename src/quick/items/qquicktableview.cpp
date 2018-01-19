@@ -175,6 +175,7 @@ protected:
     inline void showTableItem(FxTableItemSG *fxViewItem);
 
     bool canFitMoreItemsAtEdge(Qt::Edge edge, const QRectF fillRect) const;
+    bool itemsAreOutsideRectAtEdge(Qt::Edge edge, const QRectF fillRect) const;
     bool viewportIsAtLoadedTableEdge();
 
     qreal calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
@@ -473,6 +474,26 @@ bool QQuickTableViewPrivate::canFitMoreItemsAtEdge(Qt::Edge edge, const QRectF f
     return false;
 }
 
+bool QQuickTableViewPrivate::itemsAreOutsideRectAtEdge(Qt::Edge edge, const QRectF fillRect) const
+{
+    QPoint topLeft = loadedTable.topLeft();
+    QPoint bottomRight = loadedTable.bottomRight();
+    const qreal floatingPointMargin = 1;
+
+    switch (edge) {
+    case Qt::LeftEdge:
+        return fillRect.left() > loadedTableItem(topLeft)->rect().right() + floatingPointMargin;
+    case Qt::RightEdge:
+        return loadedTableItem(bottomRight)->rect().left() > fillRect.right() + floatingPointMargin;
+    case Qt::TopEdge:
+        return fillRect.top() > loadedTableItem(topLeft)->rect().bottom() + floatingPointMargin;
+    case Qt::BottomEdge:
+        return loadedTableItem(bottomRight)->rect().top() > fillRect.bottom() + floatingPointMargin;
+    }
+
+    return false;
+}
+
 bool QQuickTableViewPrivate::viewportIsAtLoadedTableEdge()
 {
     const QRectF &visibleRect = viewportRect();
@@ -755,17 +776,13 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
         Q_TABLEVIEW_ASSERT(loadedTableItem(loadedTable.topLeft()), rect);
         Q_TABLEVIEW_ASSERT(loadedTableItem(loadedTable.bottomRight()), rect);
 
-        const QRectF &topLeftRect = loadedTableItem(loadedTable.topLeft())->rect();
-        const QRectF &bottomRightRect = loadedTableItem(loadedTable.bottomRight())->rect();
-        const qreal floatingPointMargin = 1;
-
         if (loadedTable.width() > 1) {
-            if (rect.left() > topLeftRect.right() + floatingPointMargin) {
+            if (itemsAreOutsideRectAtEdge(Qt::LeftEdge, rect)) {
                 qCDebug(lcTableViewLayout()) << "unload left column" << loadedTable.topLeft().x();
                 unloadItems(loadedTable.topLeft(), loadedTable.bottomLeft());
                 loadedTable.adjust(1, 0, 0, 0);
                 itemsUnloaded = true;
-            } else if (bottomRightRect.left() > rect.right() + floatingPointMargin) {
+            } else if (itemsAreOutsideRectAtEdge(Qt::RightEdge, rect)) {
                 qCDebug(lcTableViewLayout()) << "unload right column" << loadedTable.topRight().x();
                 unloadItems(loadedTable.topRight(), loadedTable.bottomRight());
                 loadedTable.adjust(0, 0, -1, 0);
@@ -774,12 +791,12 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
         }
 
         if (loadedTable.height() > 1) {
-            if (rect.top() > topLeftRect.bottom() + floatingPointMargin) {
+            if (itemsAreOutsideRectAtEdge(Qt::TopEdge, rect)) {
                 qCDebug(lcTableViewLayout()) << "unload top row" << loadedTable.topLeft().y();
                 unloadItems(loadedTable.topLeft(), loadedTable.topRight());
                 loadedTable.adjust(0, 1, 0, 0);
                 itemsUnloaded = true;
-            } else if (bottomRightRect.top() > rect.bottom() + floatingPointMargin) {
+            } else if (itemsAreOutsideRectAtEdge(Qt::BottomEdge, rect)) {
                 qCDebug(lcTableViewLayout()) << "unload bottom row" << loadedTable.bottomLeft().y();
                 unloadItems(loadedTable.bottomLeft(), loadedTable.bottomRight());
                 loadedTable.adjust(0, 0, 0, -1);
