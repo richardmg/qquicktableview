@@ -184,7 +184,7 @@ protected:
     inline void showTableItem(FxTableItemSG *fxViewItem);
 
     bool hasSpaceForMoreItems(Qt::Edge edge, const QRectF fillRect) const;
-    bool itemsAreOutsideRectAtEdge(Qt::Edge edge, const QRectF fillRect) const;
+    bool edgeItemsAreOutsideRect(Qt::Edge edge, const QRectF fillRect) const;
 
     qreal calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
     qreal calculateItemY(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
@@ -193,6 +193,7 @@ protected:
 
     void calculateItemGeometry(FxTableItemSG *fxTableItem, Qt::Edge edge);
     void calculateContentSize(const FxTableItemSG *fxTableItem);
+    void updateLoadedTableRect();
 
     void loadInitialTopLeftItem();
     void loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
@@ -354,6 +355,13 @@ void QQuickTableViewPrivate::calculateContentSize(const FxTableItemSG *fxTableIt
     }
 }
 
+void QQuickTableViewPrivate::updateLoadedTableRect()
+{
+    auto topLeftItem = loadedTableItem(loadedTable.topLeft());
+    auto bottomRightItem = loadedTableItem(loadedTable.bottomRight());
+    loadedTableRect = QRectF(topLeftItem->rect().united(bottomRightItem->rect()));
+}
+
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
 {
     return static_cast<Qt::Orientation>(orientation);
@@ -469,22 +477,22 @@ bool QQuickTableViewPrivate::hasSpaceForMoreItems(Qt::Edge edge, const QRectF fi
     return false;
 }
 
-bool QQuickTableViewPrivate::itemsAreOutsideRectAtEdge(Qt::Edge edge, const QRectF fillRect) const
+bool QQuickTableViewPrivate::edgeItemsAreOutsideRect(Qt::Edge edge, const QRectF fillRect) const
 {
+    QPoint topLeft = loadedTable.topLeft();
+    QPoint bottomRight = loadedTable.bottomRight();
     const qreal floatingPointMargin = 1;
 
     switch (edge) {
     case Qt::LeftEdge:
-        return fillRect.left() > loadedTableRect.right() + floatingPointMargin;
+        return fillRect.left() > loadedTableItem(topLeft)->rect().right() + floatingPointMargin;
     case Qt::RightEdge:
-        return loadedTableRect.left() > fillRect.right() + floatingPointMargin;
+        return loadedTableItem(bottomRight)->rect().left() > fillRect.right() + floatingPointMargin;
     case Qt::TopEdge:
-        return fillRect.top() > loadedTableRect.bottom() + floatingPointMargin;
+        return fillRect.top() > loadedTableItem(topLeft)->rect().bottom() + floatingPointMargin;
     case Qt::BottomEdge:
-        return loadedTableRect.top() > fillRect.bottom() + floatingPointMargin;
+        return loadedTableItem(bottomRight)->rect().top() > fillRect.bottom() + floatingPointMargin;
     }
-
-    return false;
 }
 
 qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge edge) const
@@ -609,6 +617,10 @@ void QQuickTableView::createdItem(int index, QObject*)
 
 void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
 {
+    // If the viewport moved all the way to the edge of the loaded table
+    // items, this function will complete any ongoing async buffer loading
+    // now, to free up resources for loading items that are entering the view.
+
     if (!loadRequest.active)
         return;
 
@@ -680,9 +692,7 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
         loadedTable = QRect(loadRequest.itemsToLoad.p1(), loadRequest.itemsToLoad.p2());
     }
 
-    auto topLeftItem = loadedTableItem(loadedTable.topLeft());
-    auto bottomRightItem = loadedTableItem(loadedTable.bottomRight());
-    loadedTableRect = QRectF(topLeftItem->rect().united(bottomRightItem->rect()));
+    updateLoadedTableRect();
 
     // Clear load request / mark as done
     loadRequest = TableSectionLoadRequest();
@@ -721,12 +731,12 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
         Q_TABLEVIEW_ASSERT(loadedTableItem(loadedTable.bottomRight()), rect);
 
         if (loadedTable.width() > 1) {
-            if (itemsAreOutsideRectAtEdge(Qt::LeftEdge, rect)) {
+            if (edgeItemsAreOutsideRect(Qt::LeftEdge, rect)) {
                 qCDebug(lcItemViewDelegateLifecycle()) << "unload left column" << loadedTable.topLeft().x();
                 unloadItems(loadedTable.topLeft(), loadedTable.bottomLeft());
                 loadedTable.adjust(1, 0, 0, 0);
                 itemsUnloaded = true;
-            } else if (itemsAreOutsideRectAtEdge(Qt::RightEdge, rect)) {
+            } else if (edgeItemsAreOutsideRect(Qt::RightEdge, rect)) {
                 qCDebug(lcItemViewDelegateLifecycle()) << "unload right column" << loadedTable.topRight().x();
                 unloadItems(loadedTable.topRight(), loadedTable.bottomRight());
                 loadedTable.adjust(0, 0, -1, 0);
@@ -735,12 +745,12 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
         }
 
         if (loadedTable.height() > 1) {
-            if (itemsAreOutsideRectAtEdge(Qt::TopEdge, rect)) {
+            if (edgeItemsAreOutsideRect(Qt::TopEdge, rect)) {
                 qCDebug(lcItemViewDelegateLifecycle()) << "unload top row" << loadedTable.topLeft().y();
                 unloadItems(loadedTable.topLeft(), loadedTable.topRight());
                 loadedTable.adjust(0, 1, 0, 0);
                 itemsUnloaded = true;
-            } else if (itemsAreOutsideRectAtEdge(Qt::BottomEdge, rect)) {
+            } else if (edgeItemsAreOutsideRect(Qt::BottomEdge, rect)) {
                 qCDebug(lcItemViewDelegateLifecycle()) << "unload bottom row" << loadedTable.bottomLeft().y();
                 unloadItems(loadedTable.bottomLeft(), loadedTable.bottomRight());
                 loadedTable.adjust(0, 0, 0, -1);
@@ -748,8 +758,10 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
             }
         }
 
-        if (itemsUnloaded)
+        if (itemsUnloaded) {
+            updateLoadedTableRect();
             qCDebug(lcItemViewDelegateLifecycle()) << tableLayoutToString();
+        }
 
     } while (itemsUnloaded);
 }
@@ -829,11 +841,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     Q_D(QQuickTableView);
     QQuickAbstractItemView::viewportMoved(orient);
 
-    // If the viewport moved all the way to the edge of the loaded table
-    // items, we need to complete any ongoing async buffer loading now, and
-    // focus on loading items that are entering the view instead.
     d->forceCompleteCurrentRequestIfNeeded();
-
     d->loadAndUnloadTableItems();
 }
 
