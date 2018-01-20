@@ -185,7 +185,6 @@ protected:
 
     bool hasSpaceForMoreItems(Qt::Edge edge, const QRectF fillRect) const;
     bool itemsAreOutsideRectAtEdge(Qt::Edge edge, const QRectF fillRect) const;
-    bool viewportIsAtLoadedTableEdge();
 
     qreal calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
     qreal calculateItemY(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
@@ -488,22 +487,6 @@ bool QQuickTableViewPrivate::itemsAreOutsideRectAtEdge(Qt::Edge edge, const QRec
     return false;
 }
 
-bool QQuickTableViewPrivate::viewportIsAtLoadedTableEdge()
-{
-    const QRectF &visibleRect = viewportRect();
-
-    if (visibleRect.left() < loadedTableRect.left())
-        return true;
-    if (visibleRect.top() < loadedTableRect.top())
-        return true;
-    if (visibleRect.right() > loadedTableRect.right())
-        return true;
-    if (visibleRect.bottom() > loadedTableRect.bottom())
-        return true;
-
-    return false;
-}
-
 qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge edge) const
 {
     switch (edge) {
@@ -632,7 +615,7 @@ void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
     if (loadRequest.incubationMode == QQmlIncubator::AsynchronousIfNested)
         return;
 
-    if (!viewportIsAtLoadedTableEdge())
+    if (loadedTableRect.contains(viewportRect()))
         return;
 
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
