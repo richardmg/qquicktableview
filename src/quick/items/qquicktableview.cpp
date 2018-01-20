@@ -192,7 +192,7 @@ protected:
     qreal calculateItemHeight(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
 
     void calculateItemGeometry(FxTableItemSG *fxTableItem, Qt::Edge edge);
-    void calculateContentSize(const FxTableItemSG *fxTableItem);
+    void calculateContentSize();
     void updateLoadedTableRect();
 
     void loadInitialTopLeftItem();
@@ -318,40 +318,24 @@ FxTableItemSG *QQuickTableViewPrivate::loadedTableItem(const QPoint &cellCoord) 
     return loadedTableItem(indexAt(cellCoord));
 }
 
-void QQuickTableViewPrivate::calculateContentSize(const FxTableItemSG *fxTableItem)
+void QQuickTableViewPrivate::calculateContentSize()
 {
     Q_Q(QQuickTableView);
 
+    const qreal flickSpace = 500;
+
     if (!contentWidthSetExplicit && accurateContentSize.width() == -1) {
-        if (loadedTable.topRight().x() == columnCount - 1) {
-            // We are at the end, and can determine accurate content width
-            if (const FxTableItemSG *topRightItem = loadedTableItem(loadedTable.topRight())) {
-                accurateContentSize.setWidth(topRightItem->rect().right());
-                q->setContentWidth(accurateContentSize.width());
-            }
-        } else {
-            // We don't know what the width of the content view will be
-            // at this time, so we just set it to be a little bigger than
-            // the edge of the right-most item.
-            const QRectF &itemRect = fxTableItem->rect();
-            qreal suggestedContentWidth = itemRect.right() + 500;
-            if (suggestedContentWidth > q->contentWidth())
-                q->setContentWidth(suggestedContentWidth);
-        }
+        if (loadedTable.topRight().x() == columnCount - 1)
+            q->setContentWidth(loadedTableRect.right());
+        else
+            q->setContentWidth(loadedTableRect.right() + flickSpace);
     }
 
     if (!contentHeightSetExplicit && accurateContentSize.height() == -1) {
-        if (loadedTable.bottomRight().y() == rowCount - 1) {
-            if (const FxTableItemSG *bottomLeftItem = loadedTableItem(loadedTable.bottomLeft())) {
-                accurateContentSize.setHeight(bottomLeftItem->rect().bottom());
-                q->setContentHeight(accurateContentSize.height());
-            }
-        } else {
-            const QRectF &itemRect = fxTableItem->rect();
-            qreal suggestedContentHeight = itemRect.bottom() + 500;
-            if (suggestedContentHeight > q->contentHeight())
-                q->setContentHeight(suggestedContentHeight);
-        }
+        if (loadedTable.bottomRight().y() == rowCount - 1)
+            q->setContentHeight(loadedTableRect.bottom());
+        else
+            q->setContentHeight(loadedTableRect.bottom() + flickSpace);
     }
 }
 
@@ -581,7 +565,6 @@ void QQuickTableViewPrivate::insertItemIntoTable(FxTableItemSG *fxTableItem)
 
     visibleItems.append(fxTableItem);
     calculateItemGeometry(fxTableItem, loadRequest.edgeToLoad);
-    calculateContentSize(fxTableItem);
     showTableItem(fxTableItem);
 }
 
@@ -693,6 +676,7 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
     }
 
     updateLoadedTableRect();
+    calculateContentSize();
 
     // Clear load request / mark as done
     loadRequest = TableSectionLoadRequest();
