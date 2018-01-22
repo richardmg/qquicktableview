@@ -181,6 +181,7 @@ protected:
     inline FxTableItemSG *loadedTableItem(const QPoint &cellCoord) const;
     inline FxTableItemSG *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
     QLine tableEdge(Qt::Edge tableEdge);
+    QPoint edgeToDirection(Qt::Edge tableEdge);
 
     FxTableItemSG *loadTableItem(const QPoint &cellCoord, QQmlIncubator::IncubationMode incubationMode);
     inline void showTableItem(FxTableItemSG *fxViewItem);
@@ -465,6 +466,20 @@ QLine QQuickTableViewPrivate::tableEdge(Qt::Edge tableEdge)
     }
 }
 
+QPoint QQuickTableViewPrivate::edgeToDirection(Qt::Edge tableEdge)
+{
+    switch (tableEdge) {
+    case Qt::LeftEdge:
+        return kLeft;
+    case Qt::RightEdge:
+        return kRight;
+    case Qt::TopEdge:
+        return kUp;
+    case Qt::BottomEdge:
+        return kDown;
+    }
+}
+
 bool QQuickTableViewPrivate::hasSpaceForMoreItems(Qt::Edge tableEdge, const QRectF fillRect) const
 {
     switch (tableEdge) {
@@ -647,6 +662,8 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
 {
     if (!loadRequest.active) {
         loadRequest.active = true;
+        if (Qt::Edge edge = loadRequest.edgeToLoad)
+            loadRequest.itemsToLoad = tableEdge(edge).translated(edgeToDirection(edge));
         loadRequest.remainingItemsToLoad = loadRequest.itemsToLoad;
         qCDebug(lcItemViewDelegateLifecycle()) << "begin:" << loadRequest;
         Q_TABLEVIEW_ASSERT(!loadedItem, coordAt(loadedItem));
@@ -778,34 +795,22 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
 {    
     Q_TABLEVIEW_ASSERT(!loadRequest.active, loadRequest);
+    bool continueLoadingEdges;
 
     do {
-        if (hasSpaceForMoreItems(Qt::LeftEdge, fillRect)) {
-            loadRequest.edgeToLoad = Qt::LeftEdge;
-            loadRequest.itemsToLoad = tableEdge(Qt::LeftEdge).translated(kLeft);
-            loadRequest.incubationMode = incubationMode;
-            processCurrentLoadRequest(nullptr);
-        } else if (hasSpaceForMoreItems(Qt::RightEdge, fillRect)) {
-            loadRequest.edgeToLoad = Qt::RightEdge;
-            loadRequest.itemsToLoad = tableEdge(Qt::RightEdge).translated(kRight);
-            loadRequest.incubationMode = incubationMode;
-            processCurrentLoadRequest(nullptr);
-        } else if (hasSpaceForMoreItems(Qt::TopEdge, fillRect)) {
-            loadRequest.edgeToLoad = Qt::TopEdge;
-            loadRequest.itemsToLoad = tableEdge(Qt::TopEdge).translated(kUp);
-            loadRequest.incubationMode = incubationMode;
-            processCurrentLoadRequest(nullptr);
-        } else if (hasSpaceForMoreItems(Qt::BottomEdge, fillRect)) {
-            loadRequest.edgeToLoad = Qt::BottomEdge;
-            loadRequest.itemsToLoad = tableEdge(Qt::BottomEdge).translated(kDown);
-            loadRequest.incubationMode = incubationMode;
-            processCurrentLoadRequest(nullptr);
-        } else {
-            // Nothing more to load
-            return;
+        continueLoadingEdges = false;
+
+        for (int e = int(Qt::TopEdge); e <= int(Qt::BottomEdge); ++e) {
+            if (hasSpaceForMoreItems(Qt::Edge(e), fillRect)) {
+                loadRequest.edgeToLoad = Qt::Edge(e);
+                loadRequest.incubationMode = incubationMode;
+                processCurrentLoadRequest(nullptr);
+                continueLoadingEdges = !loadRequest.active;
+                break;
+            }
         }
 
-    } while (!loadRequest.active);
+    } while (continueLoadingEdges);
 }
 
 void QQuickTableViewPrivate::loadAndUnloadTableItems()
