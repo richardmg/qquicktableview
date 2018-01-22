@@ -180,6 +180,7 @@ protected:
     FxTableItemSG *loadedTableItem(int modelIndex) const;
     inline FxTableItemSG *loadedTableItem(const QPoint &cellCoord) const;
     inline FxTableItemSG *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
+    QLine tableEdge(Qt::Edge tableEdge);
 
     FxTableItemSG *loadTableItem(const QPoint &cellCoord, QQmlIncubator::IncubationMode incubationMode);
     inline void showTableItem(FxTableItemSG *fxViewItem);
@@ -199,9 +200,10 @@ protected:
     void loadInitialTopLeftItem();
     void loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
     void unloadItemsOutsideRect(const QRectF &rect);
-    void unloadItems(const QPoint &fromCell, const QPoint &toCell);
+    void unloadItem(const QPoint &cell);
+    void unloadItems(const QLine &items);
 
-    void forceCompleteCurrentRequestIfNeeded();
+    void cancelLoadRequestIfNeeded();
     void processCurrentLoadRequest(FxTableItemSG *loadedItem);
     void loadAndUnloadTableItems();
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
@@ -416,17 +418,26 @@ FxTableItemSG *QQuickTableViewPrivate::loadTableItem(const QPoint &cellCoord, QQ
     return loadedItem;
 }
 
-void QQuickTableViewPrivate::unloadItems(const QPoint &fromCell, const QPoint &toCell)
+void QQuickTableViewPrivate::unloadItem(const QPoint &cell)
 {
-    qCDebug(lcItemViewDelegateLifecycle) << fromCell << "->" << toCell;
+    FxTableItemSG *item = loadedTableItem(cell);
+    visibleItems.removeOne(item);
+    releaseItem(item);
+}
+
+void QQuickTableViewPrivate::unloadItems(const QLine &items)
+{
+    qCDebug(lcItemViewDelegateLifecycle) << items;
     modified = true;
 
-    for (int y = fromCell.y(); y <= toCell.y(); ++y) {
-        for (int x = fromCell.x(); x <= toCell.x(); ++x) {
-            FxTableItemSG *item = loadedTableItem(QPoint(x ,y));
-            visibleItems.removeOne(item);
-            releaseItem(item);
-        }
+    if (items.dx()) {
+        int y = items.p1().y();
+        for (int x = items.p1().x(); x <= items.p2().x(); ++x)
+            unloadItem(QPoint(x, y));
+    } else {
+        int x = items.p1().x();
+        for (int y = items.p1().y(); y <= items.p2().y(); ++y)
+            unloadItem(QPoint(x, y));
     }
 }
 
@@ -438,6 +449,20 @@ void QQuickTableViewPrivate::showTableItem(FxTableItemSG *fxViewItem)
 FxTableItemSG *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const
 {
     return loadedTableItem(coordAt(fxViewItem) + direction);
+}
+
+QLine QQuickTableViewPrivate::tableEdge(Qt::Edge tableEdge)
+{
+    switch (tableEdge) {
+    case Qt::LeftEdge:
+        return QLine(loadedTable.topLeft(), loadedTable.bottomLeft());
+    case Qt::RightEdge:
+        return QLine(loadedTable.topRight(), loadedTable.bottomRight());
+    case Qt::TopEdge:
+        return QLine(loadedTable.topLeft(), loadedTable.topRight());
+    case Qt::BottomEdge:
+        return QLine(loadedTable.bottomLeft(), loadedTable.bottomRight());
+    }
 }
 
 bool QQuickTableViewPrivate::hasSpaceForMoreItems(Qt::Edge tableEdge, const QRectF fillRect) const
@@ -599,16 +624,12 @@ void QQuickTableView::createdItem(int index, QObject*)
     d->loadAndUnloadTableItems();
 }
 
-void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
+void QQuickTableViewPrivate::cancelLoadRequestIfNeeded()
 {
     // If the viewport moved all the way to the edge of the loaded table
     // items, this function will complete any ongoing async buffer loading
     // now, to free up resources for loading items that are entering the view.
-
     if (!loadRequest.active)
-        return;
-
-    if (loadRequest.incubationMode == QQmlIncubator::AsynchronousIfNested)
         return;
 
     if (loadedTableRect.contains(viewportRect())) {
@@ -618,9 +639,8 @@ void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
         return;
     }
 
-    loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     qCDebug(lcItemViewDelegateLifecycle()) << loadRequest;
-    processCurrentLoadRequest(nullptr);
+    //unloadItems(loadRequest.itemsToLoad - loadRequest.remainingItemsToLoad);
 }
 
 void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem)
@@ -722,12 +742,12 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
         if (loadedTable.width() > 1) {
             if (edgeItemsAreOutsideRect(Qt::LeftEdge, rect)) {
                 qCDebug(lcItemViewDelegateLifecycle()) << "unload left column" << loadedTable.topLeft().x();
-                unloadItems(loadedTable.topLeft(), loadedTable.bottomLeft());
+                unloadItems(tableEdge(Qt::LeftEdge));
                 loadedTable.adjust(1, 0, 0, 0);
                 itemsUnloaded = true;
             } else if (edgeItemsAreOutsideRect(Qt::RightEdge, rect)) {
                 qCDebug(lcItemViewDelegateLifecycle()) << "unload right column" << loadedTable.topRight().x();
-                unloadItems(loadedTable.topRight(), loadedTable.bottomRight());
+                unloadItems(tableEdge(Qt::RightEdge));
                 loadedTable.adjust(0, 0, -1, 0);
                 itemsUnloaded = true;
             }
@@ -736,12 +756,12 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
         if (loadedTable.height() > 1) {
             if (edgeItemsAreOutsideRect(Qt::TopEdge, rect)) {
                 qCDebug(lcItemViewDelegateLifecycle()) << "unload top row" << loadedTable.topLeft().y();
-                unloadItems(loadedTable.topLeft(), loadedTable.topRight());
+                unloadItems(tableEdge(Qt::TopEdge));
                 loadedTable.adjust(0, 1, 0, 0);
                 itemsUnloaded = true;
             } else if (edgeItemsAreOutsideRect(Qt::BottomEdge, rect)) {
                 qCDebug(lcItemViewDelegateLifecycle()) << "unload bottom row" << loadedTable.bottomLeft().y();
-                unloadItems(loadedTable.bottomLeft(), loadedTable.bottomRight());
+                unloadItems(tableEdge(Qt::BottomEdge));
                 loadedTable.adjust(0, 0, 0, -1);
                 itemsUnloaded = true;
             }
@@ -762,22 +782,22 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
     do {
         if (hasSpaceForMoreItems(Qt::LeftEdge, fillRect)) {
             loadRequest.edgeToLoad = Qt::LeftEdge;
-            loadRequest.itemsToLoad = QLine(loadedTable.topLeft() + kLeft, loadedTable.bottomLeft() + kLeft);
+            loadRequest.itemsToLoad = tableEdge(Qt::LeftEdge).translated(kLeft);
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
         } else if (hasSpaceForMoreItems(Qt::RightEdge, fillRect)) {
             loadRequest.edgeToLoad = Qt::RightEdge;
-            loadRequest.itemsToLoad = QLine(loadedTable.topRight() + kRight, loadedTable.bottomRight() + kRight);
+            loadRequest.itemsToLoad = tableEdge(Qt::RightEdge).translated(kRight);
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
         } else if (hasSpaceForMoreItems(Qt::TopEdge, fillRect)) {
             loadRequest.edgeToLoad = Qt::TopEdge;
-            loadRequest.itemsToLoad = QLine(loadedTable.topLeft() + kUp, loadedTable.topRight() + kUp);
+            loadRequest.itemsToLoad = tableEdge(Qt::TopEdge).translated(kUp);
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
         } else if (hasSpaceForMoreItems(Qt::BottomEdge, fillRect)) {
             loadRequest.edgeToLoad = Qt::BottomEdge;
-            loadRequest.itemsToLoad = QLine(loadedTable.bottomLeft() + kDown, loadedTable.bottomRight() + kDown);
+            loadRequest.itemsToLoad = tableEdge(Qt::BottomEdge).translated(kDown);
             loadRequest.incubationMode = incubationMode;
             processCurrentLoadRequest(nullptr);
         } else {
@@ -830,7 +850,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     Q_D(QQuickTableView);
     QQuickAbstractItemView::viewportMoved(orient);
 
-    d->forceCompleteCurrentRequestIfNeeded();
+    d->cancelLoadRequestIfNeeded();
     d->loadAndUnloadTableItems();
 }
 
