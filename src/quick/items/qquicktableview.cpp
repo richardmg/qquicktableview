@@ -184,15 +184,15 @@ protected:
     FxTableItemSG *loadTableItem(const QPoint &cellCoord, QQmlIncubator::IncubationMode incubationMode);
     inline void showTableItem(FxTableItemSG *fxViewItem);
 
-    bool hasSpaceForMoreItems(Qt::Edge edge, const QRectF fillRect) const;
-    bool edgeItemsAreOutsideRect(Qt::Edge edge, const QRectF fillRect) const;
+    bool hasSpaceForMoreItems(Qt::Edge tableEdge, const QRectF fillRect) const;
+    bool edgeItemsAreOutsideRect(Qt::Edge tableEdge, const QRectF fillRect) const;
 
-    qreal calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
-    qreal calculateItemY(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
-    qreal calculateItemWidth(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
-    qreal calculateItemHeight(const FxTableItemSG *fxTableItem, Qt::Edge edge) const;
+    qreal calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge tableEdge) const;
+    qreal calculateItemY(const FxTableItemSG *fxTableItem, Qt::Edge tableEdge) const;
+    qreal calculateItemWidth(const FxTableItemSG *fxTableItem, Qt::Edge tableEdge) const;
+    qreal calculateItemHeight(const FxTableItemSG *fxTableItem, Qt::Edge tableEdge) const;
 
-    void calculateItemGeometry(FxTableItemSG *fxTableItem, Qt::Edge edge);
+    void calculateItemGeometry(FxTableItemSG *fxTableItem, Qt::Edge tableEdge);
     void calculateContentSize();
     void calculateLoadedTableRect();
 
@@ -440,9 +440,9 @@ FxTableItemSG *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewIte
     return loadedTableItem(coordAt(fxViewItem) + direction);
 }
 
-bool QQuickTableViewPrivate::hasSpaceForMoreItems(Qt::Edge edge, const QRectF fillRect) const
+bool QQuickTableViewPrivate::hasSpaceForMoreItems(Qt::Edge tableEdge, const QRectF fillRect) const
 {
-    switch (edge) {
+    switch (tableEdge) {
     case Qt::LeftEdge:
         if (loadedTable.topLeft().x() == 0)
             return false;
@@ -464,11 +464,11 @@ bool QQuickTableViewPrivate::hasSpaceForMoreItems(Qt::Edge edge, const QRectF fi
     return false;
 }
 
-bool QQuickTableViewPrivate::edgeItemsAreOutsideRect(Qt::Edge edge, const QRectF fillRect) const
+bool QQuickTableViewPrivate::edgeItemsAreOutsideRect(Qt::Edge tableEdge, const QRectF fillRect) const
 {
     const qreal floatingPointMargin = 1;
 
-    switch (edge) {
+    switch (tableEdge) {
     case Qt::LeftEdge:
         return loadedTableRectInside.left() < fillRect.left() - floatingPointMargin;
     case Qt::RightEdge:
@@ -480,9 +480,9 @@ bool QQuickTableViewPrivate::edgeItemsAreOutsideRect(Qt::Edge edge, const QRectF
     }
 }
 
-qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge edge) const
+qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge tableEdge) const
 {
-    switch (edge) {
+    switch (tableEdge) {
     case Qt::LeftEdge:
         return itemNextTo(fxTableItem, kRight)->rect().left() - columnSpacing - fxTableItem->rect().width();
     case Qt::RightEdge:
@@ -496,9 +496,9 @@ qreal QQuickTableViewPrivate::calculateItemX(const FxTableItemSG *fxTableItem, Q
     return 0;
 }
 
-qreal QQuickTableViewPrivate::calculateItemY(const FxTableItemSG *fxTableItem, Qt::Edge edge) const
+qreal QQuickTableViewPrivate::calculateItemY(const FxTableItemSG *fxTableItem, Qt::Edge tableEdge) const
 {
-    switch (edge) {
+    switch (tableEdge) {
     case Qt::LeftEdge:
         return itemNextTo(fxTableItem, kRight)->rect().top();
     case Qt::RightEdge:
@@ -512,9 +512,9 @@ qreal QQuickTableViewPrivate::calculateItemY(const FxTableItemSG *fxTableItem, Q
     return 0;
 }
 
-qreal QQuickTableViewPrivate::calculateItemWidth(const FxTableItemSG *fxTableItem, Qt::Edge edge) const
+qreal QQuickTableViewPrivate::calculateItemWidth(const FxTableItemSG *fxTableItem, Qt::Edge tableEdge) const
 {
-    switch (edge) {
+    switch (tableEdge) {
     case Qt::LeftEdge:
     case Qt::RightEdge:
         if (coordAt(fxTableItem).y() > loadedTable.y())
@@ -529,9 +529,9 @@ qreal QQuickTableViewPrivate::calculateItemWidth(const FxTableItemSG *fxTableIte
     return fxTableItem->rect().width();
 }
 
-qreal QQuickTableViewPrivate::calculateItemHeight(const FxTableItemSG *fxTableItem, Qt::Edge edge) const
+qreal QQuickTableViewPrivate::calculateItemHeight(const FxTableItemSG *fxTableItem, Qt::Edge tableEdge) const
 {
-    switch (edge) {
+    switch (tableEdge) {
     case Qt::LeftEdge:
         return itemNextTo(fxTableItem, kRight)->rect().height();
     case Qt::RightEdge:
@@ -546,14 +546,14 @@ qreal QQuickTableViewPrivate::calculateItemHeight(const FxTableItemSG *fxTableIt
     return fxTableItem->rect().height();
 }
 
-void QQuickTableViewPrivate::calculateItemGeometry(FxTableItemSG *fxTableItem, Qt::Edge edge)
+void QQuickTableViewPrivate::calculateItemGeometry(FxTableItemSG *fxTableItem, Qt::Edge tableEdge)
 {
-    qreal w = calculateItemWidth(fxTableItem, edge);
-    qreal h = calculateItemHeight(fxTableItem, edge);
+    qreal w = calculateItemWidth(fxTableItem, tableEdge);
+    qreal h = calculateItemHeight(fxTableItem, tableEdge);
     fxTableItem->setSize(QSizeF(w, h), true);
 
-    qreal x = calculateItemX(fxTableItem, edge);
-    qreal y = calculateItemY(fxTableItem, edge);
+    qreal x = calculateItemX(fxTableItem, tableEdge);
+    qreal y = calculateItemY(fxTableItem, tableEdge);
     fxTableItem->setPosition(QPointF(x, y));
 
     qCDebug(lcItemViewDelegateLifecycle()) << coordAt(fxTableItem) << fxTableItem->rect();
@@ -611,8 +611,12 @@ void QQuickTableViewPrivate::forceCompleteCurrentRequestIfNeeded()
     if (loadRequest.incubationMode == QQmlIncubator::AsynchronousIfNested)
         return;
 
-    if (loadedTableRect.contains(viewportRect()))
+    if (loadedTableRect.contains(viewportRect())) {
+        // If the viewport rect is inside the table rect, it simply means
+        // that the currently loaded table items still cover the whole
+        // viewport. In that case we don't have to take any action.
         return;
+    }
 
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     qCDebug(lcItemViewDelegateLifecycle()) << loadRequest;
