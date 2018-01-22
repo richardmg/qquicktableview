@@ -50,6 +50,8 @@ QT_BEGIN_NAMESPACE
 #define Q_TABLEVIEW_UNREACHABLE(output) { dumpTable(); qDebug() << "output:" << output; Q_UNREACHABLE(); }
 #define Q_TABLEVIEW_ASSERT(cond, output) Q_ASSERT(cond || [&](){ dumpTable(); qDebug() << "output:" << output; return false;}())
 
+static const Qt::Edge allTableEdges[] = { Qt::LeftEdge, Qt::RightEdge, Qt::TopEdge, Qt::BottomEdge };
+
 class FxTableItemSG : public FxViewItem
 {
 public:
@@ -181,13 +183,15 @@ protected:
     inline FxTableItemSG *loadedTableItem(const QPoint &cellCoord) const;
     inline FxTableItemSG *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
     QLine tableEdge(Qt::Edge tableEdge);
+
     QPoint edgeToDirection(Qt::Edge tableEdge);
+    QRect shrinkRect(const QRect &rect, Qt::Edge edge);
 
     FxTableItemSG *loadTableItem(const QPoint &cellCoord, QQmlIncubator::IncubationMode incubationMode);
     inline void showTableItem(FxTableItemSG *fxViewItem);
 
-    bool hasSpaceForMoreItems(Qt::Edge tableEdge, const QRectF fillRect) const;
-    bool edgeItemsAreOutsideRect(Qt::Edge tableEdge, const QRectF fillRect) const;
+    bool canLoadTableEdge(Qt::Edge tableEdge, const QRectF fillRect) const;
+    bool canUnloadTableEdge(Qt::Edge tableEdge, const QRectF fillRect) const;
 
     qreal calculateItemX(const FxTableItemSG *fxTableItem, Qt::Edge tableEdge) const;
     qreal calculateItemY(const FxTableItemSG *fxTableItem, Qt::Edge tableEdge) const;
@@ -205,7 +209,7 @@ protected:
     void unloadItems(const QLine &items);
 
     void cancelLoadRequestIfNeeded();
-    void processCurrentLoadRequest(FxTableItemSG *loadedItem);
+    void processLoadRequest(FxTableItemSG *loadedItem);
     void loadAndUnloadTableItems();
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
     void insertItemIntoTable(FxTableItemSG *fxTableItem);
@@ -480,8 +484,24 @@ QPoint QQuickTableViewPrivate::edgeToDirection(Qt::Edge tableEdge)
     }
 }
 
-bool QQuickTableViewPrivate::hasSpaceForMoreItems(Qt::Edge tableEdge, const QRectF fillRect) const
+QRect QQuickTableViewPrivate::shrinkRect(const QRect &rect, Qt::Edge edge)
 {
+    switch (edge) {
+    case Qt::LeftEdge:
+        return rect.adjusted(1, 0, 0, 0);
+    case Qt::RightEdge:
+        return rect.adjusted(0, 0, -1, 0);
+    case Qt::TopEdge:
+        return rect.adjusted(0, 1, 0, 0);
+    case Qt::BottomEdge:
+        return rect.adjusted(0, 0, 0, -1);
+    }
+}
+
+bool QQuickTableViewPrivate::canLoadTableEdge(Qt::Edge tableEdge, const QRectF fillRect) const
+{
+    // Note: if there are no more items in the model, we return false, even
+    // if the rect has more space, to not try to load unexisting items.
     switch (tableEdge) {
     case Qt::LeftEdge:
         if (loadedTable.topLeft().x() == 0)
@@ -504,18 +524,28 @@ bool QQuickTableViewPrivate::hasSpaceForMoreItems(Qt::Edge tableEdge, const QRec
     return false;
 }
 
-bool QQuickTableViewPrivate::edgeItemsAreOutsideRect(Qt::Edge tableEdge, const QRectF fillRect) const
+bool QQuickTableViewPrivate::canUnloadTableEdge(Qt::Edge tableEdge, const QRectF fillRect) const
 {
+    // Note: if there is only one row or column left, we report them to be inside, since
+    // they are our anchor point for further layouting, and cannot be unloaded.
     const qreal floatingPointMargin = 1;
 
     switch (tableEdge) {
     case Qt::LeftEdge:
+        if (loadedTable.width() <= 1)
+            return false;
         return loadedTableRectInside.left() < fillRect.left() - floatingPointMargin;
     case Qt::RightEdge:
+        if (loadedTable.width() <= 1)
+            return false;
         return loadedTableRectInside.right() > fillRect.right() + floatingPointMargin;
     case Qt::TopEdge:
+        if (loadedTable.height() <= 1)
+            return false;
         return loadedTableRectInside.top() < fillRect.top() - floatingPointMargin;
     case Qt::BottomEdge:
+        if (loadedTable.height() <= 1)
+            return false;
         return loadedTableRectInside.bottom() > fillRect.bottom() + floatingPointMargin;
     }
 }
@@ -635,7 +665,7 @@ void QQuickTableView::createdItem(int index, QObject*)
     Q_ASSERT(item);
     Q_ASSERT(item->item);
 
-    d->processCurrentLoadRequest(item);
+    d->processLoadRequest(item);
     d->loadAndUnloadTableItems();
 }
 
@@ -658,7 +688,7 @@ void QQuickTableViewPrivate::cancelLoadRequestIfNeeded()
     //unloadItems(loadRequest.itemsToLoad - loadRequest.remainingItemsToLoad);
 }
 
-void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem)
+void QQuickTableViewPrivate::processLoadRequest(FxTableItemSG *loadedItem)
 {
     if (!loadRequest.active) {
         loadRequest.active = true;
@@ -736,58 +766,27 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
 
     loadRequest.itemsToLoad = QLine(topLeft, topLeft);
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
-    processCurrentLoadRequest(nullptr);
+    processLoadRequest(nullptr);
 }
 
 void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 {
-    // Unload as many rows and columns as possible outside rect. But we
-    // never unload the row or column that contains top-left (e.g if the
-    // user flicks at the end of the table), since then we would lose our
-    // anchor point for layouting, which we need once rows and columns are
-    // flicked back into view again.
-    bool itemsUnloaded;
+    Q_TABLEVIEW_ASSERT(!loadRequest.active, loadRequest);
+    bool continueUnloadingEdges;
 
     do {
-        itemsUnloaded = false;
+        continueUnloadingEdges = false;
 
-        Q_TABLEVIEW_ASSERT(loadedTableItem(loadedTable.topLeft()), rect);
-        Q_TABLEVIEW_ASSERT(loadedTableItem(loadedTable.bottomRight()), rect);
-
-        if (loadedTable.width() > 1) {
-            if (edgeItemsAreOutsideRect(Qt::LeftEdge, rect)) {
-                qCDebug(lcItemViewDelegateLifecycle()) << "unload left column" << loadedTable.topLeft().x();
-                unloadItems(tableEdge(Qt::LeftEdge));
-                loadedTable.adjust(1, 0, 0, 0);
-                itemsUnloaded = true;
-            } else if (edgeItemsAreOutsideRect(Qt::RightEdge, rect)) {
-                qCDebug(lcItemViewDelegateLifecycle()) << "unload right column" << loadedTable.topRight().x();
-                unloadItems(tableEdge(Qt::RightEdge));
-                loadedTable.adjust(0, 0, -1, 0);
-                itemsUnloaded = true;
+        for (Qt::Edge edge : allTableEdges) {
+            if (canUnloadTableEdge(edge, rect)) {
+                unloadItems(tableEdge(edge));
+                loadedTable = shrinkRect(loadedTable, edge);
+                calculateLoadedTableRect();
+                continueUnloadingEdges = true;
             }
         }
 
-        if (loadedTable.height() > 1) {
-            if (edgeItemsAreOutsideRect(Qt::TopEdge, rect)) {
-                qCDebug(lcItemViewDelegateLifecycle()) << "unload top row" << loadedTable.topLeft().y();
-                unloadItems(tableEdge(Qt::TopEdge));
-                loadedTable.adjust(0, 1, 0, 0);
-                itemsUnloaded = true;
-            } else if (edgeItemsAreOutsideRect(Qt::BottomEdge, rect)) {
-                qCDebug(lcItemViewDelegateLifecycle()) << "unload bottom row" << loadedTable.bottomLeft().y();
-                unloadItems(tableEdge(Qt::BottomEdge));
-                loadedTable.adjust(0, 0, 0, -1);
-                itemsUnloaded = true;
-            }
-        }
-
-        if (itemsUnloaded) {
-            calculateLoadedTableRect();
-            qCDebug(lcItemViewDelegateLifecycle()) << tableLayoutToString();
-        }
-
-    } while (itemsUnloaded);
+    } while (continueUnloadingEdges);
 }
 
 void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
@@ -798,11 +797,11 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
     do {
         continueLoadingEdges = false;
 
-        for (int e = int(Qt::TopEdge); e <= int(Qt::BottomEdge); ++e) {
-            if (hasSpaceForMoreItems(Qt::Edge(e), fillRect)) {
-                loadRequest.edgeToLoad = Qt::Edge(e);
+        for (Qt::Edge edge : allTableEdges) {
+             if (canLoadTableEdge(edge, fillRect)) {
+                loadRequest.edgeToLoad = edge;
                 loadRequest.incubationMode = incubationMode;
-                processCurrentLoadRequest(nullptr);
+                processLoadRequest(nullptr);
                 continueLoadingEdges = !loadRequest.active;
                 break;
             }
