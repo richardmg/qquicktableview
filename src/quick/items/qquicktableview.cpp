@@ -470,11 +470,11 @@ bool QQuickTableViewPrivate::edgeItemsAreOutsideRect(Qt::Edge edge, const QRectF
 
     switch (edge) {
     case Qt::LeftEdge:
-        return fillRect.left() > loadedTableRectInside.left() + floatingPointMargin;
+        return loadedTableRectInside.left() < fillRect.left() - floatingPointMargin;
     case Qt::RightEdge:
         return loadedTableRectInside.right() > fillRect.right() + floatingPointMargin;
     case Qt::TopEdge:
-        return fillRect.top() > loadedTableRectInside.top() + floatingPointMargin;
+        return loadedTableRectInside.top() < fillRect.top() - floatingPointMargin;
     case Qt::BottomEdge:
         return loadedTableRectInside.bottom() > fillRect.bottom() + floatingPointMargin;
     }
