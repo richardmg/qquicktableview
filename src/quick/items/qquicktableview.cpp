@@ -182,7 +182,7 @@ protected:
     FxTableItemSG *loadedTableItem(int modelIndex) const;
     inline FxTableItemSG *loadedTableItem(const QPoint &cellCoord) const;
     inline FxTableItemSG *itemNextTo(const FxTableItemSG *fxViewItem, const QPoint &direction) const;
-    QLine tableEdge(Qt::Edge tableEdge);
+    QLine tableEdgeLine(Qt::Edge tableEdge);
 
     QPoint edgeToDirection(Qt::Edge tableEdge);
     QRect shrinkRect(const QRect &rect, Qt::Edge edge);
@@ -456,7 +456,7 @@ FxTableItemSG *QQuickTableViewPrivate::itemNextTo(const FxTableItemSG *fxViewIte
     return loadedTableItem(coordAt(fxViewItem) + direction);
 }
 
-QLine QQuickTableViewPrivate::tableEdge(Qt::Edge tableEdge)
+QLine QQuickTableViewPrivate::tableEdgeLine(Qt::Edge tableEdge)
 {
     switch (tableEdge) {
     case Qt::LeftEdge:
@@ -693,7 +693,7 @@ void QQuickTableViewPrivate::processLoadRequest(FxTableItemSG *loadedItem)
     if (!loadRequest.active) {
         loadRequest.active = true;
         if (Qt::Edge edge = loadRequest.edgeToLoad)
-            loadRequest.itemsToLoad = tableEdge(edge).translated(edgeToDirection(edge));
+            loadRequest.itemsToLoad = tableEdgeLine(edge).translated(edgeToDirection(edge));
         loadRequest.remainingItemsToLoad = loadRequest.itemsToLoad;
         qCDebug(lcItemViewDelegateLifecycle()) << "begin:" << loadRequest;
     } else if (loadedItem) {
@@ -779,7 +779,7 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 
         for (Qt::Edge edge : allTableEdges) {
             if (canUnloadTableEdge(edge, rect)) {
-                unloadItems(tableEdge(edge));
+                unloadItems(tableEdgeLine(edge));
                 loadedTable = shrinkRect(loadedTable, edge);
                 calculateLoadedTableRect();
                 continueUnloadingEdges = true;
