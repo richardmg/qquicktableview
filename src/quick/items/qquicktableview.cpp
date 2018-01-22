@@ -666,8 +666,6 @@ void QQuickTableViewPrivate::processCurrentLoadRequest(FxTableItemSG *loadedItem
             loadRequest.itemsToLoad = tableEdge(edge).translated(edgeToDirection(edge));
         loadRequest.remainingItemsToLoad = loadRequest.itemsToLoad;
         qCDebug(lcItemViewDelegateLifecycle()) << "begin:" << loadRequest;
-        Q_TABLEVIEW_ASSERT(!loadedItem, coordAt(loadedItem));
-        Q_TABLEVIEW_ASSERT(loadRequest.edgeToLoad || loadRequest.itemsToLoad.p1() == loadRequest.itemsToLoad.p2(), loadRequest);
     } else if (loadedItem) {
         insertItemIntoTable(loadedItem);
 
