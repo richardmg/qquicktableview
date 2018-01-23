@@ -177,7 +177,6 @@ protected:
     bool isBottomToTop() const;
 
     inline int lineLength(const QLine &line);
-    inline QPoint lineCoordinate(const QLine &line, int index);
 
     int rowAtIndex(int index) const;
     int columnAtIndex(int index) const;
@@ -185,6 +184,7 @@ protected:
 
     inline QPoint coordAt(int index) const;
     inline QPoint coordAt(const FxTableItemSG *tableItem) const;
+    inline QPoint coordAt(const QLine &line, int index);
 
     FxTableItemSG *loadedTableItem(int modelIndex) const;
     inline FxTableItemSG *loadedTableItem(const QPoint &cellCoord) const;
@@ -264,14 +264,6 @@ bool QQuickTableViewPrivate::isBottomToTop() const
     return orientation == QQuickTableView::Vertical && verticalLayoutDirection == QQuickAbstractItemView::BottomToTop;
 }
 
-QPoint QQuickTableViewPrivate::lineCoordinate(const QLine &line, int index)
-{
-    // Note: a line is either vertical or horisontal
-    int x = line.p1().x() + (line.dx() ? index : 0);
-    int y = line.p1().y() + (line.dy() ? index : 0);
-    return QPoint(x, y);
-}
-
 int QQuickTableViewPrivate::lineLength(const QLine &line)
 {
     // Note: a line is either vertical or horisontal
@@ -315,6 +307,14 @@ QPoint QQuickTableViewPrivate::coordAt(int index) const
 QPoint QQuickTableViewPrivate::coordAt(const FxTableItemSG *tableItem) const
 {
     return coordAt(tableItem->index);
+}
+
+QPoint QQuickTableViewPrivate::coordAt(const QLine &line, int index)
+{
+    // Note: a line is either vertical or horisontal
+    int x = line.p1().x() + (line.dx() ? index : 0);
+    int y = line.p1().y() + (line.dy() ? index : 0);
+    return QPoint(x, y);
 }
 
 int QQuickTableViewPrivate::indexAt(const QPoint& cellCoord) const
@@ -689,7 +689,7 @@ void QQuickTableView::createdItem(int index, QObject*)
         return;
     }
 
-    QPoint waitingCoord = d->lineCoordinate(d->loadRequest.itemsToLoad, d->loadRequest.loadIndex);
+    QPoint waitingCoord = d->coordAt(d->loadRequest.itemsToLoad, d->loadRequest.loadIndex);
     if (loadedCoord != waitingCoord) {
         qCDebug(lcItemViewDelegateLifecycle) << "item not needed, waiting for other item:" << loadedCoord << waitingCoord;
         return;
@@ -712,7 +712,7 @@ void QQuickTableViewPrivate::cancelLoadRequest()
 
     QLine rollbackItems;
     rollbackItems.setP1(loadRequest.itemsToLoad.p1());
-    rollbackItems.setP2(lineCoordinate(loadRequest.itemsToLoad, lastLoadedIndex));
+    rollbackItems.setP2(coordAt(loadRequest.itemsToLoad, lastLoadedIndex));
     qDebug() << "rollback:" << rollbackItems << tableLayoutToString();
     qCDebug(lcItemViewDelegateLifecycle()) << "rollback:" << rollbackItems << tableLayoutToString();
     unloadItems(rollbackItems);
@@ -737,7 +737,7 @@ void QQuickTableViewPrivate::processLoadRequest()
     }
 
     for (; loadRequest.loadIndex < loadRequest.loadCount; ++loadRequest.loadIndex) {
-        QPoint cell = lineCoordinate(loadRequest.itemsToLoad, loadRequest.loadIndex);
+        QPoint cell = coordAt(loadRequest.itemsToLoad, loadRequest.loadIndex);
         FxTableItemSG *loadedItem = loadTableItem(cell, loadRequest.incubationMode);
 
         if (!loadedItem) {
