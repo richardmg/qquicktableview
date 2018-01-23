@@ -485,8 +485,6 @@ QRect QQuickTableViewPrivate::expandedRect(const QRect &rect, Qt::Edge edge, int
 
 bool QQuickTableViewPrivate::canLoadTableEdge(Qt::Edge tableEdge, const QRectF fillRect) const
 {
-    // Note: if there are no more items in the model, we return false, even
-    // if the rect has more space, to not try to load unexisting items.
     switch (tableEdge) {
     case Qt::LeftEdge:
         if (loadedTable.topLeft().x() == 0)
@@ -511,8 +509,8 @@ bool QQuickTableViewPrivate::canLoadTableEdge(Qt::Edge tableEdge, const QRectF f
 
 bool QQuickTableViewPrivate::canUnloadTableEdge(Qt::Edge tableEdge, const QRectF fillRect) const
 {
-    // Note: if there is only one row or column left, we report them to be inside, since
-    // they are our anchor point for further layouting, and cannot be unloaded.
+    // Note: if there is only one row or column left, we cannot unload, since
+    // they are needed as anchor point for further layouting.
     const qreal floatingPointMargin = 1;
 
     switch (tableEdge) {
@@ -643,6 +641,12 @@ void QQuickTableView::createdItem(int index, QObject*)
 
     qCDebug(lcItemViewDelegateLifecycle) << "item received asynchronously:" << d->coordAt(index);
 
+    if (index != d->indexAt(d->loadRequest.remainingItemsToLoad.p1())) {
+        // This is expected to happen if we cancel an ongoing load request
+        qCDebug(lcItemViewDelegateLifecycle) << "item not needed:" << d->coordAt(index);
+        return;
+    }
+
     // It's important to use createItem to get the item, and
     // not the object argument, since the former will ref-count it.
     FxTableItemSG *item = static_cast<FxTableItemSG *>(d->createItem(index, false));
@@ -670,7 +674,21 @@ void QQuickTableViewPrivate::cancelLoadRequestIfNeeded()
     }
 
     qCDebug(lcItemViewDelegateLifecycle()) << loadRequest;
-    //unloadItems(loadRequest.itemsToLoad - loadRequest.remainingItemsToLoad);
+
+    // Slim down table to reduce the number of items in each row and column.
+    // This should speed up loading new rows and columns that are about to enter.
+    unloadItemsOutsideRect(viewportRect());
+
+    // Unload already loaded items in the half-completed load request
+    QLine rollbackItems = loadRequest.itemsToLoad;
+
+    // p1 is not yet loaded, but pending
+    // So we cannot unload it here. Can I adjust p1 from process request?
+    // And, I need to ignore it when it arrives
+    // or can i cancel the incubation?
+
+    rollbackItems.setP2(loadRequest.remainingItemsToLoad.p1());
+    unloadItems(rollbackItems);
 }
 
 void QQuickTableViewPrivate::processLoadRequest(FxTableItemSG *loadedItem)
