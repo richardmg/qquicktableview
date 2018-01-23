@@ -713,6 +713,7 @@ void QQuickTableViewPrivate::cancelLoadRequest()
     QLine rollbackItems;
     rollbackItems.setP1(loadRequest.itemsToLoad.p1());
     rollbackItems.setP2(lineCoordinate(loadRequest.itemsToLoad, lastLoadedIndex));
+    qDebug() << "rollback:" << rollbackItems << tableLayoutToString();
     qCDebug(lcItemViewDelegateLifecycle()) << "rollback:" << rollbackItems << tableLayoutToString();
     unloadItems(rollbackItems);
     loadRequest = TableSectionLoadRequest();
@@ -819,7 +820,7 @@ void QQuickTableViewPrivate::loadAndUnloadTableItems()
     unloadItemsOutsideRect(bufferRect);
     loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-    if (!loadRequest.active && !q_func()->isMoving()) {
+    if (!loadRequest.active /*&& !q_func()->isMoving()*/) {
         hasBufferedItems = true;
         loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
     }
