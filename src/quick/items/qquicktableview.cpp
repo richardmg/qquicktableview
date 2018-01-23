@@ -214,7 +214,7 @@ protected:
     void unloadItems(const QLine &items);
 
     void cancelLoadRequestIfNeeded();
-    void processLoadRequest(FxTableItemSG *loadedItem);
+    void processLoadRequest();
     void loadAndUnloadTableItems();
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
     void insertItemIntoTable(FxTableItemSG *fxTableItem);
@@ -669,14 +669,7 @@ void QQuickTableView::createdItem(int index, QObject*)
         return;
     }
 
-    // It's important to use createItem to get the item, and
-    // not the object argument, since the former will ref-count it.
-    FxTableItemSG *item = static_cast<FxTableItemSG *>(d->createItem(index, false));
-
-    Q_ASSERT(item);
-    Q_ASSERT(item->item);
-
-    d->processLoadRequest(item);
+    d->processLoadRequest();
     d->loadAndUnloadTableItems();
 }
 
@@ -713,7 +706,7 @@ void QQuickTableViewPrivate::cancelLoadRequestIfNeeded()
 //    unloadItems(rollbackItems);
 }
 
-void QQuickTableViewPrivate::processLoadRequest(FxTableItemSG *loadedItem)
+void QQuickTableViewPrivate::processLoadRequest()
 {
     if (!loadRequest.active) {
         loadRequest.active = true;
@@ -721,19 +714,15 @@ void QQuickTableViewPrivate::processLoadRequest(FxTableItemSG *loadedItem)
             loadRequest.itemsToLoad = rectangleEdge(expandedRect(loadedTable, edge, 1), edge);
         loadRequest.loadCount = lineLength(loadRequest.itemsToLoad);
         qCDebug(lcItemViewDelegateLifecycle()) << "begin:" << loadRequest;
-    } else if (loadedItem) {
-        insertItemIntoTable(loadedItem);
-        loadRequest.loadIndex++;
     }
 
     for (; loadRequest.loadIndex < loadRequest.loadCount; ++loadRequest.loadIndex) {
         QPoint cell = lineCoordinate(loadRequest.itemsToLoad, loadRequest.loadIndex);
-        loadedItem = loadTableItem(cell, loadRequest.incubationMode);
+        FxTableItemSG *loadedItem = loadTableItem(cell, loadRequest.incubationMode);
 
         if (!loadedItem) {
             // Requested item is not yet ready. Just leave, and wait for this
-            // function to be called again with the item as argument once loaded.
-            // We can then continue where we left off.
+            // function to be called again when the item is ready.
             return;
         }
 
@@ -776,7 +765,7 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
 
     loadRequest.itemsToLoad = QLine(topLeft, topLeft);
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
-    processLoadRequest(nullptr);
+    processLoadRequest();
 }
 
 void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
@@ -811,7 +800,7 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
              if (canLoadTableEdge(edge, fillRect)) {
                 loadRequest.edgeToLoad = edge;
                 loadRequest.incubationMode = incubationMode;
-                processLoadRequest(nullptr);
+                processLoadRequest();
                 continueLoadingEdges = !loadRequest.active;
                 break;
             }
