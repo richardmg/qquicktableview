@@ -161,6 +161,7 @@ protected:
     bool contentHeightSetExplicit;
 
     bool modified;
+    bool hasBufferedItems;
     bool blockCreatedItemsSyncCallback;
 
     QString forcedIncubationMode;
@@ -214,7 +215,8 @@ protected:
     void unloadItem(const QPoint &cell);
     void unloadItems(const QLine &items);
 
-    void cancelLoadRequestIfNeeded();
+    void unloadBuffer();
+    void cancelLoadRequest();
     void processLoadRequest();
     void loadAndUnloadTableItems();
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
@@ -239,6 +241,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , contentWidthSetExplicit(false)
     , contentHeightSetExplicit(false)
     , modified(false)
+    , hasBufferedItems(false)
     , blockCreatedItemsSyncCallback(false)
     , forcedIncubationMode(qEnvironmentVariable("QT_TABLEVIEW_INCUBATION_MODE"))
 {
@@ -679,10 +682,16 @@ void QQuickTableView::createdItem(int index, QObject*)
     QPoint loadedCoord = d->coordAt(index);
     qCDebug(lcItemViewDelegateLifecycle) << "item received asynchronously:" << loadedCoord;
 
-    if (loadedCoord != d->lineCoordinate(d->loadRequest.itemsToLoad, d->loadRequest.loadIndex)) {
-        // We received an item we don't need. This is expected
-        // to happen if we cancel an ongoing load request.
-        qCDebug(lcItemViewDelegateLifecycle) << "item not needed:" << loadedCoord;
+    // Check if received an item we don't need. This is expected to
+    // happen if we cancelled an ongoing load request.
+    if (!d->loadRequest.active) {
+        qCDebug(lcItemViewDelegateLifecycle) << "item not needed, load request not active:" << loadedCoord;
+        return;
+    }
+
+    QPoint waitingCoord = d->lineCoordinate(d->loadRequest.itemsToLoad, d->loadRequest.loadIndex);
+    if (loadedCoord != waitingCoord) {
+        qCDebug(lcItemViewDelegateLifecycle) << "item not needed, waiting for other item:" << loadedCoord << waitingCoord;
         return;
     }
 
@@ -690,37 +699,30 @@ void QQuickTableView::createdItem(int index, QObject*)
     d->loadAndUnloadTableItems();
 }
 
-void QQuickTableViewPrivate::cancelLoadRequestIfNeeded()
+void QQuickTableViewPrivate::cancelLoadRequest()
 {
-    // If the viewport moved all the way to the edge of the loaded table
-    // items, this function will complete any ongoing async buffer loading
-    // now, to free up resources for loading items that are entering the view.
-    if (!loadRequest.active)
+    loadRequest.active = false;
+
+    // Unload already loaded items in the half-completed load
+    // request. The currently incubating item, if any, will just
+    // be ignored when we receive it.
+    int lastLoadedIndex = loadRequest.loadIndex - 1;
+    if (lastLoadedIndex < 0)
         return;
 
-    if (loadedTableRect.contains(viewportRect())) {
-        // If the viewport rect is inside the table rect, it simply means
-        // that the currently loaded table items still cover the whole
-        // viewport. In that case we don't have to take any action.
-        return;
-    }
+    QLine rollbackItems;
+    rollbackItems.setP1(loadRequest.itemsToLoad.p1());
+    rollbackItems.setP2(lineCoordinate(loadRequest.itemsToLoad, lastLoadedIndex));
+    qCDebug(lcItemViewDelegateLifecycle()) << "rollback:" << rollbackItems << tableLayoutToString();
+    unloadItems(rollbackItems);
+    loadRequest = TableSectionLoadRequest();
+}
 
-//    qCDebug(lcItemViewDelegateLifecycle()) << loadRequest;
-
-    // Slim down table to reduce the number of items in each row and column.
-    // This should speed up loading new rows and columns that are about to enter.
+void QQuickTableViewPrivate::unloadBuffer()
+{
+    qCDebug(lcItemViewDelegateLifecycle());
+    hasBufferedItems = false;
     unloadItemsOutsideRect(viewportRect());
-
-    // Unload already loaded items in the half-completed load request
-//    QLine rollbackItems = loadRequest.itemsToLoad;
-
-    // p1 is not yet loaded, but pending
-    // So we cannot unload it here. Can I adjust p1 from process request?
-    // And, I need to ignore it when it arrives
-    // or can i cancel the incubation?
-
-//    rollbackItems.setP2(loadRequest.remainingItemsToLoad.p1());
-//    unloadItems(rollbackItems);
 }
 
 void QQuickTableViewPrivate::processLoadRequest()
@@ -758,12 +760,7 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
 {
     // Load top-left item. After loaded, loadItemsInsideRect() will take
     // care of filling out the rest of the table.
-    Q_TABLEVIEW_ASSERT(visibleItems.isEmpty(), visibleItems.count());
-    Q_TABLEVIEW_ASSERT(loadedTable.isEmpty(), loadedTable);
-    Q_TABLEVIEW_ASSERT(!loadRequest.active, loadRequest);
-
     QPoint topLeft(0, 0);
-
     loadRequest.itemsToLoad = QLine(topLeft, topLeft);
     loadRequest.incubationMode = QQmlIncubator::AsynchronousIfNested;
     processLoadRequest();
@@ -771,7 +768,6 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
 
 void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 {
-    Q_TABLEVIEW_ASSERT(!loadRequest.active, loadRequest);
     bool continueUnloadingEdges;
 
     do {
@@ -791,7 +787,6 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
 
 void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
 {    
-    Q_TABLEVIEW_ASSERT(!loadRequest.active, loadRequest);
     bool continueLoadingEdges;
 
     do {
@@ -824,8 +819,10 @@ void QQuickTableViewPrivate::loadAndUnloadTableItems()
     unloadItemsOutsideRect(bufferRect);
     loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-    if (!loadRequest.active && !q_func()->isMoving())
+    if (!loadRequest.active && !q_func()->isMoving()) {
+        hasBufferedItems = true;
         loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
+    }
 }
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
@@ -852,7 +849,27 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     Q_D(QQuickTableView);
     QQuickAbstractItemView::viewportMoved(orient);
 
-    d->cancelLoadRequestIfNeeded();
+    QRectF visibleRect = d->viewportRect();
+
+    if (d->loadedTableRect.contains(visibleRect)) {
+        // The loaded table still covers the whole viewport. So
+        // just check if we should unload any rows/columns, and return.
+        if (d->loadRequest.active)
+            return;
+
+        QRectF bufferRect = visibleRect.adjusted(-d->buffer, -d->buffer, d->buffer, d->buffer);
+        d->unloadItemsOutsideRect(bufferRect);
+        return;
+    }
+
+    // Since we're at the edge of the loaded table, we need to start loading new
+    // rows and columns. To not load more items than what ends up visible, we trim
+    // down the table to only cover the viewport before we start loading.
+    if (d->hasBufferedItems) {
+        d->unloadBuffer();
+        d->cancelLoadRequest();
+    }
+
     d->loadAndUnloadTableItems();
 }
 
