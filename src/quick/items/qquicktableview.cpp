@@ -205,7 +205,8 @@ protected:
 
     void calculateItemGeometry(FxTableItemSG *fxTableItem, Qt::Edge tableEdge);
     void calculateContentSize();
-    void calculateLoadedTableRect();
+    void syncLoadedTableRectFromLoadedTable();
+    void syncLoadedTableFromLoadRequest();
 
     void loadInitialTopLeftItem();
     void loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
@@ -367,12 +368,28 @@ void QQuickTableViewPrivate::calculateContentSize()
     }
 }
 
-void QQuickTableViewPrivate::calculateLoadedTableRect()
+void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
 {
     QRectF topLeftRect = loadedTableItem(loadedTable.topLeft())->rect();
     QRectF bottomRightRect = loadedTableItem(loadedTable.bottomRight())->rect();
     loadedTableRect = topLeftRect.united(bottomRightRect);
     loadedTableRectInside = QRectF(topLeftRect.bottomRight(), bottomRightRect.topLeft());
+}
+
+void QQuickTableViewPrivate::syncLoadedTableFromLoadRequest()
+{
+    switch (loadRequest.edgeToLoad) {
+    case Qt::LeftEdge:
+    case Qt::TopEdge:
+        loadedTable.setTopLeft(loadRequest.itemsToLoad.p1());
+        break;
+    case Qt::RightEdge:
+    case Qt::BottomEdge:
+        loadedTable.setBottomRight(loadRequest.itemsToLoad.p2());
+        break;
+    default:
+        loadedTable = QRect(loadRequest.itemsToLoad.p1(), loadRequest.itemsToLoad.p2());
+    }
 }
 
 Qt::Orientation QQuickTableViewPrivate::layoutOrientation() const
@@ -729,27 +746,11 @@ void QQuickTableViewPrivate::processLoadRequest()
         insertItemIntoTable(loadedItem);
     }
 
-    // The load request is complete. Update
-    // loadedTable with the new geometry
-    switch (loadRequest.edgeToLoad) {
-    case Qt::LeftEdge:
-    case Qt::TopEdge:
-        loadedTable.setTopLeft(loadRequest.itemsToLoad.p1());
-        break;
-    case Qt::RightEdge:
-    case Qt::BottomEdge:
-        loadedTable.setBottomRight(loadRequest.itemsToLoad.p2());
-        break;
-    default:
-        loadedTable = QRect(loadRequest.itemsToLoad.p1(), loadRequest.itemsToLoad.p2());
-    }
-
-    calculateLoadedTableRect();
+    // Load request done
+    syncLoadedTableFromLoadRequest();
+    syncLoadedTableRectFromLoadedTable();
     calculateContentSize();
-
-    // Clear load request / mark as done
     loadRequest = TableSectionLoadRequest();
-
     qCDebug(lcItemViewDelegateLifecycle()) << "completed:" << tableLayoutToString();
 }
 
@@ -780,7 +781,7 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
             if (canUnloadTableEdge(edge, rect)) {
                 unloadItems(rectangleEdge(loadedTable, edge));
                 loadedTable = expandedRect(loadedTable, edge, -1);
-                calculateLoadedTableRect();
+                syncLoadedTableRectFromLoadedTable();
                 continueUnloadingEdges = true;
             }
         }
