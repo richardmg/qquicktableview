@@ -80,7 +80,7 @@ class TableSectionLoadRequest
 {
 public:
     QLine itemsToLoad;
-    QLine remainingItemsToLoad = QLine(kNullCell, kNullCell);
+    int loadingIndex;
     Qt::Edge edgeToLoad;
     QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested;
     bool active = false;
@@ -104,7 +104,7 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     dbg << "TableSectionLoadRequest(";
     dbg << "edge:" << request.edgeToLoad;
     dbg << " section:" << request.itemsToLoad;
-    dbg << " remaining:" << request.remainingItemsToLoad;
+    dbg << " current:" << request.currentCoord;
     dbg << " incubation:" << incubationModeToString(request.incubationMode);
     dbg << " initialized:" << request.active;
     dbg << ')';
@@ -639,11 +639,12 @@ void QQuickTableView::createdItem(int index, QObject*)
         return;
     }
 
-    qCDebug(lcItemViewDelegateLifecycle) << "item received asynchronously:" << d->coordAt(index);
+    QPoint loadedCoord = d->coordAt(index);
+    qCDebug(lcItemViewDelegateLifecycle) << "item received asynchronously:" << loadedCoord;
 
-    if (index != d->indexAt(d->loadRequest.remainingItemsToLoad.p1())) {
+    if (loadedCoord != d->loadRequest.currentCoord) {
         // This is expected to happen if we cancel an ongoing load request
-        qCDebug(lcItemViewDelegateLifecycle) << "item not needed:" << d->coordAt(index);
+        qCDebug(lcItemViewDelegateLifecycle) << "item not needed:" << loadedCoord;
         return;
     }
 
@@ -697,24 +698,17 @@ void QQuickTableViewPrivate::processLoadRequest(FxTableItemSG *loadedItem)
         loadRequest.active = true;
         if (Qt::Edge edge = loadRequest.edgeToLoad)
             loadRequest.itemsToLoad = rectangleEdge(expandedRect(loadedTable, edge, 1), edge);
-        loadRequest.remainingItemsToLoad = loadRequest.itemsToLoad;
         qCDebug(lcItemViewDelegateLifecycle()) << "begin:" << loadRequest;
     } else if (loadedItem) {
         insertItemIntoTable(loadedItem);
-
-        switch (loadRequest.edgeToLoad) {
-        case Qt::TopEdge:
-        case Qt::BottomEdge:
-            loadRequest.remainingItemsToLoad.setP1(loadRequest.remainingItemsToLoad.p1() + kRight);
-            break;
-        default:
-            loadRequest.remainingItemsToLoad.setP1(loadRequest.remainingItemsToLoad.p1() + kDown);
-            break;
-        }
+        loadRequest.loadingIndex++;
     }
 
-    const QPoint start = loadRequest.remainingItemsToLoad.p1();
-    const QPoint end = loadRequest.remainingItemsToLoad.p2();
+    loadRequest.currentCoord.rx() = loadingIndex * loadRequest.itemsToLoad.dx();
+    loadRequest.currentCoord.ry() = loadingIndex * loadRequest.itemsToLoad.dy();
+    QPoint start = loadRequest.itemsToLoad.p1();
+    int startX += loadRequest.loadingIndex * loadRequest.itemsToLoad.dx();
+    const QPoint end = loadRequest.itemsToLoad.p2();
 
     for (int y = start.y(); y <= end.y(); ++y) {
         for (int x = start.x(); x <= end.x(); ++x) {
@@ -725,7 +719,7 @@ void QQuickTableViewPrivate::processLoadRequest(FxTableItemSG *loadedItem)
                 // Requested item is not yet ready. Just leave, and wait for this
                 // function to be called again with the item as argument once loaded.
                 // We can then continue where we left off.
-                loadRequest.remainingItemsToLoad.setP1(cell);
+                loadRequest.currentCoord = cell;
                 return;
             }
 
