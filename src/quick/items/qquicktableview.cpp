@@ -80,9 +80,11 @@ class TableSectionLoadRequest
 {
 public:
     QLine itemsToLoad;
-    int loadingIndex;
     Qt::Edge edgeToLoad;
     QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested;
+
+    int loadIndex;
+    int loadCount;
     bool active = false;
 };
 
@@ -104,7 +106,8 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     dbg << "TableSectionLoadRequest(";
     dbg << "edge:" << request.edgeToLoad;
     dbg << " section:" << request.itemsToLoad;
-    dbg << " current:" << request.currentCoord;
+    dbg << " loadIndex:" << request.loadIndex;
+    dbg << " loadCount:" << request.loadCount;
     dbg << " incubation:" << incubationModeToString(request.incubationMode);
     dbg << " initialized:" << request.active;
     dbg << ')';
@@ -171,6 +174,9 @@ protected:
     QRectF viewportRect() const;
     bool isRightToLeft() const;
     bool isBottomToTop() const;
+
+    inline int lineLength(const QLine &line);
+    inline QPoint lineCoordinate(const QLine &line, int index);
 
     int rowAtIndex(int index) const;
     int columnAtIndex(int index) const;
@@ -252,6 +258,20 @@ bool QQuickTableViewPrivate::isRightToLeft() const
 bool QQuickTableViewPrivate::isBottomToTop() const
 {
     return orientation == QQuickTableView::Vertical && verticalLayoutDirection == QQuickAbstractItemView::BottomToTop;
+}
+
+QPoint QQuickTableViewPrivate::lineCoordinate(const QLine &line, int index)
+{
+    // Note: a line is either vertical or horisontal
+    int x = line.p1().x() + (line.dx() ? index : 0);
+    int y = line.p1().y() + (line.dy() ? index : 0);
+    return QPoint(x, y);
+}
+
+int QQuickTableViewPrivate::lineLength(const QLine &line)
+{
+    // Note: a line is either vertical or horisontal
+    return line.x2() - line.x1() + line.y2() - line.y1() + 1;
 }
 
 int QQuickTableViewPrivate::rowAtIndex(int index) const
@@ -642,8 +662,9 @@ void QQuickTableView::createdItem(int index, QObject*)
     QPoint loadedCoord = d->coordAt(index);
     qCDebug(lcItemViewDelegateLifecycle) << "item received asynchronously:" << loadedCoord;
 
-    if (loadedCoord != d->loadRequest.currentCoord) {
-        // This is expected to happen if we cancel an ongoing load request
+    if (loadedCoord != d->lineCoordinate(d->loadRequest.itemsToLoad, d->loadRequest.loadIndex)) {
+        // We received an item we don't need. This is expected
+        // to happen if we cancel an ongoing load request.
         qCDebug(lcItemViewDelegateLifecycle) << "item not needed:" << loadedCoord;
         return;
     }
@@ -674,22 +695,22 @@ void QQuickTableViewPrivate::cancelLoadRequestIfNeeded()
         return;
     }
 
-    qCDebug(lcItemViewDelegateLifecycle()) << loadRequest;
+//    qCDebug(lcItemViewDelegateLifecycle()) << loadRequest;
 
     // Slim down table to reduce the number of items in each row and column.
     // This should speed up loading new rows and columns that are about to enter.
     unloadItemsOutsideRect(viewportRect());
 
     // Unload already loaded items in the half-completed load request
-    QLine rollbackItems = loadRequest.itemsToLoad;
+//    QLine rollbackItems = loadRequest.itemsToLoad;
 
     // p1 is not yet loaded, but pending
     // So we cannot unload it here. Can I adjust p1 from process request?
     // And, I need to ignore it when it arrives
     // or can i cancel the incubation?
 
-    rollbackItems.setP2(loadRequest.remainingItemsToLoad.p1());
-    unloadItems(rollbackItems);
+//    rollbackItems.setP2(loadRequest.remainingItemsToLoad.p1());
+//    unloadItems(rollbackItems);
 }
 
 void QQuickTableViewPrivate::processLoadRequest(FxTableItemSG *loadedItem)
@@ -698,33 +719,25 @@ void QQuickTableViewPrivate::processLoadRequest(FxTableItemSG *loadedItem)
         loadRequest.active = true;
         if (Qt::Edge edge = loadRequest.edgeToLoad)
             loadRequest.itemsToLoad = rectangleEdge(expandedRect(loadedTable, edge, 1), edge);
+        loadRequest.loadCount = lineLength(loadRequest.itemsToLoad);
         qCDebug(lcItemViewDelegateLifecycle()) << "begin:" << loadRequest;
     } else if (loadedItem) {
         insertItemIntoTable(loadedItem);
-        loadRequest.loadingIndex++;
+        loadRequest.loadIndex++;
     }
 
-    loadRequest.currentCoord.rx() = loadingIndex * loadRequest.itemsToLoad.dx();
-    loadRequest.currentCoord.ry() = loadingIndex * loadRequest.itemsToLoad.dy();
-    QPoint start = loadRequest.itemsToLoad.p1();
-    int startX += loadRequest.loadingIndex * loadRequest.itemsToLoad.dx();
-    const QPoint end = loadRequest.itemsToLoad.p2();
+    for (; loadRequest.loadIndex < loadRequest.loadCount; ++loadRequest.loadIndex) {
+        QPoint cell = lineCoordinate(loadRequest.itemsToLoad, loadRequest.loadIndex);
+        loadedItem = loadTableItem(cell, loadRequest.incubationMode);
 
-    for (int y = start.y(); y <= end.y(); ++y) {
-        for (int x = start.x(); x <= end.x(); ++x) {
-            QPoint cell(x, y);
-            loadedItem = loadTableItem(cell, loadRequest.incubationMode);
-
-            if (!loadedItem) {
-                // Requested item is not yet ready. Just leave, and wait for this
-                // function to be called again with the item as argument once loaded.
-                // We can then continue where we left off.
-                loadRequest.currentCoord = cell;
-                return;
-            }
-
-            insertItemIntoTable(loadedItem);
+        if (!loadedItem) {
+            // Requested item is not yet ready. Just leave, and wait for this
+            // function to be called again with the item as argument once loaded.
+            // We can then continue where we left off.
+            return;
         }
+
+        insertItemIntoTable(loadedItem);
     }
 
     // The load request is complete. Update
