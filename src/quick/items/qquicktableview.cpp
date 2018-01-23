@@ -444,22 +444,17 @@ void QQuickTableViewPrivate::dumpTable() const
 
 FxTableItemSG *QQuickTableViewPrivate::loadTableItem(const QPoint &cellCoord, QQmlIncubator::IncubationMode incubationMode)
 {
-    qCDebug(lcItemViewDelegateLifecycle) << cellCoord;
-
     // Note: at this point before rebase, sync really means AsyncIfNested
     static const bool forcedAsync = forcedIncubationMode == QLatin1String("async");
     bool async = forcedAsync || incubationMode == QQmlIncubator::Asynchronous;
 
     QBoolBlocker guard(blockCreatedItemsSyncCallback);
-    auto loadedItem = static_cast<FxTableItemSG *>(createItem(indexAt(cellCoord), async));
 
-    if (loadedItem) {
-        // This path can happen even if incubationMode == Asynchronous, since
-        // the item can be cached and ready in the model from before.
-        qCDebug(lcItemViewDelegateLifecycle) << "item received synchronously:" << cellCoord;
-    }
-
-    return loadedItem;
+    // Note that even if incubation mode is asynchronous, the item might
+    // be ready immediately since the model has a cache of items.
+    auto item = static_cast<FxTableItemSG *>(createItem(indexAt(cellCoord), async));
+    qCDebug(lcItemViewDelegateLifecycle) << cellCoord << "ready?" << bool(item);
+    return item;
 }
 
 void QQuickTableViewPrivate::unloadItem(const QPoint &cell)
@@ -695,6 +690,11 @@ void QQuickTableView::createdItem(int index, QObject*)
         return;
     }
 
+//    if (loadedCoord == d->loadRequest.itemsToLoad.p2() && d->loadRequest.incubationMode == QQmlIncubator::Asynchronous) {
+//        qDebug() << "dont report last item";
+//        return;
+//    }
+
     d->processLoadRequest();
     d->loadAndUnloadTableItems();
 }
@@ -713,7 +713,6 @@ void QQuickTableViewPrivate::cancelLoadRequest()
     QLine rollbackItems;
     rollbackItems.setP1(loadRequest.itemsToLoad.p1());
     rollbackItems.setP2(coordAt(loadRequest.itemsToLoad, lastLoadedIndex));
-    qDebug() << "rollback:" << rollbackItems << tableLayoutToString();
     qCDebug(lcItemViewDelegateLifecycle()) << "rollback:" << rollbackItems << tableLayoutToString();
     unloadItems(rollbackItems);
     loadRequest = TableSectionLoadRequest();
@@ -721,9 +720,9 @@ void QQuickTableViewPrivate::cancelLoadRequest()
 
 void QQuickTableViewPrivate::unloadBuffer()
 {
-    qCDebug(lcItemViewDelegateLifecycle());
     hasBufferedItems = false;
     unloadItemsOutsideRect(viewportRect());
+    qCDebug(lcItemViewDelegateLifecycle()) << tableLayoutToString();
 }
 
 void QQuickTableViewPrivate::processLoadRequest()
@@ -820,7 +819,7 @@ void QQuickTableViewPrivate::loadAndUnloadTableItems()
     unloadItemsOutsideRect(bufferRect);
     loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-    if (!loadRequest.active /*&& !q_func()->isMoving()*/) {
+    if (!loadRequest.active && !q_func()->isMoving()) {
         hasBufferedItems = true;
         loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
     }
