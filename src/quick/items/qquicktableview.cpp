@@ -781,6 +781,7 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
                 loadedTable = expandedRect(loadedTable, edge, -1);
                 syncLoadedTableRectFromLoadedTable();
                 continueUnloadingEdges = true;
+                qCDebug(lcItemViewDelegateLifecycle) << tableLayoutToString();
             }
         }
 
@@ -818,7 +819,7 @@ void QQuickTableViewPrivate::loadAndUnloadTableItems()
     if (!visibleRect.isValid())
         return;
 
-    unloadItemsOutsideRect(bufferRect);
+    unloadItemsOutsideRect(hasBufferedItems ? bufferRect : visibleRect);
     loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
     if (!loadRequest.active && !q_func()->isMoving()) {
@@ -859,8 +860,13 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
         if (d->loadRequest.active)
             return;
 
-        QRectF bufferRect = visibleRect.adjusted(-d->buffer, -d->buffer, d->buffer, d->buffer);
-        d->unloadItemsOutsideRect(bufferRect);
+        if (!d->hasBufferedItems) {
+            d->unloadItemsOutsideRect(visibleRect);
+        } else {
+            QRectF bufferRect = visibleRect.adjusted(-d->buffer, -d->buffer, d->buffer, d->buffer);
+            d->unloadItemsOutsideRect(bufferRect);
+        }
+
         return;
     }
 
