@@ -100,6 +100,7 @@ QString incubationModeToString(QQmlIncubator::IncubationMode mode)
     }
 }
 
+#ifndef QT_NO_DEBUG_STREAM
 QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     QDebugStateSaver saver(dbg);
     dbg.nospace();
@@ -113,6 +114,7 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
     dbg << ')';
     return dbg;
 }
+#endif
 
 class QQuickTableViewPrivate : public QQuickAbstractItemViewPrivate
 {
