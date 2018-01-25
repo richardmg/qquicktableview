@@ -163,7 +163,7 @@ protected:
     bool contentHeightSetExplicit;
 
     bool modified;
-    bool hasBufferedItems;
+    bool usingBuffer;
     bool blockCreatedItemsSyncCallback;
 
     QString forcedIncubationMode;
@@ -212,17 +212,19 @@ protected:
     void syncLoadedTableFromLoadRequest();
 
     void loadInitialTopLeftItem();
-    void loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
-    void unloadItemsOutsideRect(const QRectF &rect);
+    void loadEdgesInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
+    void unloadEdgesOutsideRect(const QRectF &rect);
     void unloadItem(const QPoint &cell);
     void unloadItems(const QLine &items);
 
     void unloadBuffer();
     void cancelLoadRequest();
     void processLoadRequest();
-    void loadAndUnloadTableItems();
+    void loadAndUnloadTableEdges();
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
     void insertItemIntoTable(FxTableItemSG *fxTableItem);
+
+    void viewportMoved();
 
     inline QString tableLayoutToString() const;
 
@@ -243,7 +245,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , contentWidthSetExplicit(false)
     , contentHeightSetExplicit(false)
     , modified(false)
-    , hasBufferedItems(false)
+    , usingBuffer(false)
     , blockCreatedItemsSyncCallback(false)
     , forcedIncubationMode(qEnvironmentVariable("QT_TABLEVIEW_INCUBATION_MODE"))
 {
@@ -692,13 +694,10 @@ void QQuickTableView::createdItem(int index, QObject*)
         return;
     }
 
-//    if (loadedCoord == d->loadRequest.itemsToLoad.p2() && d->loadRequest.incubationMode == QQmlIncubator::Asynchronous) {
-//        qDebug() << "dont report last item";
-//        return;
-//    }
-
     d->processLoadRequest();
-    d->loadAndUnloadTableItems();
+
+    if (!d->loadRequest.active)
+        d->loadAndUnloadTableEdges();
 }
 
 void QQuickTableViewPrivate::cancelLoadRequest()
@@ -722,8 +721,8 @@ void QQuickTableViewPrivate::cancelLoadRequest()
 
 void QQuickTableViewPrivate::unloadBuffer()
 {
-    hasBufferedItems = false;
-    unloadItemsOutsideRect(viewportRect());
+    usingBuffer = false;
+    unloadEdgesOutsideRect(viewportRect());
     qCDebug(lcItemViewDelegateLifecycle()) << tableLayoutToString();
 }
 
@@ -768,7 +767,7 @@ void QQuickTableViewPrivate::loadInitialTopLeftItem()
     processLoadRequest();
 }
 
-void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
+void QQuickTableViewPrivate::unloadEdgesOutsideRect(const QRectF &rect)
 {
     bool continueUnloadingEdges;
 
@@ -788,7 +787,7 @@ void QQuickTableViewPrivate::unloadItemsOutsideRect(const QRectF &rect)
     } while (continueUnloadingEdges);
 }
 
-void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
+void QQuickTableViewPrivate::loadEdgesInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode)
 {    
     bool continueLoadingEdges;
 
@@ -808,7 +807,7 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
     } while (continueLoadingEdges);
 }
 
-void QQuickTableViewPrivate::loadAndUnloadTableItems()
+void QQuickTableViewPrivate::loadAndUnloadTableEdges()
 {
     // Load and unload the edges around the current table until we cover the
     // whole viewport, and then load more items async until we filled up the
@@ -821,78 +820,72 @@ void QQuickTableViewPrivate::loadAndUnloadTableItems()
     // cancel the buffering quickly if the user starts to flick and then
     // focus all further loading on the edges that are flicked into view.
 
-    if (loadRequest.active)
-        return;
-
     QRectF visibleRect = viewportRect();
     QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 
-    unloadItemsOutsideRect(hasBufferedItems ? bufferRect : visibleRect);
-    loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
+    unloadEdgesOutsideRect(usingBuffer ? bufferRect : visibleRect);
+    loadEdgesInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
     if (buffer && !loadRequest.active) {
         // Start loading table items async outside the viewport if we're not
         // currently loading something else, and the user is not flicking.
-        loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
-        hasBufferedItems = true;
+        loadEdgesInsideRect(bufferRect, QQmlIncubator::Asynchronous);
+        usingBuffer = true;
     }
 }
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     modified = false;
-
-    loadAndUnloadTableItems();
-
+    loadAndUnloadTableEdges();
     return modified;
 }
 
-QQuickTableView::QQuickTableView(QQuickItem *parent)
-    : QQuickAbstractItemView(*(new QQuickTableViewPrivate), parent)
+void QQuickTableViewPrivate::viewportMoved()
 {
-    connect(this, &QQuickTableView::movingChanged, [=] {
-        // When moving stops, we call loadAndUnloadTableItems
-        // to start loading items into buffer.
-        d_func()->loadAndUnloadTableItems();
-    });
-}
+    QRectF visibleRect = viewportRect();
+    QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 
-void QQuickTableView::viewportMoved(Qt::Orientations orient)
-{
-    Q_D(QQuickTableView);
-    QQuickAbstractItemView::viewportMoved(orient);
-
-    QRectF visibleRect = d->viewportRect();
-
-    if (d->loadedTableRect.contains(visibleRect)) {
-        // The loaded table still covers the whole viewport. So
-        // just check if we should unload any rows/columns, and return.
-        if (d->loadRequest.active) {
-            // But we never unload anything while we're loading items, since that might
-            // cause us to unload rows/columns that are no longer on the edges of the
-            // table, which will cause gaps.
+    if (loadedTableRect.contains(visibleRect)) {
+        // The loaded table covers the whole viewport. So just check
+        // if we should unload any edges, and return.
+        if (loadRequest.active) {
+            // But we never unload anything while we're loading new edges, since that might
+            // cause us to unload rows and columns that are about to no longer be an edge of
+            // the table, which will cause gaps once the new edge is loaded.
             return;
         }
 
-        if (!d->hasBufferedItems) {
-            d->unloadItemsOutsideRect(visibleRect);
-        } else {
-            QRectF bufferRect = visibleRect.adjusted(-d->buffer, -d->buffer, d->buffer, d->buffer);
-            d->unloadItemsOutsideRect(bufferRect);
-        }
-
+        unloadEdgesOutsideRect(usingBuffer ? bufferRect : visibleRect);
         return;
     }
 
     // Since we always keep the table rectangular, we trim it down to just cover the
     // viewport now that flicking has passed the edge of the buffer rect. This way we
     // end up loading fewer items while flicking.
-    if (d->hasBufferedItems) {
-        d->unloadBuffer();
-        d->cancelLoadRequest();
+    if (usingBuffer) {
+        unloadBuffer();
+        cancelLoadRequest();
     }
 
-    d->loadAndUnloadTableItems();
+    loadAndUnloadTableEdges();
+}
+
+QQuickTableView::QQuickTableView(QQuickItem *parent)
+    : QQuickAbstractItemView(*(new QQuickTableViewPrivate), parent)
+{
+    Q_D(QQuickTableView);
+
+    connect(this, &QQuickTableView::movingChanged, [=] {
+        if (!d->loadRequest.active)
+            d->loadAndUnloadTableEdges();
+    });
+}
+
+void QQuickTableView::viewportMoved(Qt::Orientations orient)
+{
+    QQuickAbstractItemView::viewportMoved(orient);
+    d_func()->viewportMoved();
 }
 
 int QQuickTableView::rows() const
