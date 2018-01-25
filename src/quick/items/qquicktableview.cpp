@@ -699,9 +699,7 @@ void QQuickTableView::createdItem(int index, QObject*)
     }
 
     d->processLoadRequest();
-
-    if (!d->loadRequest.active)
-        d->loadAndUnloadTableEdges();
+    d->loadAndUnloadTableEdges();
 }
 
 void QQuickTableViewPrivate::cancelLoadRequest()
@@ -818,7 +816,8 @@ void QQuickTableViewPrivate::loadAndUnloadTableEdges()
     // focus all further loading on the edges that are flicked into view.
 
     unloadEdgesOutsideRect(usingBuffer ? bufferRect : visibleRect);
-    loadEdgesInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
+    if (!loadRequest.active)
+        loadEdgesInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
     if (buffer && !loadRequest.active && !q_func()->isMoving()) {
         // Start loading table items async outside the viewport if we're not
@@ -830,9 +829,7 @@ void QQuickTableViewPrivate::loadAndUnloadTableEdges()
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
-    modified = false;
-    loadAndUnloadTableEdges();
-    return modified;
+    return false;
 }
 
 void QQuickTableViewPrivate::updateVisibleRectAndBufferRect()
@@ -846,24 +843,10 @@ void QQuickTableViewPrivate::viewportMoved()
 {
     updateVisibleRectAndBufferRect();
 
-    if (loadedTableRect.contains(visibleRect)) {
-        // The loaded table covers the whole viewport. So just check
-        // if we should unload any edges, and return.
-        if (loadRequest.active) {
-            // But we never unload anything while we're loading new edges, since that might
-            // cause us to unload rows and columns that are about to no longer be an edge of
-            // the table, which will cause gaps once the new edge is loaded.
-            return;
-        }
-
-        unloadEdgesOutsideRect(usingBuffer ? bufferRect : visibleRect);
-        return;
-    }
-
-    if (usingBuffer) {
+    if (usingBuffer && !loadedTableRect.contains(visibleRect)) {
+        // The visible rect has passed the loaded table rect, including buffered items.
         // Since we always keep the table rectangular, we trim it down to just cover the
-        // viewport now that flicking has passed the edge of the buffer rect. This way we
-        // end up loading fewer items while flicking.
+        // visible rect so that each edge contains fewer items and hence will be faster to load.
         usingBuffer = false;
         unloadEdgesOutsideRect(visibleRect);
         cancelLoadRequest();
