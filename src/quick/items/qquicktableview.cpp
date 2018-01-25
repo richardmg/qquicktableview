@@ -418,12 +418,6 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
     return new FxTableItemSG(item, q, false);
 }
 
-void QQuickTableViewPrivate::updatePolish()
-{
-    updateVisibleRectAndBufferRect();
-    loadAndUnloadTableEdges();
-}
-
 QString QQuickTableViewPrivate::tableLayoutToString() const
 {
     return QString(QLatin1String("current table: (%1,%2) -> (%3,%4), item count: %5"))
@@ -808,11 +802,11 @@ void QQuickTableViewPrivate::loadAndUnloadTableEdges()
     // whole viewport, and then load more items async until we filled up the
     // requested buffer around the viewport as well.
     // Note: an important point is that we always keep the table rectangular
-    // and without wholes to reduce complexity (we never leave the table in
+    // and without holes to reduce complexity (we never leave the table in
     // a half-loaded state, or keep track of multiple patches).
-    // We load only one edge (row or column) at a time. This is expecially
+    // We load only one edge (row or column) at a time. This is especially
     // important when loading into the buffer, since we need to be able to
-    // cancel the buffering quickly if the user starts to flick and then
+    // cancel the buffering quickly if the user starts to flick, and then
     // focus all further loading on the edges that are flicked into view.
 
     unloadEdgesOutsideRect(usingBuffer ? bufferRect : visibleRect);
@@ -853,6 +847,12 @@ void QQuickTableViewPrivate::viewportMoved()
         qCDebug(lcItemViewDelegateLifecycle()) << "buffer unloaded" << tableLayoutToString();
     }
 
+    loadAndUnloadTableEdges();
+}
+
+void QQuickTableViewPrivate::updatePolish()
+{
+    updateVisibleRectAndBufferRect();
     loadAndUnloadTableEdges();
 }
 
