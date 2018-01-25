@@ -810,21 +810,31 @@ void QQuickTableViewPrivate::loadItemsInsideRect(const QRectF &fillRect, QQmlInc
 
 void QQuickTableViewPrivate::loadAndUnloadTableItems()
 {
+    // Load and unload the edges around the current table until we cover the
+    // whole viewport, and then load more items async until we filled up the
+    // requested buffer around the viewport as well.
+    // Note: an important point is that we always keep the table rectangular
+    // and without wholes to reduce complexity (we never leave the table in
+    // a half-loaded state, or keep track of multiple patches).
+    // We load only one edge (row or column) at a time. This is expecially
+    // important when loading into the buffer, since we need to be able to
+    // cancel the buffering quickly if the user starts to flick and then
+    // focus all further loading on the edges that are flicked into view.
+
     if (loadRequest.active)
         return;
 
     QRectF visibleRect = viewportRect();
     QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 
-    if (!visibleRect.isValid())
-        return;
-
     unloadItemsOutsideRect(hasBufferedItems ? bufferRect : visibleRect);
     loadItemsInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-    if (!loadRequest.active && !q_func()->isMoving()) {
-        hasBufferedItems = true;
+    if (buffer && !loadRequest.active && !q_func()->isMoving()) {
+        // Start loading table items async outside the viewport if we're not
+        // currently loading something else, and the user is not flicking.
         loadItemsInsideRect(bufferRect, QQmlIncubator::Asynchronous);
+        hasBufferedItems = true;
     }
 }
 
@@ -857,8 +867,12 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
     if (d->loadedTableRect.contains(visibleRect)) {
         // The loaded table still covers the whole viewport. So
         // just check if we should unload any rows/columns, and return.
-        if (d->loadRequest.active)
+        if (d->loadRequest.active) {
+            // But we never unload anything while we're loading items, since that might
+            // cause us to unload rows/columns that are no longer on the edges of the
+            // table, which will cause gaps.
             return;
+        }
 
         if (!d->hasBufferedItems) {
             d->unloadItemsOutsideRect(visibleRect);
@@ -870,9 +884,9 @@ void QQuickTableView::viewportMoved(Qt::Orientations orient)
         return;
     }
 
-    // Since we're at the edge of the loaded table, we need to start loading new
-    // rows and columns. To not load more items than what ends up visible, we trim
-    // down the table to only cover the viewport before we start loading.
+    // Since we always keep the table rectangular, we trim it down to just cover the
+    // viewport now that flicking has passed the edge of the buffer rect. This way we
+    // end up loading fewer items while flicking.
     if (d->hasBufferedItems) {
         d->unloadBuffer();
         d->cancelLoadRequest();
