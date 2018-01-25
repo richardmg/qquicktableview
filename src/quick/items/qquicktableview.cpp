@@ -820,7 +820,7 @@ void QQuickTableViewPrivate::loadAndUnloadTableEdges()
     unloadEdgesOutsideRect(usingBuffer ? bufferRect : visibleRect);
     loadEdgesInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-    if (buffer && !loadRequest.active) {
+    if (buffer && !loadRequest.active && !q_func()->isMoving()) {
         // Start loading table items async outside the viewport if we're not
         // currently loading something else, and the user is not flicking.
         loadEdgesInsideRect(bufferRect, QQmlIncubator::Asynchronous);
