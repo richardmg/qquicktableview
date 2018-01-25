@@ -149,6 +149,8 @@ protected:
     QRect loadedTable;
     QRectF loadedTableRect;
     QRectF loadedTableRectInside;
+    QRectF visibleRect;
+    QRectF bufferRect;
 
     int rowCount;
     int columnCount;
@@ -174,7 +176,6 @@ protected:
     constexpr static QPoint kDown = QPoint(0, 1);
 
 protected:
-    QRectF viewportRect() const;
     bool isRightToLeft() const;
     bool isBottomToTop() const;
 
@@ -217,13 +218,13 @@ protected:
     void unloadItem(const QPoint &cell);
     void unloadItems(const QLine &items);
 
-    void unloadBuffer();
     void cancelLoadRequest();
     void processLoadRequest();
     void loadAndUnloadTableEdges();
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
     void insertItemIntoTable(FxTableItemSG *fxTableItem);
 
+    void updateVisibleRectAndBufferRect();
     void viewportMoved();
 
     inline QString tableLayoutToString() const;
@@ -235,6 +236,8 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     : loadedTable(QRect())
     , loadedTableRect(QRectF())
     , loadedTableRectInside(QRectF())
+    , visibleRect(QRectF())
+    , bufferRect(QRectF())
     , rowCount(-1)
     , columnCount(-1)
     , orientation(QQuickTableView::Vertical)
@@ -249,12 +252,6 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , blockCreatedItemsSyncCallback(false)
     , forcedIncubationMode(qEnvironmentVariable("QT_TABLEVIEW_INCUBATION_MODE"))
 {
-}
-
-QRectF QQuickTableViewPrivate::viewportRect() const
-{
-    Q_Q(const QQuickTableView);
-    return QRectF(QPointF(q->contentX(), q->contentY()), q->size());
 }
 
 bool QQuickTableViewPrivate::isRightToLeft() const
@@ -719,13 +716,6 @@ void QQuickTableViewPrivate::cancelLoadRequest()
     loadRequest = TableSectionLoadRequest();
 }
 
-void QQuickTableViewPrivate::unloadBuffer()
-{
-    usingBuffer = false;
-    unloadEdgesOutsideRect(viewportRect());
-    qCDebug(lcItemViewDelegateLifecycle()) << tableLayoutToString();
-}
-
 void QQuickTableViewPrivate::processLoadRequest()
 {
     if (!loadRequest.active) {
@@ -820,9 +810,6 @@ void QQuickTableViewPrivate::loadAndUnloadTableEdges()
     // cancel the buffering quickly if the user starts to flick and then
     // focus all further loading on the edges that are flicked into view.
 
-    QRectF visibleRect = viewportRect();
-    QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
-
     unloadEdgesOutsideRect(usingBuffer ? bufferRect : visibleRect);
     loadEdgesInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
@@ -841,10 +828,16 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
     return modified;
 }
 
+void QQuickTableViewPrivate::updateVisibleRectAndBufferRect()
+{
+    Q_Q(QQuickTableView);
+    visibleRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
+    bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
+}
+
 void QQuickTableViewPrivate::viewportMoved()
 {
-    QRectF visibleRect = viewportRect();
-    QRectF bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
+    updateVisibleRectAndBufferRect();
 
     if (loadedTableRect.contains(visibleRect)) {
         // The loaded table covers the whole viewport. So just check
@@ -860,12 +853,14 @@ void QQuickTableViewPrivate::viewportMoved()
         return;
     }
 
-    // Since we always keep the table rectangular, we trim it down to just cover the
-    // viewport now that flicking has passed the edge of the buffer rect. This way we
-    // end up loading fewer items while flicking.
     if (usingBuffer) {
-        unloadBuffer();
+        // Since we always keep the table rectangular, we trim it down to just cover the
+        // viewport now that flicking has passed the edge of the buffer rect. This way we
+        // end up loading fewer items while flicking.
+        usingBuffer = false;
+        unloadEdgesOutsideRect(visibleRect);
         cancelLoadRequest();
+        qCDebug(lcItemViewDelegateLifecycle()) << "buffer unloaded" << tableLayoutToString();
     }
 
     loadAndUnloadTableEdges();
@@ -1039,6 +1034,7 @@ void QQuickTableView::componentComplete()
     d->contentWidthSetExplicit = (contentWidth() != -1);
     d->contentHeightSetExplicit = (contentHeight() != -1);
 
+    d->updateVisibleRectAndBufferRect();
     d->loadInitialTopLeftItem();
 
     // NB: deliberatly skipping QQuickAbstractItemView, since it does so
