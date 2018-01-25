@@ -212,6 +212,7 @@ protected:
     void calculateContentSize();
     void syncLoadedTableRectFromLoadedTable();
     void syncLoadedTableFromLoadRequest();
+    void updateVisibleRectAndBufferRect();
 
     void loadInitialTopLeftItem();
     void loadEdgesInsideRect(const QRectF &fillRect, QQmlIncubator::IncubationMode incubationMode);
@@ -225,7 +226,6 @@ protected:
     bool loadTableItemsOneByOne(TableSectionLoadRequest &request, FxTableItemSG *loadedItem);
     void insertItemIntoTable(FxTableItemSG *fxTableItem);
 
-    void updateVisibleRectAndBufferRect();
     void viewportMoved();
 
     inline QString tableLayoutToString() const;
@@ -379,6 +379,13 @@ void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
     QRectF bottomRightRect = loadedTableItem(loadedTable.bottomRight())->rect();
     loadedTableRect = topLeftRect.united(bottomRightRect);
     loadedTableRectInside = QRectF(topLeftRect.bottomRight(), bottomRightRect.topLeft());
+}
+
+void QQuickTableViewPrivate::updateVisibleRectAndBufferRect()
+{
+    Q_Q(QQuickTableView);
+    visibleRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
+    bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 }
 
 void QQuickTableViewPrivate::syncLoadedTableFromLoadRequest()
@@ -808,29 +815,23 @@ void QQuickTableViewPrivate::loadAndUnloadTableEdges()
     // important when loading into the buffer, since we need to be able to
     // cancel the buffering quickly if the user starts to flick, and then
     // focus all further loading on the edges that are flicked into view.
+    if (loadRequest.active)
+        return;
 
     unloadEdgesOutsideRect(usingBuffer ? bufferRect : visibleRect);
-    if (!loadRequest.active)
-        loadEdgesInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
+    loadEdgesInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-    if (buffer && !loadRequest.active && !q_func()->isMoving()) {
-        // Start loading table items async outside the viewport if we're not
-        // currently loading something else, and the user is not flicking.
-        loadEdgesInsideRect(bufferRect, QQmlIncubator::Asynchronous);
-        usingBuffer = true;
-    }
+    if (!buffer || loadRequest.active || q_func()->isMoving())
+        return;
+
+    // Start buffer table items async outside the viewport
+    loadEdgesInsideRect(bufferRect, QQmlIncubator::Asynchronous);
+    usingBuffer = true;
 }
 
 bool QQuickTableViewPrivate::addRemoveVisibleItems()
 {
     return false;
-}
-
-void QQuickTableViewPrivate::updateVisibleRectAndBufferRect()
-{
-    Q_Q(QQuickTableView);
-    visibleRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
-    bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 }
 
 void QQuickTableViewPrivate::viewportMoved()
