@@ -863,8 +863,7 @@ QQuickTableView::QQuickTableView(QQuickItem *parent)
     Q_D(QQuickTableView);
 
     connect(this, &QQuickTableView::movingChanged, [=] {
-        if (!d->loadRequest.active)
-            d->loadAndUnloadTableEdges();
+        d->loadAndUnloadTableEdges();
     });
 }
 
