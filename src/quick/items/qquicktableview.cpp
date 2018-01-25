@@ -144,6 +144,7 @@ public:
     void layoutVisibleItems(int fromModelIndex = 0) override { Q_UNUSED(fromModelIndex); }
     void changedVisibleIndex(int newIndex) override { Q_UNUSED(newIndex); }
     void translateAndTransitionFilledItems() override { }
+    void updatePolish() override;
 
 protected:
     QRect loadedTable;
@@ -415,6 +416,12 @@ FxViewItem *QQuickTableViewPrivate::newViewItem(int index, QQuickItem *item)
     Q_Q(QQuickTableView);
     Q_UNUSED(index);
     return new FxTableItemSG(item, q, false);
+}
+
+void QQuickTableViewPrivate::updatePolish()
+{
+    updateVisibleRectAndBufferRect();
+    loadAndUnloadTableEdges();
 }
 
 QString QQuickTableViewPrivate::tableLayoutToString() const
@@ -1033,8 +1040,6 @@ void QQuickTableView::componentComplete()
     // Allow app to set content size explicitly, instead of us trying to guess as we go
     d->contentWidthSetExplicit = (contentWidth() != -1);
     d->contentHeightSetExplicit = (contentHeight() != -1);
-
-    d->updateVisibleRectAndBufferRect();
     d->loadInitialTopLeftItem();
 
     // NB: deliberatly skipping QQuickAbstractItemView, since it does so
