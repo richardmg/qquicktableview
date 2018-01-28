@@ -150,6 +150,7 @@ protected:
     QRect loadedTable;
     QRectF loadedTableRect;
     QRectF loadedTableRectInside;
+    QRectF loadedTableRectWithUnloadMargins;
     QRectF visibleRect;
     QRectF bufferRect;
 
@@ -375,10 +376,28 @@ void QQuickTableViewPrivate::calculateContentSize()
 
 void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
 {
+    Q_Q(QQuickTableView);
+
     QRectF topLeftRect = loadedTableItem(loadedTable.topLeft())->rect();
     QRectF bottomRightRect = loadedTableItem(loadedTable.bottomRight())->rect();
     loadedTableRect = topLeftRect.united(bottomRightRect);
     loadedTableRectInside = QRectF(topLeftRect.bottomRight(), bottomRightRect.topLeft());
+
+    // We maintain an additional rect that adds some extra margins to loadedTableRect when
+    // the loadedTableRect is at the edge of the logical table. This is just convenient when
+    // we in viewportMoved() need to check if the table size should be trimmed to speed up
+    // edge loading (since we then don't need to add explicit checks for this each time the
+    // viewport moves). The margins ensures that we don't unload just because the user
+    // overshoots when flicking.
+    loadedTableRectWithUnloadMargins = loadedTableRect;
+    if (loadedTableRect.x() == 0)
+        loadedTableRectWithUnloadMargins.setLeft(-q->width());
+    if (loadedTableRect.y() == 0)
+        loadedTableRectWithUnloadMargins.setTop(-q->height());
+    if (loadedTableRect.width() == q->contentWidth())
+        loadedTableRectWithUnloadMargins.setRight(q->contentWidth() + q->width());
+    if (loadedTableRect.y() == q->contentHeight())
+        loadedTableRectWithUnloadMargins.setBottom(q->contentHeight() + q->height());
 }
 
 void QQuickTableViewPrivate::updateVisibleRectAndBufferRect()
@@ -838,7 +857,7 @@ void QQuickTableViewPrivate::viewportMoved()
 {
     updateVisibleRectAndBufferRect();
 
-    if (usingBuffer && !loadedTableRect.contains(visibleRect)) {
+    if (usingBuffer && !loadedTableRectWithUnloadMargins.contains(visibleRect)) {
         // The visible rect has passed the loaded table rect, including buffered items.
         // Since we always keep the table rectangular, we trim it down to just cover the
         // visible rect so that each edge contains fewer items and hence will be faster to load.
