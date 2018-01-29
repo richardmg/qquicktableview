@@ -169,6 +169,7 @@ protected:
     bool modified;
     bool usingBuffer;
     bool blockCreatedItemsSyncCallback;
+    bool blockViewportMovedCallback;
 
     QString forcedIncubationMode;
 
@@ -252,6 +253,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , modified(false)
     , usingBuffer(false)
     , blockCreatedItemsSyncCallback(false)
+    , blockViewportMovedCallback(false)
     , forcedIncubationMode(qEnvironmentVariable("QT_TABLEVIEW_INCUBATION_MODE"))
 {
 }
@@ -358,6 +360,10 @@ void QQuickTableViewPrivate::calculateContentSize()
     Q_Q(QQuickTableView);
 
     const qreal flickSpace = 500;
+
+    // Changing content size can sometimes lead to a call to viewportMoved(). But this
+    // can cause us to recurse into loading new more edges, which we need to block.
+    QBoolBlocker blocker(blockViewportMovedCallback, true);
 
     if (!contentWidthSetExplicit && accurateContentSize.width() == -1) {
         if (loadedTable.topRight().x() == columnCount - 1)
@@ -855,6 +861,9 @@ bool QQuickTableViewPrivate::addRemoveVisibleItems()
 
 void QQuickTableViewPrivate::viewportMoved()
 {
+    if (blockViewportMovedCallback)
+        return;
+
     updateVisibleRectAndBufferRect();
 
     if (usingBuffer && !loadedTableRectWithUnloadMargins.contains(visibleRect)) {
