@@ -363,7 +363,7 @@ void QQuickTableViewPrivate::calculateContentSize()
 
     // Changing content size can sometimes lead to a call to viewportMoved(). But this
     // can cause us to recurse into loading new more edges, which we need to block.
-    QBoolBlocker blocker(blockViewportMovedCallback, true);
+    QBoolBlocker guard(blockViewportMovedCallback, true);
 
     if (!contentWidthSetExplicit && accurateContentSize.width() == -1) {
         if (loadedTable.topRight().x() == columnCount - 1)
