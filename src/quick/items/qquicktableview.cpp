@@ -858,13 +858,15 @@ void QQuickTableViewPrivate::viewportMoved()
     updateVisibleRectAndBufferRect();
 
     if (usingBuffer && !loadedTableRectWithUnloadMargins.contains(visibleRect)) {
-        // The visible rect has passed the loaded table rect, including buffered items.
-        // Since we always keep the table rectangular, we trim it down to just cover the
-        // visible rect so that each edge contains fewer items and hence will be faster to load.
+        // The visible rect has passed the loaded table rect, including buffered items. This
+        // means that we need to load new edges immediatly to avoid flicking in empty areas.
+        // Since we always keep the table rectangular, we trim the table down to be the size of
+        // the visible rect so that each edge contains fewer items. This will make it faster to
+        // load new edges as the viewport moves.
+        qCDebug(lcItemViewDelegateLifecycle()) << "unload buffer";
         usingBuffer = false;
         unloadEdgesOutsideRect(visibleRect);
         cancelLoadRequest();
-        qCDebug(lcItemViewDelegateLifecycle()) << "buffer unloaded" << tableLayoutToString();
     }
 
     loadAndUnloadTableEdges();
