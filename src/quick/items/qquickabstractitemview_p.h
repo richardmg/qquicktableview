@@ -73,6 +73,44 @@ private:
     Q_DECLARE_PRIVATE(QQuickAbstractItemView)
 };
 
+class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemViewAttached : public QObject
+{
+    Q_OBJECT
+
+    Q_PROPERTY(QQuickAbstractItemView *view READ view NOTIFY viewChanged)
+    Q_PROPERTY(bool isCurrentItem READ isCurrentItem NOTIFY currentItemChanged)
+
+public:
+    QQuickAbstractItemViewAttached(QObject *parent)
+        :QObject(parent) {}
+    ~QQuickAbstractItemViewAttached() {}
+
+    QQuickAbstractItemView *view() const { return m_view; }
+    void setView(QQuickAbstractItemView *view) {
+        if (view == m_view)
+            return;
+        m_view = view;
+        Q_EMIT viewChanged();
+    }
+
+    bool isCurrentItem() const { return m_isCurrent; }
+    void setIsCurrentItem(bool isCurrent) {
+        if (m_isCurrent == isCurrent)
+            return;
+        m_isCurrent = isCurrent;
+        Q_EMIT currentItemChanged();
+    }
+
+Q_SIGNALS:
+    void viewChanged();
+    void currentItemChanged();
+
+public:
+    QPointer<QQuickAbstractItemView> m_view;
+    bool m_isCurrent : 1;
+
+};
+
 QT_END_NAMESPACE
 
 #endif // QQUICKABSTRCTITEMVIEW_P_H
