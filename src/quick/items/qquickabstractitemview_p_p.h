@@ -58,7 +58,22 @@ QT_REQUIRE_CONFIG(quick_itemview);
 #include "qquickflickable_p_p.h"
 #include "qquickabstractitemview_p.h"
 
+#include "qquickitemviewtransition_p.h"
+
 QT_BEGIN_NAMESPACE
+
+class Q_AUTOTEST_EXPORT AbstractFxViewItem
+{
+public:
+    AbstractFxViewItem(QQuickItem *item, QQuickAbstractItemView *view, bool ownItem, QQuickAbstractItemViewAttached *attached);
+    virtual ~AbstractFxViewItem();
+
+    int index;
+    QPointer<QQuickItem> item;
+    QQuickAbstractItemView *view;
+    bool ownItem;
+    QQuickAbstractItemViewAttached *attached;
+};
 
 class Q_AUTOTEST_EXPORT QQuickAbstractItemViewPrivate : public QQuickFlickablePrivate
 {

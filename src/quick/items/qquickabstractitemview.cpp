@@ -41,6 +41,27 @@
 
 QT_BEGIN_NAMESPACE
 
+AbstractFxViewItem::AbstractFxViewItem(QQuickItem *item, QQuickAbstractItemView *view, bool ownItem, QQuickAbstractItemViewAttached *attached)
+    : item(item)
+    , view(view)
+    , ownItem(ownItem)
+    , attached(attached)
+{
+    if (attached) {
+        // attached can be null for default components (see createComponentItem)
+        attached->setView(view);
+    }
+}
+
+AbstractFxViewItem::~AbstractFxViewItem()
+{
+    if (ownItem && item) {
+        item->setParentItem(0);
+        item->deleteLater();
+        item = 0;
+    }
+}
+
 QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
 {
 

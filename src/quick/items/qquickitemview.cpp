@@ -52,27 +52,18 @@ Q_LOGGING_CATEGORY(lcItemViewDelegateLifecycle, "qt.quick.itemview.lifecycle")
 #endif
 
 FxViewItem::FxViewItem(QQuickItem *i, QQuickItemView *v, bool own, QQuickItemViewAttached *attached)
-    : item(i)
-    , view(v)
+    : AbstractFxViewItem(i, v, own, attached)
     , transitionableItem(0)
-    , attached(attached)
-    , ownItem(own)
     , releaseAfterTransition(false)
     , trackGeom(false)
 {
-    if (attached) // can be null for default components (see createComponentItem)
-        attached->setView(view);
 }
 
 FxViewItem::~FxViewItem()
 {
     delete transitionableItem;
-    if (ownItem && item) {
+    if (ownItem && item)
         trackGeometry(false);
-        item->setParentItem(0);
-        item->deleteLater();
-        item = 0;
-    }
 }
 
 qreal FxViewItem::itemX() const
@@ -107,7 +98,7 @@ void FxViewItem::trackGeometry(bool track)
         if (!trackGeom) {
             if (item) {
                 QQuickItemPrivate *itemPrivate = QQuickItemPrivate::get(item);
-                itemPrivate->addItemChangeListener(QQuickItemViewPrivate::get(view), QQuickItemPrivate::Geometry);
+                itemPrivate->addItemChangeListener(QQuickItemViewPrivate::get(itemView()), QQuickItemPrivate::Geometry);
             }
             trackGeom = true;
         }
@@ -115,7 +106,7 @@ void FxViewItem::trackGeometry(bool track)
         if (trackGeom) {
             if (item) {
                 QQuickItemPrivate *itemPrivate = QQuickItemPrivate::get(item);
-                itemPrivate->removeItemChangeListener(QQuickItemViewPrivate::get(view), QQuickItemPrivate::Geometry);
+                itemPrivate->removeItemChangeListener(QQuickItemViewPrivate::get(itemView()), QQuickItemPrivate::Geometry);
             }
             trackGeom = false;
         }
