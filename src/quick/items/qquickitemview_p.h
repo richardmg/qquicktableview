@@ -299,38 +299,19 @@ private:
 };
 
 
-class Q_QUICK_PRIVATE_EXPORT QQuickItemViewAttached : public QObject
+class Q_QUICK_PRIVATE_EXPORT QQuickItemViewAttached : public QQuickAbstractItemViewAttached
 {
     Q_OBJECT
 
-    Q_PROPERTY(QQuickItemView *view READ view NOTIFY viewChanged)
-    Q_PROPERTY(bool isCurrentItem READ isCurrentItem NOTIFY currentItemChanged)
     Q_PROPERTY(bool delayRemove READ delayRemove WRITE setDelayRemove NOTIFY delayRemoveChanged)
-
     Q_PROPERTY(QString section READ section NOTIFY sectionChanged)
     Q_PROPERTY(QString previousSection READ prevSection NOTIFY prevSectionChanged)
     Q_PROPERTY(QString nextSection READ nextSection NOTIFY nextSectionChanged)
 
 public:
     QQuickItemViewAttached(QObject *parent)
-        : QObject(parent), m_isCurrent(false), m_delayRemove(false) {}
+        : QQuickAbstractItemViewAttached(parent), m_delayRemove(false) {}
     ~QQuickItemViewAttached() {}
-
-    QQuickItemView *view() const { return m_view; }
-    void setView(QQuickItemView *view) {
-        if (view != m_view) {
-            m_view = view;
-            Q_EMIT viewChanged();
-        }
-    }
-
-    bool isCurrentItem() const { return m_isCurrent; }
-    void setIsCurrentItem(bool c) {
-        if (m_isCurrent != c) {
-            m_isCurrent = c;
-            Q_EMIT currentItemChanged();
-        }
-    }
 
     bool delayRemove() const { return m_delayRemove; }
     void setDelayRemove(bool delay) {
@@ -383,8 +364,6 @@ public:
     void emitRemove() { Q_EMIT remove(); }
 
 Q_SIGNALS:
-    void viewChanged();
-    void currentItemChanged();
     void delayRemoveChanged();
 
     void add();
@@ -395,8 +374,6 @@ Q_SIGNALS:
     void nextSectionChanged();
 
 public:
-    QPointer<QQuickItemView> m_view;
-    bool m_isCurrent : 1;
     bool m_delayRemove : 1;
 
     // current only used by list view
