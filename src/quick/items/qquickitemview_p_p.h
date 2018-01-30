@@ -66,11 +66,14 @@ QT_REQUIRE_CONFIG(quick_itemview);
 QT_BEGIN_NAMESPACE
 
 
-class Q_AUTOTEST_EXPORT FxViewItem
+class Q_AUTOTEST_EXPORT FxViewItem : public AbstractFxViewItem
 {
 public:
     FxViewItem(QQuickItem *, QQuickItemView *, bool own, QQuickItemViewAttached *attached);
     virtual ~FxViewItem();
+
+    inline QQuickItemView *itemView() { return static_cast<QQuickItemView *>(view); }
+    inline QQuickItemViewAttached *itemViewAttached() { return static_cast<QQuickItemViewAttached *>(attached); }
 
     qreal itemX() const;
     qreal itemY() const;
@@ -98,12 +101,7 @@ public:
 
     virtual bool contains(qreal x, qreal y) const = 0;
 
-    QPointer<QQuickItem> item;
-    QQuickItemView *view;
     QQuickItemViewTransitionableItem *transitionableItem;
-    QQuickItemViewAttached *attached;
-    int index;
-    bool ownItem;
     bool releaseAfterTransition;
     bool trackGeom;
 };

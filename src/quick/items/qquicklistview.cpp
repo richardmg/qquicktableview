@@ -444,7 +444,7 @@ qreal QQuickListViewPrivate::lastPosition() const
                 // Find the invisible count after the last visible item with known index
                 invisibleCount = model->count() - (item->index + 1 + delayRemovedCount);
                 break;
-            } else if (item->attached->delayRemove()) {
+            } else if (item->itemViewAttached()->delayRemove()) {
                 ++delayRemovedCount;
             }
         }
@@ -502,7 +502,7 @@ qreal QQuickListViewPrivate::endPositionAt(int modelIndex) const
 QString QQuickListViewPrivate::sectionAt(int modelIndex)
 {
     if (FxViewItem *item = visibleItem(modelIndex))
-        return item->attached->section();
+        return item->itemViewAttached()->section();
 
     QString section;
     if (sectionCriteria && modelIndex >= 0 && modelIndex < itemCount) {
@@ -587,14 +587,14 @@ FxViewItem *QQuickListViewPrivate::newViewItem(int modelIndex, QQuickItem *item)
         QString nextSection;
         if (modelIndex > 0) {
             if (FxViewItem *item = itemBefore(modelIndex))
-                prevSection = item->attached->section();
+                prevSection = item->itemViewAttached()->section();
             else
                 prevSection = sectionAt(modelIndex-1);
         }
         if (modelIndex < model->count()-1) {
             nextSection = sectionAt(modelIndex+1);
         }
-        listItem->attached->setSections(prevSection, section, nextSection);
+        listItem->itemViewAttached()->setSections(prevSection, section, nextSection);
     }
 
     return listItem;
@@ -608,7 +608,7 @@ void QQuickListViewPrivate::initializeViewItem(FxViewItem *item)
     item->trackGeometry(true);
 
     if (sectionCriteria && sectionCriteria->delegate()) {
-        if (QString::compare(item->attached->m_prevSection, item->attached->m_section, Qt::CaseInsensitive))
+        if (QString::compare(item->itemViewAttached()->m_prevSection, item->itemViewAttached()->m_section, Qt::CaseInsensitive))
             updateInlineSection(static_cast<FxListItemSG*>(item));
     }
 }
@@ -732,7 +732,7 @@ bool QQuickListViewPrivate::removeNonVisibleItems(qreal bufferFrom, qreal buffer
     int index = 0;
     while (visibleItems.count() > 1 && index < visibleItems.count()
            && (item = visibleItems.at(index)) && item->endPosition() < bufferFrom) {
-        if (item->attached->delayRemove())
+        if (item->itemViewAttached()->delayRemove())
             break;
 
         if (item->size() > 0) {
@@ -754,7 +754,7 @@ bool QQuickListViewPrivate::removeNonVisibleItems(qreal bufferFrom, qreal buffer
     }
 
     while (visibleItems.count() > 1 && (item = visibleItems.constLast()) && item->position() > bufferTo) {
-        if (item->attached->delayRemove())
+        if (item->itemViewAttached()->delayRemove())
             break;
         qCDebug(lcItemViewDelegateLifecycle) << "refill: remove last" << visibleIndex+visibleItems.count()-1 << item->position() << (QObject *)(item->item);
         visibleItems.removeLast();
@@ -1039,16 +1039,16 @@ void QQuickListViewPrivate::updateInlineSection(FxListItemSG *listItem)
 {
     if (!sectionCriteria || !sectionCriteria->delegate())
         return;
-    if (QString::compare(listItem->attached->m_prevSection, listItem->attached->m_section, Qt::CaseInsensitive)
+    if (QString::compare(listItem->itemViewAttached()->m_prevSection, listItem->itemViewAttached()->m_section, Qt::CaseInsensitive)
             && (sectionCriteria->labelPositioning() & QQuickViewSection::InlineLabels
                 || (listItem->index == 0 && sectionCriteria->labelPositioning() & QQuickViewSection::CurrentLabelAtStart))) {
         if (!listItem->section()) {
             qreal pos = listItem->position();
-            listItem->setSection(getSectionItem(listItem->attached->m_section));
+            listItem->setSection(getSectionItem(listItem->itemViewAttached()->m_section));
             listItem->setPosition(pos);
         } else {
             QQmlContext *context = QQmlEngine::contextForObject(listItem->section())->parentContext();
-            context->setContextProperty(QLatin1String("section"), listItem->attached->m_section);
+            context->setContextProperty(QLatin1String("section"), listItem->itemViewAttached()->m_section);
         }
     } else if (listItem->section()) {
         qreal pos = listItem->position();
@@ -1232,9 +1232,9 @@ void QQuickListViewPrivate::updateCurrentSection()
 
     QString newSection = currentSection;
     if (index < visibleItems.count())
-        newSection = visibleItems.at(index)->attached->section();
+        newSection = visibleItems.at(index)->itemViewAttached()->section();
     else
-        newSection = (*visibleItems.constBegin())->attached->section();
+        newSection = (*visibleItems.constBegin())->itemViewAttached()->section();
     if (newSection != currentSection) {
         currentSection = newSection;
         updateStickySections();
@@ -1256,7 +1256,7 @@ void QQuickListViewPrivate::updateCurrentSection()
                 break;
             if (listItem->index != -1)
                 modelIndex = listItem->index;
-            lastSection = listItem->attached->section();
+            lastSection = listItem->itemViewAttached()->section();
             ++index;
         }
 
