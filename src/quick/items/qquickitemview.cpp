@@ -1251,7 +1251,7 @@ void QQuickItemView::destroyRemoved()
     for (QList<FxViewItem*>::Iterator it = d->visibleItems.begin();
             it != d->visibleItems.end();) {
         FxViewItem *item = *it;
-        if (item->index == -1 && (!item->attached || item->attached->delayRemove() == false)) {
+        if (item->index == -1 && (!item->itemViewAttached() || item->itemViewAttached()->delayRemove() == false)) {
             if (hasRemoveTransitionAsTarget) {
                 // don't remove from visibleItems until next layout()
                 d->runDelayedRemoveTransition = true;
@@ -2026,7 +2026,7 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
         QQmlChangeSet::Change removal;
         for (QList<FxViewItem*>::Iterator it = visibleItems.begin(); it != visibleItems.end();) {
             FxViewItem *item = *it;
-            if (item->index == -1 && (!item->attached || !item->attached->delayRemove())) {
+            if (item->index == -1 && (!item->itemViewAttached() || !item->itemViewAttached()->delayRemove())) {
                 removeItem(item, removal, &removalResult);
                 removedCount++;
                 it = visibleItems.erase(it);
@@ -2067,8 +2067,8 @@ bool QQuickItemViewPrivate::applyModelChanges(ChangeResult *totalInsertionResult
         itemCount += insertions[i].count;
     }
     for (FxViewItem *item : qAsConst(newItems)) {
-        if (item->attached)
-            item->attached->emitAdd();
+        if (item->itemViewAttached())
+            item->itemViewAttached()->emitAdd();
     }
 
     // for each item that was moved directly into the view as a result of a move(),
@@ -2155,11 +2155,11 @@ bool QQuickItemViewPrivate::applyRemovalChange(const QQmlChangeSet::Change &remo
             // removed item
             visibleAffected = true;
             if (!removal.isMove() && item->item && item->attached)
-                item->attached->emitRemove();
+                item->itemViewAttached()->emitRemove();
 
-            if (item->item && item->attached && item->attached->delayRemove() && !removal.isMove()) {
+            if (item->item && item->itemViewAttached() && item->itemViewAttached()->delayRemove() && !removal.isMove()) {
                 item->index = -1;
-                QObject::connect(item->attached, SIGNAL(delayRemoveChanged()), q, SLOT(destroyRemoved()), Qt::QueuedConnection);
+                QObject::connect(item->itemViewAttached(), SIGNAL(delayRemoveChanged()), q, SLOT(destroyRemoved()), Qt::QueuedConnection);
                 ++it;
             } else {
                 removeItem(item, removal, removeResult);

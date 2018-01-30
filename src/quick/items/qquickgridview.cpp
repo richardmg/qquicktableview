@@ -587,7 +587,7 @@ bool QQuickGridViewPrivate::removeNonVisibleItems(qreal bufferFrom, qreal buffer
     while (visibleItems.count() > 1
            && (item = static_cast<FxGridItemSG*>(visibleItems.constFirst()))
                 && item->rowPos()+rowSize()-1 < bufferFrom - rowSize()*(item->colPos()/colSize()+1)/(columns+1)) {
-        if (item->attached->delayRemove())
+        if (item->itemViewAttached()->delayRemove())
             break;
         qCDebug(lcItemViewDelegateLifecycle) << "refill: remove first" << visibleIndex << "top end pos" << item->endRowPos();
         if (item->index != -1)
@@ -599,7 +599,7 @@ bool QQuickGridViewPrivate::removeNonVisibleItems(qreal bufferFrom, qreal buffer
     while (visibleItems.count() > 1
            && (item = static_cast<FxGridItemSG*>(visibleItems.constLast()))
                 && item->rowPos() > bufferTo + rowSize()*(columns - item->colPos()/colSize())/(columns+1)) {
-        if (item->attached->delayRemove())
+        if (item->itemViewAttached()->delayRemove())
             break;
         qCDebug(lcItemViewDelegateLifecycle) << "refill: remove last" << visibleIndex+visibleItems.count()-1;
         visibleItems.removeLast();
