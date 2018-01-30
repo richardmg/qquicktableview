@@ -55,7 +55,7 @@
 
 QT_REQUIRE_CONFIG(quick_itemview);
 
-#include "qquickflickable_p.h"
+#include "qquickabstractitemview_p.h"
 #include <qpointer.h>
 #include <QtCore/QLoggingCategory>
 
@@ -67,7 +67,7 @@ class QQmlChangeSet;
 
 class QQuickItemViewPrivate;
 
-class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickFlickable
+class Q_QUICK_PRIVATE_EXPORT QQuickItemView : public QQuickAbstractItemView
 {
     Q_OBJECT
 
@@ -128,7 +128,7 @@ public:
     };
     Q_ENUM(VerticalLayoutDirection)
 
-    QQuickItemView(QQuickFlickablePrivate &dd, QQuickItem *parent = 0);
+    QQuickItemView(QQuickAbstractItemViewPrivate &dd, QQuickItem *parent = 0);
     ~QQuickItemView();
 
     QVariant model() const;
