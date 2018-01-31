@@ -279,7 +279,6 @@ public:
     QPointer<QQmlInstanceModel> model;
     QVariant modelVariant;
     int itemCount;
-    int buffer;
     int bufferMode;
     int displayMarginBeginning;
     int displayMarginEnd;

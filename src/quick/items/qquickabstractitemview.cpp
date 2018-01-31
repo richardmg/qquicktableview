@@ -41,6 +41,11 @@
 
 QT_BEGIN_NAMESPACE
 
+// Default cacheBuffer for all views.
+#ifndef QML_VIEW_DEFAULTCACHEBUFFER
+#define QML_VIEW_DEFAULTCACHEBUFFER 320
+#endif
+
 AbstractFxViewItem::AbstractFxViewItem(QQuickItem *item, QQuickAbstractItemView *view, bool ownItem, QQuickAbstractItemViewAttached *attached)
     : item(item)
     , view(view)
@@ -63,13 +68,12 @@ AbstractFxViewItem::~AbstractFxViewItem()
 }
 
 QQuickAbstractItemViewPrivate::QQuickAbstractItemViewPrivate()
+    : buffer(QML_VIEW_DEFAULTCACHEBUFFER)
 {
-
 }
 
 QQuickAbstractItemViewPrivate::~QQuickAbstractItemViewPrivate()
 {
-
 }
 
 QQuickAbstractItemView::QQuickAbstractItemView(QQuickFlickablePrivate &dd, QQuickItem *parent)

@@ -46,11 +46,6 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcItemViewDelegateLifecycle, "qt.quick.itemview.lifecycle")
 
-// Default cacheBuffer for all views.
-#ifndef QML_VIEW_DEFAULTCACHEBUFFER
-#define QML_VIEW_DEFAULTCACHEBUFFER 320
-#endif
-
 FxViewItem::FxViewItem(QQuickItem *i, QQuickItemView *v, bool own, QQuickItemViewAttached *attached)
     : AbstractFxViewItem(i, v, own, attached)
     , transitionableItem(0)
@@ -1544,7 +1539,7 @@ void QQuickItemView::componentComplete()
 
 QQuickItemViewPrivate::QQuickItemViewPrivate()
     : itemCount(0)
-    , buffer(QML_VIEW_DEFAULTCACHEBUFFER), bufferMode(BufferBefore | BufferAfter)
+    , bufferMode(BufferBefore | BufferAfter)
     , displayMarginBeginning(0), displayMarginEnd(0)
     , layoutDirection(Qt::LeftToRight), verticalLayoutDirection(QQuickItemView::TopToBottom)
     , moveReason(Other)

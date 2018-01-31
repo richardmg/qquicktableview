@@ -81,6 +81,8 @@ class Q_AUTOTEST_EXPORT QQuickAbstractItemViewPrivate : public QQuickFlickablePr
 public:
     QQuickAbstractItemViewPrivate();
     ~QQuickAbstractItemViewPrivate();
+
+    int buffer;
 };
 
 QT_END_NAMESPACE
