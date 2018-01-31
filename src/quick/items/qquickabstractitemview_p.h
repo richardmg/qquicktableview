@@ -55,9 +55,12 @@
 
 QT_REQUIRE_CONFIG(quick_itemview);
 
+#include <QtCore/qpointer.h>
 #include "qquickflickable_p.h"
 
 QT_BEGIN_NAMESPACE
+
+Q_DECLARE_LOGGING_CATEGORY(lcItemViewDelegateLifecycle)
 
 class QQuickAbstractItemViewPrivate;
 
