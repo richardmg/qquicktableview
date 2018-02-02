@@ -453,9 +453,14 @@ public:
     {
     }
 
-    int count(const QQmlAdaptorModel &model) const override
+    int rowCount(const QQmlAdaptorModel &model) const override
     {
         return model.aim()->rowCount(model.rootIndex);
+    }
+
+    int columnCount(const QQmlAdaptorModel &model) const override
+    {
+        return model.aim()->columnCount(model.rootIndex);
     }
 
     void cleanup(QQmlAdaptorModel &model, QQmlDelegateModel *vdm) const override
@@ -485,9 +490,9 @@ public:
     {
         QHash<QByteArray, int>::const_iterator it = roleNames.find(role.toUtf8());
         if (it != roleNames.end()) {
-            return model.aim()->index(index, 0, model.rootIndex).data(*it);
+            return model.aim()->index(model.rowAt(index), model.columnAt(index), model.rootIndex).data(*it);
         } else if (role == QLatin1String("hasModelChildren")) {
-            return QVariant(model.aim()->hasChildren(model.aim()->index(index, 0, model.rootIndex)));
+            return QVariant(model.aim()->hasChildren(model.aim()->index(model.rowAt(index), model.columnAt(index), model.rootIndex)));
         } else {
             return QVariant();
         }
@@ -503,7 +508,7 @@ public:
     QVariant modelIndex(const QQmlAdaptorModel &model, int index) const override
     {
         return model
-                ? QVariant::fromValue(model.aim()->index(index, 0, model.rootIndex))
+                ? QVariant::fromValue(model.aim()->index(model.rowAt(index), model.columnAt(index), model.rootIndex))
                 : QVariant();
     }
 
@@ -653,9 +658,14 @@ class VDMListDelegateDataType : public QQmlAdaptorModel::Accessors
 public:
     inline VDMListDelegateDataType() {}
 
-    int count(const QQmlAdaptorModel &model) const override
+    int rowCount(const QQmlAdaptorModel &model) const override
     {
         return model.list.count();
+    }
+
+    int columnCount(const QQmlAdaptorModel &) const override
+    {
+        return 1;
     }
 
     QVariant value(const QQmlAdaptorModel &model, int index, const QString &role) const override
@@ -737,9 +747,14 @@ public:
         free(metaObject);
     }
 
-    int count(const QQmlAdaptorModel &model) const override
+    int rowCount(const QQmlAdaptorModel &model) const override
     {
         return model.list.count();
+    }
+
+    int columnCount(const QQmlAdaptorModel &) const override
+    {
+        return 1;
     }
 
     QVariant value(const QQmlAdaptorModel &model, int index, const QString &role) const override
