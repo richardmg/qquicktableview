@@ -15,6 +15,7 @@
             "quick-flipable": "boolean",
             "quick-gridview": "boolean",
             "quick-listview": "boolean",
+            "quick-table": "boolean",
             "quick-path": "boolean",
             "quick-pathview": "boolean",
             "quick-positioners": "boolean",
@@ -85,7 +86,7 @@
         },
         "quick-itemview": {
             "label": "ItemView item",
-            "condition": "features.quick-gridview || features.quick-listview",
+            "condition": "features.quick-gridview || features.quick-listview || features.quick-table",
             "output": [
                 "privateFeature"
             ]
@@ -100,6 +101,14 @@
         "quick-listview": {
             "label": "ListView item",
             "purpose": "Provides the ListView item.",
+            "section": "Qt Quick",
+            "output": [
+                "privateFeature"
+            ]
+        },
+        "quick-table": {
+            "label": "Table item",
+            "purpose": "Provides the Table item.",
             "section": "Qt Quick",
             "output": [
                 "privateFeature"
@@ -176,6 +185,7 @@
                 "quick-flipable",
                 "quick-gridview",
                 "quick-listview",
+                "quick-table",
                 "quick-path",
                 "quick-pathview",
                 "quick-positioners",
