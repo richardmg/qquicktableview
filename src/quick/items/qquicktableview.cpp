@@ -168,10 +168,11 @@ protected:
     bool blockCreatedItemsSyncCallback;
     bool blockViewportMovedCallback;
     bool layoutInvalid;
+    bool flickableSetExplicit;
+
+    QQuickFlickable *flickable;
 
     QString forcedIncubationMode;
-
-    QQmlNullableValue<QQuickFlickable *>m_flickable;
 
     constexpr static QPoint kLeft = QPoint(-1, 0);
     constexpr static QPoint kRight = QPoint(1, 0);
@@ -262,6 +263,8 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , blockCreatedItemsSyncCallback(false)
     , blockViewportMovedCallback(false)
     , layoutInvalid(true)
+    , flickableSetExplicit(false)
+    , flickable(nullptr)
     , forcedIncubationMode(qEnvironmentVariable("QT_TABLEVIEW_INCUBATION_MODE"))
 {
 }
@@ -338,26 +341,28 @@ void QQuickTableViewPrivate::calculateContentSize()
 {
     Q_Q(QQuickTableView);
 
+    if (!flickable)
+        return;
+
     const qreal flickSpace = 500;
 
     // Changing content size can sometimes lead to a call to viewportMoved(). But this
     // can cause us to recurse into loading more edges, which we need to block.
     QBoolBlocker guard(blockViewportMovedCallback, true);
 
-    // TODO
-//    if (!contentWidthSetExplicit && accurateContentSize.width() == -1) {
-//        if (loadedTable.topRight().x() == q->columns() - 1)
-//            q->setContentWidth(loadedTableRect.right());
-//        else
-//            q->setContentWidth(loadedTableRect.right() + flickSpace);
-//    }
+    if (!contentWidthSetExplicit && accurateContentSize.width() == -1) {
+        if (loadedTable.topRight().x() == q->columns() - 1)
+            flickable->setContentWidth(loadedTableRect.right());
+        else
+            flickable->setContentWidth(loadedTableRect.right() + flickSpace);
+    }
 
-//    if (!contentHeightSetExplicit && accurateContentSize.height() == -1) {
-//        if (loadedTable.bottomRight().y() == q->rows() - 1)
-//            q->setContentHeight(loadedTableRect.bottom());
-//        else
-//            q->setContentHeight(loadedTableRect.bottom() + flickSpace);
-//    }
+    if (!contentHeightSetExplicit && accurateContentSize.height() == -1) {
+        if (loadedTable.bottomRight().y() == q->rows() - 1)
+            flickable->setContentHeight(loadedTableRect.bottom());
+        else
+            flickable->setContentHeight(loadedTableRect.bottom() + flickSpace);
+    }
 }
 
 void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
@@ -376,23 +381,28 @@ void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
     // viewport moves). The margins ensures that we don't unload just because the user
     // overshoots when flicking.
     loadedTableRectWithUnloadMargins = loadedTableRect;
-    // TODO
-//    if (loadedTableRect.x() == 0)
-//        loadedTableRectWithUnloadMargins.setLeft(-q->width());
-//    if (loadedTableRect.y() == 0)
-//        loadedTableRectWithUnloadMargins.setTop(-q->height());
-//    if (loadedTableRect.width() == q->contentWidth())
-//        loadedTableRectWithUnloadMargins.setRight(q->contentWidth() + q->width());
-//    if (loadedTableRect.y() == q->contentHeight())
-//        loadedTableRectWithUnloadMargins.setBottom(q->contentHeight() + q->height());
+    if (!flickable)
+        return;
+
+    if (loadedTableRect.x() == 0)
+        loadedTableRectWithUnloadMargins.setLeft(-q->width());
+    if (loadedTableRect.y() == 0)
+        loadedTableRectWithUnloadMargins.setTop(-q->height());
+    if (loadedTableRect.width() == flickable->contentWidth())
+        loadedTableRectWithUnloadMargins.setRight(flickable->contentWidth() + q->width());
+    if (loadedTableRect.y() == flickable->contentHeight())
+        loadedTableRectWithUnloadMargins.setBottom(flickable->contentHeight() + q->height());
 }
 
 void QQuickTableViewPrivate::updateVisibleRectAndBufferRect()
 {
     Q_Q(QQuickTableView);
-    visibleRect = QRectF(QPointF(0, 0), q->size());
-    // TODO
-//    visibleRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
+
+    if (flickable)
+        visibleRect = QRectF(QPointF(flickable->contentX(), flickable->contentY()), flickable->size());
+    else
+        visibleRect = QRectF(QPointF(), q->size());
+
     bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 }
 
@@ -467,9 +477,11 @@ AbstractFxViewItem *QQuickTableViewPrivate::createItem(int modelIndex, QQmlIncub
         return nullptr;
     }
 
-    // TODO
-//    item->setParentItem(q->contentItem());
-    item->setParentItem(q);
+    if (flickable)
+        item->setParentItem(flickable->contentItem());
+    else
+        item->setParentItem(q);
+
     AbstractFxViewItem *viewItem = newViewItem(modelIndex, item);
 
     if (viewItem) {
@@ -873,8 +885,7 @@ void QQuickTableViewPrivate::loadAndUnloadTableEdges()
 
 bool QQuickTableViewPrivate::isViewportMoving()
 {
-    // TODO:
-    return false;
+    return flickable ? flickable->isMoving() : false;
 }
 
 void QQuickTableViewPrivate::viewportChanged()
@@ -940,13 +951,6 @@ void QQuickTableViewPrivate::useWrapperDelegateModel(bool use)
 QQuickTableView::QQuickTableView(QQuickItem *parent)
     : QQuickItem(*(new QQuickTableViewPrivate), parent)
 {
-    Q_D(QQuickTableView);
-
-    // TODO
-//    connect(this, &QQuickTableView::movingChanged, [=] {
-//        d->loadAndUnloadTableEdges();
-//    });
-    // and connect to viewportMoved
 }
 
 int QQuickTableView::rows() const
@@ -1146,7 +1150,7 @@ QQuickTableViewAttached *QQuickTableView::qmlAttachedProperties(QObject *obj)
 
 QQuickFlickable *QQuickTableView::flickable() const
 {
-    return d_func()->m_flickable;
+    return d_func()->flickable;
 }
 
 void QQuickTableView::viewportChanged()
@@ -1157,11 +1161,13 @@ void QQuickTableView::viewportChanged()
 void QQuickTableView::setFlickable(QQuickFlickable *flickable)
 {
     Q_D(QQuickTableView);
-    if (d->m_flickable == flickable)
+    d->flickableSetExplicit = true;
+
+    if (d->flickable == flickable)
         return;
 
-    if (d->m_flickable) {
-        disconnect(d->m_flickable.value, 0, this, 0);
+    if (d->flickable) {
+        disconnect(d->flickable, 0, this, 0);
     }
 
     if (flickable) {
@@ -1178,7 +1184,7 @@ void QQuickTableView::setFlickable(QQuickFlickable *flickable)
         flickable->setHeight(400);
     }
 
-    d->m_flickable = flickable;
+    d->flickable = flickable;
     d->invalidateLayout();
     emit flickableChanged();
 }
@@ -1192,10 +1198,9 @@ void QQuickTableView::initItem(int index, QObject *object)
     if (!item)
         return;
 
-    // TODO
-//    QObject *attachedObject = qmlAttachedPropertiesObject<QQuickTableView>(item);
-//    if (QQuickTableViewAttached *attached = static_cast<QQuickTableViewAttached *>(attachedObject))
-//        attached->setView(this);
+    QObject *attachedObject = qmlAttachedPropertiesObject<QQuickTableView>(item);
+    if (QQuickTableViewAttached *attached = static_cast<QQuickTableViewAttached *>(attachedObject))
+        attached->setView(this);
 }
 
 void QQuickTableView::componentComplete()
@@ -1210,16 +1215,18 @@ void QQuickTableView::componentComplete()
         static_cast<QQmlDelegateModel *>(d->model.data())->componentComplete();
     }
 
-    // TODO
-    // Allow app to set content size explicitly, instead of us trying to guess as we go
-//    d->contentWidthSetExplicit = (contentWidth() != -1);
-//    d->contentHeightSetExplicit = (contentHeight() != -1);
-
     // The application didn't set any flickable, so we do it ourselves. But us using a
     // flickable when the property is unspecified, is regarded as a private implementation
-    // detail, and can change in the future.
-    if (d->m_flickable.isNull)
+    // detail, and can change in the future. The application can also set this propery to
+    // null, meaning no flick support is wanted.
+    if (!d->flickableSetExplicit)
         setFlickable(new QQuickFlickable(this));
+
+    if (d->flickable) {
+        // Allow app to set content size explicitly, instead of us trying to guess as we go
+        d->contentWidthSetExplicit = (d->flickable->contentWidth() != -1);
+        d->contentHeightSetExplicit = (d->flickable->contentHeight() != -1);
+    }
 
     QQuickItem::componentComplete();
 }
