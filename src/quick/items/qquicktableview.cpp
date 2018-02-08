@@ -171,6 +171,8 @@ protected:
 
     QString forcedIncubationMode;
 
+    QQmlNullableValue<QQuickFlickable *>m_flickable;
+
     constexpr static QPoint kLeft = QPoint(-1, 0);
     constexpr static QPoint kRight = QPoint(1, 0);
     constexpr static QPoint kUp = QPoint(0, -1);
@@ -228,7 +230,7 @@ protected:
     void processLoadRequest();
 
     bool isViewportMoving();
-    void viewportMoved();
+    void viewportChanged();
     void invalidateLayout();
 
     void useWrapperDelegateModel(bool use);
@@ -875,7 +877,7 @@ bool QQuickTableViewPrivate::isViewportMoving()
     return false;
 }
 
-void QQuickTableViewPrivate::viewportMoved()
+void QQuickTableViewPrivate::viewportChanged()
 {
     if (blockViewportMovedCallback)
         return;
@@ -1142,6 +1144,45 @@ QQuickTableViewAttached *QQuickTableView::qmlAttachedProperties(QObject *obj)
     return new QQuickTableViewAttached(obj);
 }
 
+QQuickFlickable *QQuickTableView::flickable() const
+{
+    return d_func()->m_flickable;
+}
+
+void QQuickTableView::viewportChanged()
+{
+    d_func()->viewportChanged();
+}
+
+void QQuickTableView::setFlickable(QQuickFlickable *flickable)
+{
+    Q_D(QQuickTableView);
+    if (d->m_flickable == flickable)
+        return;
+
+    if (d->m_flickable) {
+        disconnect(d->m_flickable.value, 0, this, 0);
+    }
+
+    if (flickable) {
+        connect(flickable, &QQuickFlickable::movingChanged, this, &QQuickTableView::viewportChanged);
+        connect(flickable, &QQuickFlickable::contentXChanged, this, &QQuickTableView::viewportChanged);
+        connect(flickable, &QQuickFlickable::contentYChanged, this, &QQuickTableView::viewportChanged);
+        connect(flickable, &QQuickFlickable::contentWidthChanged, this, &QQuickTableView::viewportChanged);
+        connect(flickable, &QQuickFlickable::contentHeightChanged, this, &QQuickTableView::viewportChanged);
+
+        flickable->setParentItem(this);
+        flickable->setX(0);
+        flickable->setY(0);
+        flickable->setWidth(400);
+        flickable->setHeight(400);
+    }
+
+    d->m_flickable = flickable;
+    d->invalidateLayout();
+    emit flickableChanged();
+}
+
 void QQuickTableView::initItem(int index, QObject *object)
 {
     Q_UNUSED(index);
@@ -1173,6 +1214,12 @@ void QQuickTableView::componentComplete()
     // Allow app to set content size explicitly, instead of us trying to guess as we go
 //    d->contentWidthSetExplicit = (contentWidth() != -1);
 //    d->contentHeightSetExplicit = (contentHeight() != -1);
+
+    // The application didn't set any flickable, so we do it ourselves. But us using a
+    // flickable when the property is unspecified, is regarded as a private implementation
+    // detail, and can change in the future.
+    if (d->m_flickable.isNull)
+        setFlickable(new QQuickFlickable(this));
 
     QQuickItem::componentComplete();
 }

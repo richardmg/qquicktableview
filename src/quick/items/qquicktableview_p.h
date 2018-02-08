@@ -76,6 +76,7 @@ class Q_AUTOTEST_EXPORT QQuickTableView : public QQuickItem
     Q_PROPERTY(int cacheBuffer READ cacheBuffer WRITE setCacheBuffer NOTIFY cacheBufferChanged)
     Q_PROPERTY(QVariant model READ model WRITE setModel NOTIFY modelChanged)
     Q_PROPERTY(QQmlComponent *delegate READ delegate WRITE setDelegate NOTIFY delegateChanged)
+    Q_PROPERTY(QQuickFlickable *flickable READ flickable WRITE setFlickable NOTIFY flickableChanged)
 
     Q_CLASSINFO("DefaultProperty", "data")
 
@@ -107,6 +108,11 @@ public:
 
     static QQuickTableViewAttached *qmlAttachedProperties(QObject *);
 
+    QQuickFlickable *flickable() const;
+    void setFlickable(QQuickFlickable * flickable);
+
+    void viewportChanged();
+
 Q_SIGNALS:
     void rowsChanged();
     void columnsChanged();
@@ -115,6 +121,7 @@ Q_SIGNALS:
     void cacheBufferChanged();
     void modelChanged();
     void delegateChanged();
+    void flickableChanged();
 
 protected Q_SLOTS:
     void initItem(int index, QObject *item);
