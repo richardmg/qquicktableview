@@ -65,12 +65,12 @@ QT_BEGIN_NAMESPACE
 class Q_AUTOTEST_EXPORT AbstractFxViewItem
 {
 public:
-    AbstractFxViewItem(QQuickItem *item, QQuickAbstractItemView *view, bool ownItem, QQuickAbstractItemViewAttached *attached);
+    AbstractFxViewItem(QQuickItem *item, QQuickItem *view, bool ownItem, QQuickAbstractItemViewAttached *attached);
     virtual ~AbstractFxViewItem();
 
     int index;
     QPointer<QQuickItem> item;
-    QQuickAbstractItemView *view;
+    QQuickItem *view;
     bool ownItem;
     QQuickAbstractItemViewAttached *attached;
 };

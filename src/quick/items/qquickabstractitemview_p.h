@@ -80,7 +80,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickAbstractItemViewAttached : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QQuickAbstractItemView *view READ view NOTIFY viewChanged)
+    Q_PROPERTY(QQuickItem *view READ view NOTIFY viewChanged)
     Q_PROPERTY(bool isCurrentItem READ isCurrentItem NOTIFY currentItemChanged)
 
 public:
@@ -88,8 +88,8 @@ public:
         :QObject(parent) {}
     ~QQuickAbstractItemViewAttached() {}
 
-    QQuickAbstractItemView *view() const { return m_view; }
-    void setView(QQuickAbstractItemView *view) {
+    QQuickItem *view() const { return m_view; }
+    void setView(QQuickItem *view) {
         if (view == m_view)
             return;
         m_view = view;
@@ -109,7 +109,7 @@ Q_SIGNALS:
     void currentItemChanged();
 
 public:
-    QPointer<QQuickAbstractItemView> m_view;
+    QPointer<QQuickItem> m_view;
     bool m_isCurrent : 1;
 
 };

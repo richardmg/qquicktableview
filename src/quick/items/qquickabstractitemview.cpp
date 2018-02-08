@@ -48,7 +48,7 @@ Q_LOGGING_CATEGORY(lcItemViewDelegateLifecycle, "qt.quick.itemview.lifecycle")
 #define QML_VIEW_DEFAULTCACHEBUFFER 320
 #endif
 
-AbstractFxViewItem::AbstractFxViewItem(QQuickItem *item, QQuickAbstractItemView *view, bool ownItem, QQuickAbstractItemViewAttached *attached)
+AbstractFxViewItem::AbstractFxViewItem(QQuickItem *item, QQuickItem *view, bool ownItem, QQuickAbstractItemViewAttached *attached)
     : item(item)
     , view(view)
     , ownItem(ownItem)
