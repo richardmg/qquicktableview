@@ -65,7 +65,7 @@ static const QPoint kNullCell = QPoint(kNullValue, kNullValue);
 class QQuickTableViewAttached;
 class QQuickTableViewPrivate;
 
-class Q_AUTOTEST_EXPORT QQuickTableView : public QQuickAbstractItemView
+class Q_AUTOTEST_EXPORT QQuickTableView : public QQuickItem
 {
     Q_OBJECT
 
@@ -122,7 +122,6 @@ protected Q_SLOTS:
 
 protected:
     void componentComplete() override;
-    void viewportMoved(Qt::Orientations orient) override;
 
 private:
     Q_DISABLE_COPY(QQuickTableView)

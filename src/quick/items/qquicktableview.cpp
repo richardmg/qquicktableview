@@ -117,7 +117,7 @@ QDebug operator<<(QDebug dbg, const TableSectionLoadRequest request) {
 }
 #endif
 
-class QQuickTableViewPrivate : public QQuickAbstractItemViewPrivate
+class QQuickTableViewPrivate : public QQuickItemPrivate
 {
     Q_DECLARE_PUBLIC(QQuickTableView)
 
@@ -160,6 +160,8 @@ protected:
     QSizeF accurateContentSize;
     bool contentWidthSetExplicit;
     bool contentHeightSetExplicit;
+
+    int buffer;
 
     bool modified;
     bool usingBuffer;
@@ -225,6 +227,7 @@ protected:
     void cancelLoadRequest();
     void processLoadRequest();
 
+    bool isViewportMoving();
     void viewportMoved();
     void invalidateLayout();
 
@@ -235,7 +238,8 @@ protected:
 };
 
 QQuickTableViewPrivate::QQuickTableViewPrivate()
-    : ownModel(false)
+    : QQuickItemPrivate()
+    , ownModel(false)
     , delegateValidated(false)
     , loadedTable(QRect())
     , loadedTableRect(QRectF())
@@ -250,6 +254,7 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
     , accurateContentSize(QSizeF(-1, -1))
     , contentWidthSetExplicit(false)
     , contentHeightSetExplicit(false)
+    , buffer(300)
     , modified(false)
     , usingBuffer(false)
     , blockCreatedItemsSyncCallback(false)
@@ -337,19 +342,20 @@ void QQuickTableViewPrivate::calculateContentSize()
     // can cause us to recurse into loading more edges, which we need to block.
     QBoolBlocker guard(blockViewportMovedCallback, true);
 
-    if (!contentWidthSetExplicit && accurateContentSize.width() == -1) {
-        if (loadedTable.topRight().x() == q->columns() - 1)
-            q->setContentWidth(loadedTableRect.right());
-        else
-            q->setContentWidth(loadedTableRect.right() + flickSpace);
-    }
+    // TODO
+//    if (!contentWidthSetExplicit && accurateContentSize.width() == -1) {
+//        if (loadedTable.topRight().x() == q->columns() - 1)
+//            q->setContentWidth(loadedTableRect.right());
+//        else
+//            q->setContentWidth(loadedTableRect.right() + flickSpace);
+//    }
 
-    if (!contentHeightSetExplicit && accurateContentSize.height() == -1) {
-        if (loadedTable.bottomRight().y() == q->rows() - 1)
-            q->setContentHeight(loadedTableRect.bottom());
-        else
-            q->setContentHeight(loadedTableRect.bottom() + flickSpace);
-    }
+//    if (!contentHeightSetExplicit && accurateContentSize.height() == -1) {
+//        if (loadedTable.bottomRight().y() == q->rows() - 1)
+//            q->setContentHeight(loadedTableRect.bottom());
+//        else
+//            q->setContentHeight(loadedTableRect.bottom() + flickSpace);
+//    }
 }
 
 void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
@@ -368,20 +374,23 @@ void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
     // viewport moves). The margins ensures that we don't unload just because the user
     // overshoots when flicking.
     loadedTableRectWithUnloadMargins = loadedTableRect;
-    if (loadedTableRect.x() == 0)
-        loadedTableRectWithUnloadMargins.setLeft(-q->width());
-    if (loadedTableRect.y() == 0)
-        loadedTableRectWithUnloadMargins.setTop(-q->height());
-    if (loadedTableRect.width() == q->contentWidth())
-        loadedTableRectWithUnloadMargins.setRight(q->contentWidth() + q->width());
-    if (loadedTableRect.y() == q->contentHeight())
-        loadedTableRectWithUnloadMargins.setBottom(q->contentHeight() + q->height());
+    // TODO
+//    if (loadedTableRect.x() == 0)
+//        loadedTableRectWithUnloadMargins.setLeft(-q->width());
+//    if (loadedTableRect.y() == 0)
+//        loadedTableRectWithUnloadMargins.setTop(-q->height());
+//    if (loadedTableRect.width() == q->contentWidth())
+//        loadedTableRectWithUnloadMargins.setRight(q->contentWidth() + q->width());
+//    if (loadedTableRect.y() == q->contentHeight())
+//        loadedTableRectWithUnloadMargins.setBottom(q->contentHeight() + q->height());
 }
 
 void QQuickTableViewPrivate::updateVisibleRectAndBufferRect()
 {
     Q_Q(QQuickTableView);
-    visibleRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
+    visibleRect = QRectF(QPointF(0, 0), q->size());
+    // TODO
+//    visibleRect = QRectF(QPointF(q->contentX(), q->contentY()), q->size());
     bufferRect = visibleRect.adjusted(-buffer, -buffer, buffer, buffer);
 }
 
@@ -456,7 +465,9 @@ AbstractFxViewItem *QQuickTableViewPrivate::createItem(int modelIndex, QQmlIncub
         return nullptr;
     }
 
-    item->setParentItem(q->contentItem());
+    // TODO
+//    item->setParentItem(q->contentItem());
+    item->setParentItem(q);
     AbstractFxViewItem *viewItem = newViewItem(modelIndex, item);
 
     if (viewItem) {
@@ -850,12 +861,18 @@ void QQuickTableViewPrivate::loadAndUnloadTableEdges()
     unloadEdgesOutsideRect(usingBuffer ? bufferRect : visibleRect);
     loadEdgesInsideRect(visibleRect, QQmlIncubator::AsynchronousIfNested);
 
-    if (!buffer || loadRequest.active || q_func()->isMoving())
+    if (!buffer || loadRequest.active || isViewportMoving())
         return;
 
     // Start buffer table items async outside the viewport
     loadEdgesInsideRect(bufferRect, QQmlIncubator::Asynchronous);
     usingBuffer = true;
+}
+
+bool QQuickTableViewPrivate::isViewportMoving()
+{
+    // TODO:
+    return false;
 }
 
 void QQuickTableViewPrivate::viewportMoved()
@@ -919,19 +936,15 @@ void QQuickTableViewPrivate::useWrapperDelegateModel(bool use)
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
-    : QQuickAbstractItemView(*(new QQuickTableViewPrivate), parent)
+    : QQuickItem(*(new QQuickTableViewPrivate), parent)
 {
     Q_D(QQuickTableView);
 
-    connect(this, &QQuickTableView::movingChanged, [=] {
-        d->loadAndUnloadTableEdges();
-    });
-}
-
-void QQuickTableView::viewportMoved(Qt::Orientations orient)
-{
-    QQuickAbstractItemView::viewportMoved(orient);
-    d_func()->viewportMoved();
+    // TODO
+//    connect(this, &QQuickTableView::movingChanged, [=] {
+//        d->loadAndUnloadTableEdges();
+//    });
+    // and connect to viewportMoved
 }
 
 int QQuickTableView::rows() const
@@ -1138,9 +1151,10 @@ void QQuickTableView::initItem(int index, QObject *object)
     if (!item)
         return;
 
-    QObject *attachedObject = qmlAttachedPropertiesObject<QQuickTableView>(item);
-    if (QQuickTableViewAttached *attached = static_cast<QQuickTableViewAttached *>(attachedObject))
-        attached->setView(this);
+    // TODO
+//    QObject *attachedObject = qmlAttachedPropertiesObject<QQuickTableView>(item);
+//    if (QQuickTableViewAttached *attached = static_cast<QQuickTableViewAttached *>(attachedObject))
+//        attached->setView(this);
 }
 
 void QQuickTableView::componentComplete()
@@ -1155,11 +1169,12 @@ void QQuickTableView::componentComplete()
         static_cast<QQmlDelegateModel *>(d->model.data())->componentComplete();
     }
 
+    // TODO
     // Allow app to set content size explicitly, instead of us trying to guess as we go
-    d->contentWidthSetExplicit = (contentWidth() != -1);
-    d->contentHeightSetExplicit = (contentHeight() != -1);
+//    d->contentWidthSetExplicit = (contentWidth() != -1);
+//    d->contentHeightSetExplicit = (contentHeight() != -1);
 
-    QQuickAbstractItemView::componentComplete();
+    QQuickItem::componentComplete();
 }
 
 QT_END_NAMESPACE
