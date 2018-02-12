@@ -96,6 +96,8 @@ Window {
             model: listModel
 
             columns: 4
+//            interactive: false
+//            contentItem: flickable.contentItem
 
             columnSpacing: 1
             rowSpacing: 1
@@ -118,6 +120,15 @@ Window {
                 horizontalAlignment: Qt.AlignRight
                 text: qsTr("rows=%1\ncolumns=%2").arg(listModelView.rows).arg(listModelView.columns)
             }
+        }
+
+        Flickable {
+            id: flickable
+            anchors.fill: parent
+            contentWidth: listModelView.accumulatedTableWidth
+            contentHeight: listModelView.accumulatedTableHeight
+            onContentXChanged: listModelView.contentX = contentX
+            onContentYChanged: listModelView.contentY = contentY
         }
     }
 }
