@@ -144,6 +144,13 @@ qtConfig(quick-listview) {
         $$PWD/qquicklistview.cpp
 }
 
+qtConfig(quick-table) {
+    HEADERS += \
+        $$PWD/qquicktable_p.h
+    SOURCES += \
+        $$PWD/qquicktable.cpp
+}
+
 qtConfig(quick-pathview) {
     HEADERS += \
         $$PWD/qquickpathview_p.h \

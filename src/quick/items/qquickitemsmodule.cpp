@@ -64,6 +64,9 @@
 #if QT_CONFIG(quick_pathview)
 #include "qquickpathview_p.h"
 #endif
+#if QT_CONFIG(quick_table)
+#include "qquicktable_p.h"
+#endif
 #if QT_CONFIG(quick_viewtransitions)
 #include "qquickitemviewtransition_p.h"
 #endif
@@ -371,6 +374,9 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
 #endif
 #if QT_CONFIG(quick_gridview)
     qmlRegisterType<QQuickGridView, 7>(uri, 2, 7, "GridView");
+#endif
+#if QT_CONFIG(quick_table)
+    qmlRegisterType<QQuickTable>(uri, 2, 12, "Table");
 #endif
     qmlRegisterType<QQuickTextInput, 7>(uri, 2, 7, "TextInput");
     qmlRegisterType<QQuickTextEdit, 7>(uri, 2, 7, "TextEdit");
