@@ -103,7 +103,7 @@ Window {
                 cacheBuffer: 0
 
 //                rows: 5
-                columns: 1
+                columns: 2
 
                 model: listModel
 

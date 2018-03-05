@@ -50,8 +50,8 @@ Window {
 
     TestTableModel {
         id: tableModel
-        rowCount: 20
-        columnCount: 20
+        rowCount: 100
+        columnCount: 100
     }
 
     Rectangle {
@@ -73,8 +73,8 @@ Window {
                 model: tableModel
                 delegate: tableDelegate
                 cacheBuffer: 500
-                columns: 100
-                rows: 100
+//                columns: 10
+//                rows: 10
                 columnSpacing: 1
                 rowSpacing: 1
             }

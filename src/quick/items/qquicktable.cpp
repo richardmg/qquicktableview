@@ -46,6 +46,7 @@
 #include <QtQml/qqmlinfo.h>
 
 #include "qquickflickable_p.h"
+#include "qquickrectangle_p.h"
 #include "qquickitemviewfxitem_p_p.h"
 
 QT_BEGIN_NAMESPACE
@@ -534,7 +535,10 @@ FxTableItem *QQuickTablePrivate::createFxTableItem(const QPoint &cellCoord, QQml
     } else {
         // The model cannot provide an item for the given
         // index, so we create an empty placeholder instead.
-        item = new QQuickItem();
+        auto rectangle = new QQuickRectangle();
+        rectangle->setColor(Qt::red);
+        rectangle->setSize(QSizeF(10, 10));
+        item = rectangle;//new QQuickItem();
     }
 
     item->setParentItem(q);
@@ -715,7 +719,7 @@ bool QQuickTablePrivate::canUnloadTableEdge(Qt::Edge tableEdge, const QRectF fil
 void QQuickTablePrivate::resizeAndShowVerticalEdge(Qt::Edge tableEdge)
 {
     int column = (tableEdge == Qt::LeftEdge) ? loadedTable.left() : loadedTable.right();
-    QPoint neighbour = (tableEdge == Qt::LeftEdge) ? kRight : kLeft;
+    QPoint neighbourCell = (tableEdge == Qt::LeftEdge) ? kRight : kLeft;
 
     qreal w = 0;
     for (int row = loadedTable.top(); row <= loadedTable.bottom(); ++row)
@@ -723,13 +727,22 @@ void QQuickTablePrivate::resizeAndShowVerticalEdge(Qt::Edge tableEdge)
 
     for (int row = loadedTable.top(); row <= loadedTable.bottom(); ++row) {
         auto fxTableItem = loadedTableItem(QPoint(column, row));
+        auto neighbourItem = itemNextTo(fxTableItem, neighbourCell);
+
+        qreal y = neighbourItem->geometry().top();
+
         qreal x;
         if (tableEdge == Qt::LeftEdge)
-            x = itemNextTo(fxTableItem, kRight)->geometry().left() - spacing.width() - w;
+            x = neighbourItem->geometry().left() - spacing.width() - w;
         else
-            x = itemNextTo(fxTableItem, kLeft)->geometry().right() + spacing.width();
-        qreal y = itemNextTo(fxTableItem, neighbour)->geometry().top();
-        qreal h = itemNextTo(fxTableItem, neighbour)->geometry().height();
+            x = neighbourItem->geometry().right() + spacing.width();
+
+        qreal h;
+        if (neighbourItem->geometry().width() == 10) {
+            qDebug() << "YES!!!!!!!!!!!!!!";
+            h = fxTableItem->geometry().height();
+        } else
+            h = itemNextTo(fxTableItem, neighbourCell)->geometry().height();
 
         fxTableItem->setGeometry(QRectF(x, y, w, h));
         fxTableItem->setVisible(true);
@@ -740,7 +753,7 @@ void QQuickTablePrivate::resizeAndShowVerticalEdge(Qt::Edge tableEdge)
 void QQuickTablePrivate::resizeAndShowHorizontalEdge(Qt::Edge tableEdge)
 {
     int row = (tableEdge == Qt::TopEdge) ? loadedTable.top() : loadedTable.bottom();
-    QPoint neighbour = (tableEdge == Qt::TopEdge) ? kDown : kUp;
+    QPoint neighbourCell = (tableEdge == Qt::TopEdge) ? kDown : kUp;
 
     qreal h = 0;
     for (int column = loadedTable.left(); column <= loadedTable.right(); ++column)
@@ -748,13 +761,21 @@ void QQuickTablePrivate::resizeAndShowHorizontalEdge(Qt::Edge tableEdge)
 
     for (int column = loadedTable.left(); column <= loadedTable.right(); ++column) {
         auto fxTableItem = loadedTableItem(QPoint(column, row));
-        qreal x = itemNextTo(fxTableItem, neighbour)->geometry().left();
+        auto neighbourItem = itemNextTo(fxTableItem, neighbourCell);
+
+        qreal x = neighbourItem->geometry().left();
+
         qreal y;
         if (tableEdge == Qt::TopEdge)
             y = itemNextTo(fxTableItem, kDown)->geometry().top() - spacing.height() - h;
         else
             y = itemNextTo(fxTableItem, kUp)->geometry().bottom() + spacing.height();
-        qreal w = itemNextTo(fxTableItem, neighbour)->geometry().width();
+
+        qreal w;
+        if (neighbourItem->geometry().width() == 10)
+            w = fxTableItem->geometry().width();
+        else
+            w = itemNextTo(fxTableItem, neighbourCell)->geometry().width();
 
         fxTableItem->setGeometry(QRectF(x, y, w, h));
         fxTableItem->setVisible(true);
