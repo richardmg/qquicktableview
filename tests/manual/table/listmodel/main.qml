@@ -98,9 +98,12 @@ Window {
 
             Table {
                 id: table
-                columns: 2
                 columnSpacing: 1
                 rowSpacing: 1
+                cacheBuffer: 0
+
+//                rows: 5
+                columns: 1
 
                 model: listModel
 
@@ -116,27 +119,27 @@ Window {
                 }
             }
 
-            Table {
-                id: table2
-                anchors.left: table.right
-                anchors.leftMargin: 20
-                columns: 2
-                columnSpacing: 1
-                rowSpacing: 1
+//            Table {
+//                id: table2
+//                anchors.left: table.right
+//                anchors.leftMargin: 20
+//                columns: 2
+//                columnSpacing: 1
+//                rowSpacing: 1
 
-                model: listModel
+//                model: listModel
 
-                delegate: Rectangle {
-                    width: 120
-                    height: 60
-                    color: name ? "lightgreen" : Qt.rgba(0.96, 0.96, 0.96, 1)
-                    Text {
-                        x: 2
-                        y: 2
-                        text: "[" + column + ", " + row + "]\nIndex: " + index + (name ? "\nModel: " + name : "")
-                    }
-                }
-            }
+//                delegate: Rectangle {
+//                    width: 120
+//                    height: 60
+//                    color: name ? "lightgreen" : Qt.rgba(0.96, 0.96, 0.96, 1)
+//                    Text {
+//                        x: 2
+//                        y: 2
+//                        text: "[" + column + ", " + row + "]\nIndex: " + index + (name ? "\nModel: " + name : "")
+//                    }
+//                }
+//            }
 
         }
     }
