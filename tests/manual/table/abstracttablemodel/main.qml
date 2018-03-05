@@ -41,6 +41,7 @@ import QtQuick 2.12
 import QtQuick.Window 2.3
 import QtQml.Models 2.2
 import TestTableModel 0.1
+import QtQuick.Controls 1.4
 
 Window {
     id: window
@@ -48,10 +49,12 @@ Window {
     height: 480
     visible: true
 
+    property bool doit: true
+
     TestTableModel {
         id: tableModel
-        rowCount: 20
-        columnCount: 20
+        rowCount: 800
+        columnCount: 200
     }
 
     Rectangle {
@@ -72,9 +75,9 @@ Window {
                 id: table
                 model: tableModel
                 delegate: tableDelegate
-                cacheBuffer: 500
-                columns: 100
-                rows: 100
+                cacheBuffer: 100
+//                columns: 10
+//                rows: 10
                 columnSpacing: 1
                 rowSpacing: 1
             }
@@ -89,19 +92,43 @@ Window {
             text: qsTr("rows=%1\ncolumns=%2").arg(table.rows).arg(table.columns)
         }
 
+        // strategi: layout, men cache et visst antall rows/columns sizes (f.eks 100)
+        // Dermed blir det ikke så synlig
+        // Og, lag struktur for å flytte på items hvis det ikke går opp når
+        // man flicker helt til begynnelsen.
+
         Component {
             id: tableDelegate
             Rectangle {
-                width: column % 3 ? 80 : 50
-                height: row % 3 ? 80 : 50
+                width: (doit && row == 3 && column == 5) ? 300 : 60
+                height: 40
                 color: model.display ? "white" : Qt.rgba(0.96, 0.96, 0.96, 1)
 
                 Text {
                     anchors.centerIn: parent
+//                    text: row == 3 && column == 0 ? "YES": "NO";
                     text: model.display ? model.display : ""
                 }
             }
         }
+
+        Button {
+            id: button1
+            x: 10
+            y: 10
+            text: doit ? "don't do it" : "do it"
+            onClicked: doit = !doit
+        }
+//        Button {
+//            x: 10
+//            anchors.top: button1.bottom
+//            anchors.margins: 10
+//            text: "dec spacing"
+//            onClicked: {
+//                table.rowSpacing = table.rowSpacing - 2
+//                table.columnSpacing = table.columnSpacing - 2
+//            }
+//        }
 
     }
 
