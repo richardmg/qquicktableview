@@ -40,6 +40,7 @@
 import QtQuick 2.12
 import QtQuick.Window 2.3
 import QtQml.Models 2.2
+import QtQuick.Controls 1.4
 
 Window {
     id: window
@@ -98,46 +99,82 @@ Window {
 
             Table {
                 id: table
-                columns: 2
                 columnSpacing: 1
                 rowSpacing: 1
+                cacheBuffer: 0
+
+//                rows: 5
+//                columns: 2
 
                 model: listModel
+//                model: 100
+//                model: ObjectModel {
+//                    Rectangle { height: 30; width: 80; color: "red" }
+//                    Rectangle { height: 40; width: 90; color: "green" }
+//                    Rectangle { height: 25; width: 30; color: "blue" }
+//                    Rectangle { height: 30; width: 40; color: "yellow" }
+//                    Rectangle { height: 30; width: 50; color: "gray" }
+//                    Rectangle { height: 55; width: 60; color: "cyan" }
+//                    Rectangle { height: 40; width: 30; color: "purple" }
+//                    Rectangle { height: 33; width: 50; color: "lightblue" }
+//                    Rectangle { height: 20; width: 80; color: "black" }
+//                }
 
                 delegate: Rectangle {
-                    width: 120
-                    height: 60
-                    color: name ? "lightblue" : Qt.rgba(0.96, 0.96, 0.96, 1)
+                    width: 50//row == 3 ? 120 : 50
+                    height: 60 + (5 * row)
+                    color: Qt.rgba(0.96, 0.96, 0.96, 1)
                     Text {
                         x: 2
                         y: 2
-                        text: "[" + column + ", " + row + "]\nIndex: " + index + (name ? "\nModel: " + name : "")
+                        text: modelData//"[" + column + ", " + row + "]\nIndex: " + index + (name ? "\nModel: " + name : "")
                     }
                 }
             }
 
-            Table {
-                id: table2
-                anchors.left: table.right
-                anchors.leftMargin: 20
-                columns: 2
-                columnSpacing: 1
-                rowSpacing: 1
+//            Table {
+//                id: table2
+//                anchors.left: table.right
+//                anchors.leftMargin: 20
+//                columns: 2
+//                columnSpacing: 1
+//                rowSpacing: 1
 
-                model: listModel
+//                model: listModel
 
-                delegate: Rectangle {
-                    width: 120
-                    height: 60
-                    color: name ? "lightgreen" : Qt.rgba(0.96, 0.96, 0.96, 1)
-                    Text {
-                        x: 2
-                        y: 2
-                        text: "[" + column + ", " + row + "]\nIndex: " + index + (name ? "\nModel: " + name : "")
-                    }
-                }
+//                delegate: Rectangle {
+//                    width: 120
+//                    height: 60
+//                    color: name ? "lightgreen" : Q
+//                    Text {
+//                        x: 2
+//                        y: 2
+//                        text: "[" + column + ", " + row + "]\nIndex: " + index + (name ? "\nModel: " + name : "")
+//                    }
+//                }
+//            }
+
+
+        }
+        Button {
+            id: button1
+            x: 10
+            y: 10
+            text: "inc spacing"
+            onClicked: {
+                table.rowSpacing = table.rowSpacing + 2
+                table.columnSpacing = table.columnSpacing + 2
             }
-
+        }
+        Button {
+            x: 10
+            anchors.top: button1.bottom
+            anchors.margins: 10
+            text: "dec spacing"
+            onClicked: {
+                table.rowSpacing = table.rowSpacing - 2
+                table.columnSpacing = table.columnSpacing - 2
+            }
         }
     }
 }
