@@ -69,6 +69,7 @@ Window {
                 cacheBuffer: 500
                 columnSpacing: 1
                 rowSpacing: 1
+                Component.onCompleted: model.refresh()
             }
         }
 
@@ -84,13 +85,12 @@ Window {
         Component {
             id: tableDelegate
             Rectangle {
-                width: column % 3 ? 80 : 50
-                height: row % 3 ? 80 : 50
-                color: model.display ? "white" : Qt.rgba(0.96, 0.96, 0.96, 1)
+                width: 100
+                height: 30
 
                 Text {
                     anchors.centerIn: parent
-                    text: model.display ? model.display : ""
+                    text: storageData
                 }
             }
         }

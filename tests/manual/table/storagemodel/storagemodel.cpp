@@ -103,6 +103,12 @@ Qt::ItemFlags StorageModel::flags(const QModelIndex &index) const
     return result;
 }
 
+QHash<int, QByteArray> StorageModel::roleNames() const {
+    QHash<int, QByteArray> roles;
+    roles[Qt::DisplayRole] = "storageData";
+    return roles;
+}
+
 QVariant StorageModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid())

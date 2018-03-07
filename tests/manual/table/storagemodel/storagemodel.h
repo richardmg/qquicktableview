@@ -83,6 +83,8 @@ public:
     Qt::ItemFlags flags(const QModelIndex &index) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
 
+    QHash<int, QByteArray> roleNames() const override;
+
 public slots:
     void refresh();
 
