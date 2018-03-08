@@ -87,15 +87,20 @@ public:
 
     void updatePolish() override;
 
-    class TableSectionLoadRequest
+    struct TableSectionLoadRequest
     {
-    public:
         QLine itemsToLoad;
         Qt::Edge edgeToLoad;
         int loadIndex;
         int loadCount;
         bool active = false;
         QQmlIncubator::IncubationMode incubationMode;
+    };
+
+    struct ColumnOrRowSize
+    {
+        int columnOrRow;
+        qreal size;
     };
 
 protected:
@@ -139,7 +144,9 @@ protected:
     bool layoutInvalid;
 
     QVector<QMetaObject::Connection> containerConnections;
-    QVector<QSizeF> cachedColumnAndRowSizes;
+
+    QVector<ColumnOrRowSize> columnWidths;
+    QVector<ColumnOrRowSize> rowHeights;
 
 #ifdef QT_DEBUG
     QString forcedIncubationMode;
@@ -176,6 +183,7 @@ protected:
     QLine rectangleEdge(const QRect &rect, Qt::Edge tableEdge);
     QRect expandedRect(const QRect &rect, Qt::Edge edge, int increment);
 
+    void calculateLoadedEdgeSize();
     qreal columnWidth(int column);
     qreal rowHeight(int row);
 
@@ -184,7 +192,7 @@ protected:
     void layoutHorizontalEdge(Qt::Edge tableEdge, bool adjustSize);
     void layoutLoadedTableEdge();
 
-    void resetCachedColumnAndRowSizes();
+    void invalidateColumnAndRowSizes();
     void enforceFirstRowColumnAtOrigo();
     void updateImplicitSize();
     void syncLoadedTableRectFromLoadedTable();
@@ -259,6 +267,8 @@ static QDebug operator<<(QDebug dbg, const QQuickTablePrivate::TableSectionLoadR
     return dbg;
 }
 #endif
+
+Q_DECLARE_TYPEINFO(QQuickTablePrivate::ColumnOrRowSize, Q_PRIMITIVE_TYPE);
 
 const QPoint QQuickTablePrivate::kLeft = QPoint(-1, 0);
 const QPoint QQuickTablePrivate::kRight = QPoint(1, 0);
@@ -402,17 +412,9 @@ int QQuickTablePrivate::modelIndexAt(const QPoint &cellCoord)
     return modelIndex;
 }
 
-void QQuickTablePrivate::resetCachedColumnAndRowSizes()
+void QQuickTablePrivate::invalidateColumnAndRowSizes()
 {
-    Q_Q(QQuickTable);
-    const int maxCacheSize = 100;
-    cachedColumnAndRowSizes.clear();
-    int rows = q->rows();
-    int columns = q->columns();
-    if (rows == 1 || columns == 1)
-        cachedColumnAndRowSizes.squeeze();
-    else
-        cachedColumnAndRowSizes.resize(maxCacheSize);
+    columnWidths.clear();
 }
 
 void QQuickTablePrivate::enforceFirstRowColumnAtOrigo()
@@ -656,7 +658,7 @@ void QQuickTablePrivate::clear()
     releaseLoadedItems();
     loadedTable = QRect();
     loadedTableRect = QRect();
-    resetCachedColumnAndRowSizes();
+    invalidateColumnAndRowSizes();
     implicitSizeBenchMarkPoint = QPoint(-1, -1);
     updateImplicitSize();
 
@@ -774,44 +776,73 @@ bool QQuickTablePrivate::canUnloadTableEdge(Qt::Edge tableEdge, const QRectF fil
     return false;
 }
 
+void QQuickTablePrivate::calculateLoadedEdgeSize()
+{
+    // Calculate and store the width of a column / height of a row using a
+    // rolling difference algorithm. This means that we only store a columns
+    // width if it's different from the previous columns width. This will save
+    // space for huge tables where the column widths tends to stay the same unless explicitly resized.
+
+    switch (loadRequest.edgeToLoad) {
+    case Qt::LeftEdge:
+        // Flicking left or up through "never loaded" rows/columns is currently
+        // not supported. You always need to start loading the table from the beginning.
+        Q_TABLE_ASSERT(columnWidths.first().columnOrRow == 0, columnWidths.first().columnOrRow);
+        return;
+    case Qt::TopEdge:
+        Q_TABLE_ASSERT(rowHeights.first().columnOrRow == 0, rowHeights.first().columnOrRow);
+        return;
+    case Qt::RightEdge: {
+        int column = loadedTable.right();
+        if (column < columnWidths.last().columnOrRow) {
+            // We only do the calculation once, and then stick with the size. This to avoid
+            // recalculating the width of a column when flicking it in and out of view.
+            return;
+        }
+        qreal columnWidth = 0;
+        for (int row = loadedTable.top(); row <= loadedTable.bottom(); ++row) {
+            auto const item = loadedTableItem(QPoint(column, row));
+            columnWidth = qMax(columnWidth, item->geometry().width());
+        }
+        columnWidths.append({column, columnWidth}); }
+    case Qt::BottomEdge: {
+        int row = loadedTable.bottom();
+        if (row < rowHeights.last().columnOrRow) {
+            // We only do the calculation once, and then stick with the size. This to avoid
+            // recalculating the height of a row when flicking it in and out of view.
+            return;
+        }
+        qreal rowHeight = 0;
+        for (int column = loadedTable.left(); column <= loadedTable.right(); ++column) {
+            auto const item = loadedTableItem(QPoint(column, row));
+            rowHeight = qMax(rowHeight, item->geometry().height());
+        }
+        rowHeights.append({row, rowHeight}); }
+    default:
+        Q_TABLE_UNREACHABLE("This function should not be called when loading top-left item");
+    }
+}
+
 qreal QQuickTablePrivate::columnWidth(int column)
 {
-    qreal columnWidth = 0;
-    if (column < cachedColumnAndRowSizes.size()) {
-        columnWidth = cachedColumnAndRowSizes[column].width();
-        if (columnWidth > 0)
-            return columnWidth;
-    }
+    auto value = ColumnOrRowSize {column, 0};
+    auto const columnSize = std::lower_bound(columnWidths.constBegin(), columnWidths.constEnd(), value,
+                     [](const QQuickTablePrivate::ColumnOrRowSize& f1, const QQuickTablePrivate::ColumnOrRowSize& f2) { return f1.columnOrRow < f2.columnOrRow; });
 
-    // Calculate the max width of all visible cells in the given column
-    for (int row = loadedTable.top(); row <= loadedTable.bottom(); ++row) {
-        auto const item = loadedTableItem(QPoint(column, row));
-        columnWidth = qMax(columnWidth, item->geometry().width());
-    }
+    qDebug() << "found:" << column << columnSize->columnOrRow;
 
-    if (column < cachedColumnAndRowSizes.size())
-        cachedColumnAndRowSizes[column].setWidth(columnWidth);
-    return columnWidth;
+    return columnSize->size;
 }
 
 qreal QQuickTablePrivate::rowHeight(int row)
 {
-    qreal rowHeight = 0;
-    if (row < cachedColumnAndRowSizes.size()) {
-        rowHeight = cachedColumnAndRowSizes[row].height();
-        if (rowHeight > 0)
-            return rowHeight;
-    }
+    auto value = ColumnOrRowSize {row, 0};
+    auto const rowSize = std::lower_bound(rowHeights.constBegin(), rowHeights.constEnd(), value,
+                     [](const QQuickTablePrivate::ColumnOrRowSize& f1, const QQuickTablePrivate::ColumnOrRowSize& f2) { return f1.columnOrRow < f2.columnOrRow; });
 
-    // Calculate the max height of all visible cells in the given row
-    for (int column = loadedTable.left(); column <= loadedTable.right(); ++column) {
-        const auto item = loadedTableItem(QPoint(column, row));
-        rowHeight = qMax(rowHeight, item->geometry().height());
-    }
+//    qDebug() << "found:" << row << rowSize->columnOrRow;
 
-    if (row < cachedColumnAndRowSizes.size())
-        cachedColumnAndRowSizes[row].setHeight(rowHeight);
-    return rowHeight;
+    return rowSize->size;
 }
 
 void QQuickTablePrivate::relayoutAllItems()
@@ -1017,6 +1048,8 @@ void QQuickTablePrivate::processLoadRequest()
 
     // Load request done
     syncLoadedTableFromLoadRequest();
+    if (reloadCompleted)
+        calculateLoadedEdgeSize();
     layoutLoadedTableEdge();
     syncLoadedTableRectFromLoadedTable();
     enforceFirstRowColumnAtOrigo();
