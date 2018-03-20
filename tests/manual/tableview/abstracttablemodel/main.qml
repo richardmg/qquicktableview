@@ -51,7 +51,7 @@ Window {
 
     TestTableModel {
         id: tableModel
-        rowCount: 200
+        rowCount: 40
         columnCount: 200
     }
 
@@ -71,6 +71,40 @@ Window {
             cacheBuffer: 500
             columnSpacing: 1
             rowSpacing: 1
+            topMargin: header.height
+            bottomMargin: footer.height
+
+            ListView {
+                id: header
+                y: Math.max(0, tableView.contentY)
+                width: tableView.contentWidth
+                height: 30
+                orientation: Qt.Horizontal
+                spacing: 1
+                z: 1
+                model: tableView.columns
+                delegate: Rectangle {
+                    id: headerDelegate
+                    color: "lightblue"
+                    width: index % 3 ? 80 : 50
+                    height: header.height
+                    Text {
+                        text: "col: " + index
+                    }
+                }
+            }
+
+            Rectangle {
+                id: footer
+                y: tableView.contentHeight - height
+                width: tableView.contentWidth
+                height: 20
+                z: 1
+                color: "lightblue"
+                Text {
+                    text: "Footer"
+                }
+            }
         }
 
         Component {
