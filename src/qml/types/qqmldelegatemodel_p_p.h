@@ -141,6 +141,8 @@ public:
     QPointer<QObject> object;
     QPointer<QQmlDelegateModelAttached> attached;
     QQDMIncubationTask *incubationTask;
+    QQmlComponent *delegate;
+    int poolTime;
     int objectRef;
     int scriptRef;
     int groups;
@@ -259,7 +261,14 @@ public:
 
     void requestMoreIfNecessary();
     QObject *object(Compositor::Group group, int index, QQmlIncubator::IncubationMode incubationMode);
-    QQmlDelegateModel::ReleaseFlags release(QObject *object);
+
+    QQmlDelegateModel::ReleaseFlags release(QObject *object, bool recyclable = false);
+    void recycleItem(QQmlDelegateModelItem *item, int newModelIndex, int newGroups);
+    void insertIntoRecyclePool(QQmlDelegateModelItem *cacheItem);
+    QQmlDelegateModelItem *takeFromRecyclePool(const QQmlComponent *delegate);
+    void drainRecyclePool(int maxPoolTime);
+    QQmlComponent *resolveDelegate(int index);
+
     QString stringValue(Compositor::Group group, int index, const QString &name);
     void emitCreatedPackage(QQDMIncubationTask *incubationTask, QQuickPackage *package);
     void emitInitPackage(QQDMIncubationTask *incubationTask, QQuickPackage *package);
@@ -271,7 +280,6 @@ public:
     void emitDestroyingItem(QObject *item) { Q_EMIT q_func()->destroyingItem(item); }
     void addCacheItem(QQmlDelegateModelItem *item, Compositor::iterator it);
     void removeCacheItem(QQmlDelegateModelItem *cacheItem);
-
     void updateFilterGroup();
 
     void addGroups(Compositor::iterator from, int count, Compositor::Group group, int groupFlags);
@@ -313,6 +321,7 @@ public:
     QQmlDelegateModelGroupEmitterList m_pendingParts;
 
     QList<QQmlDelegateModelItem *> m_cache;
+    QList<QQmlDelegateModelItem *> m_recyclePool;
     QList<QQDMIncubationTask *> m_finishedIncubating;
     QList<QByteArray> m_watchedRoles;
 

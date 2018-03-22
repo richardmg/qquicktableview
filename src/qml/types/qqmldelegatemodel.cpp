@@ -223,6 +223,9 @@ QQmlDelegateModelPrivate::~QQmlDelegateModelPrivate()
 {
     qDeleteAll(m_finishedIncubating);
 
+    // Free up all items in the pool
+    drainRecyclePool(0);
+
     if (m_cacheMetaType)
         m_cacheMetaType->release();
 }
@@ -563,7 +566,7 @@ int QQmlDelegateModel::count() const
     return d->m_compositor.count(d->m_compositorGroup);
 }
 
-QQmlDelegateModel::ReleaseFlags QQmlDelegateModelPrivate::release(QObject *object)
+QQmlDelegateModel::ReleaseFlags QQmlDelegateModelPrivate::release(QObject *object, bool recyclable)
 {
     if (!object)
         return QQmlInstanceModel::Destroyed;
@@ -574,6 +577,13 @@ QQmlDelegateModel::ReleaseFlags QQmlDelegateModelPrivate::release(QObject *objec
 
     if (!cacheItem->releaseObject())
         return QQmlDelegateModel::Referenced;
+
+    if (recyclable) {
+        insertIntoRecyclePool(cacheItem);
+        removeCacheItem(cacheItem);
+        cacheItem->referenceObject();
+        return QQmlInstanceModel::Referenced;
+    }
 
     cacheItem->destroyObject();
     emitDestroyingItem(object);
@@ -588,11 +598,10 @@ QQmlDelegateModel::ReleaseFlags QQmlDelegateModelPrivate::release(QObject *objec
 /*
   Returns ReleaseStatus flags.
 */
-
-QQmlDelegateModel::ReleaseFlags QQmlDelegateModel::release(QObject *item)
+QQmlDelegateModel::ReleaseFlags QQmlDelegateModel::release(QObject *object, bool recyclable)
 {
     Q_D(QQmlDelegateModel);
-    QQmlInstanceModel::ReleaseFlags stat = d->release(item);
+    QQmlInstanceModel::ReleaseFlags stat = d->release(object, recyclable);
     return stat;
 }
 
@@ -836,6 +845,11 @@ QObject *QQmlDelegateModel::parts()
     return d->m_parts;
 }
 
+void QQmlDelegateModel::drainRecyclePool(int maxPoolTime)
+{
+    d_func()->drainRecyclePool(maxPoolTime);
+}
+
 void QQmlDelegateModelPrivate::emitCreatedPackage(QQDMIncubationTask *incubationTask, QQuickPackage *package)
 {
     for (int i = 1; i < m_groupCount; ++i)
@@ -888,6 +902,117 @@ void QQmlDelegateModelPrivate::releaseIncubator(QQDMIncubationTask *incubationTa
         m_incubatorCleanupScheduled = true;
         QCoreApplication::postEvent(q, new QEvent(QEvent::User));
     }
+}
+
+void QQmlDelegateModelPrivate::insertIntoRecyclePool(QQmlDelegateModelItem *cacheItem)
+{
+    // The currently only way for a view to recycle items is to call QQmlDelegateModel::release()
+    // with the second argument 'recyclable' explicitly set to true. If the released item is no
+    // longer referenced, we then add it to the pool. 'recyclable' can be specified per item, in
+    // case certain items cannot be recycled.
+    //    A QQmlDelegateModelItem knows which delegate its object was created from. So when we are
+    // about to create a new item, we first check if the pool contains an item based on the same
+    // delegate from before. If so, we take it out of the pool (instead of creating a new item), and
+    // update all its context-, and attached properties.
+    //    When a view is recycling items, it should call QQmlDelegateModel::drainRecyclePool()
+    // regularly. As there is currently no logic to 'hibernate' items in the pool, they are only
+    // meant to rest there for a short while, ideally only from the time e.g a row is unloaded
+    // on one side of the view, and until a new row is loaded on the opposite side. In-between
+    // this time, the application will see the item as fully functional and 'alive' (just not
+    // visible on screen). Since this time is supposed to be short, we don't take any action to
+    // notify the application about it, since we don't want to trigger any bindings that can
+    // disturb performance.
+    //    A recommended time for calling this drainRecyclePool() is each time a view has finished
+    // loading e.g a new row or column. If there are more items in the pool after that, it means
+    // that the view most likely don't need them anytime soon and should therefore be destroyed.
+    //     Depending on if the view is a list or a table, it can sometimes be performant to keep
+    // items in the pool for a bit longer than one "row out/row in" cycle. E.g for a table, if the
+    // number of visible rows in the view is much larger than the number of visible columns.
+    // In that case, if you flick out a row, and then flick in a column, you would throw away
+    // a lot of the old row items in the pool if then completly draining it. And then, if you
+    // flick in a new row, you would need to load all those drained items again from scratch.
+    // For that reason, you can specify a maxPoolTime to the drainRecyclePool() that allows you to
+    // keep items in the pool for a bit longer, effectively keeping more items in circulation.
+    //    A recommended maxPoolTime would be equal to the number of dimenstions in the view, which
+    // means 1 for a list view and 2 for a table view. If you specify 0, all items will be drained.
+    Q_ASSERT(!cacheItem->incubationTask);
+    Q_ASSERT(cacheItem->object);
+    Q_ASSERT(!cacheItem->isObjectReferenced());
+
+    cacheItem->poolTime = 0;
+    m_recyclePool.append(cacheItem);
+}
+
+QQmlDelegateModelItem *QQmlDelegateModelPrivate::takeFromRecyclePool(const QQmlComponent *delegate)
+{
+    // Find a oldest item in the pool that was made from the same delegate as
+    // the given argument, remove the it from the pool, and return it.
+    if (m_recyclePool.isEmpty())
+        return nullptr;
+
+    for (auto it = m_recyclePool.begin(); it != m_recyclePool.end(); ++it) {
+        if ((*it)->delegate != delegate)
+            continue;
+        auto modelItem = *it;
+        m_recyclePool.erase(it);
+        return modelItem;
+    }
+
+    return nullptr;
+}
+
+void QQmlDelegateModelPrivate::drainRecyclePool(int maxPoolTime)
+{
+    // Rather than releasing all pooled items upon a call to this function, each
+    // item has a poolTime. The poolTime specifies for how long an item has been
+    // resting in the pool. And for each invocation of this function, poolTime will
+    // increase. If poolTime is equal to, or exceeds, maxPoolTime, it will be removed
+    // from the pool and released. This way, the view can tweak a bit for how long
+    // items should stay in "circulation", even if they are not recycled right away.
+    for (auto it = m_recyclePool.begin(); it != m_recyclePool.end();) {
+        auto modelItem = *it;
+        modelItem->poolTime++;
+        if (modelItem->poolTime <= maxPoolTime) {
+            ++it;
+        } else {
+            it = m_recyclePool.erase(it);
+            release(modelItem);
+        }
+    }
+}
+
+void QQmlDelegateModelPrivate::recycleItem(QQmlDelegateModelItem *item, int newModelIndex, int newGroups)
+{
+    Q_ASSERT(item->object);
+
+    // Update/reset which groups the item belongs to
+    item->groups = newGroups;
+
+    // Update context property index (including row and column) on
+    // the delegate item, and inform the application about it.
+    item->setModelIndex(newModelIndex);
+    // Notify the application that all 'dynamic'/role-based context data has
+    // changed as well (their getter function will use the updated index).
+    m_adaptorModel.notify(m_cache, newModelIndex, 1, QVector<int>());
+
+    if (QQmlDelegateModelAttached *att = static_cast<QQmlDelegateModelAttached *>(
+                qmlAttachedPropertiesObject<QQmlDelegateModel>(item->object, false))) {
+        // Update currentIndex of the attached DelegateModel object
+        // to the index the item has in the cache.
+        att->resetCurrentIndex();
+        // emitChanges will emit both group-, and index changes to the application
+        att->emitChanges();
+    }
+
+    // Inform the view that the item is recycled. This will typically result
+    // in the view updating its own attached delegate item properties.
+    emit q_func()->initRecycledItem(newModelIndex, item->object);
+}
+
+QQmlComponent *QQmlDelegateModelPrivate::resolveDelegate(int index)
+{
+    Q_UNUSED(index);
+    return m_delegate;
 }
 
 void QQmlDelegateModelPrivate::addCacheItem(QQmlDelegateModelItem *item, Compositor::iterator it)
@@ -976,11 +1101,24 @@ QObject *QQmlDelegateModelPrivate::object(Compositor::Group group, int index, QQ
         return nullptr;
     }
 
+    QQmlComponent *delegate = nullptr;
     Compositor::iterator it = m_compositor.find(group, index);
 
     QQmlDelegateModelItem *cacheItem = it->inCache() ? m_cache.at(it.cacheIndex) : 0;
 
     if (!cacheItem) {
+        delegate = resolveDelegate(index);
+        cacheItem = takeFromRecyclePool(delegate);
+        if (cacheItem) {
+            // Move the pooled item back into the cache, update
+            // all related properties, and return the object (which
+            // has already been incubated, otherwise it wouldn't be in the pool).
+            addCacheItem(cacheItem, it);
+            recycleItem(cacheItem, index, it->flags);
+            return cacheItem->object;
+        }
+
+        // Since we could't find an available item in the pool, we create a new one
         cacheItem = m_adaptorModel.createItem(m_cacheMetaType, it.modelIndex());
         if (!cacheItem)
             return nullptr;
@@ -1001,7 +1139,11 @@ QObject *QQmlDelegateModelPrivate::object(Compositor::Group group, int index, QQ
             cacheItem->incubationTask->forceCompletion();
         }
     } else if (!cacheItem->object) {
-        QQmlContext *creationContext = m_delegate->creationContext();
+        if (!delegate)
+            delegate = resolveDelegate(index);
+        cacheItem->delegate = delegate;
+
+        QQmlContext *creationContext = delegate->creationContext();
 
         cacheItem->scriptRef += 1;
 
@@ -1956,6 +2098,8 @@ QQmlDelegateModelItem::QQmlDelegateModelItem(
     , object(nullptr)
     , attached(nullptr)
     , incubationTask(nullptr)
+    , delegate(nullptr)
+    , poolTime(0)
     , objectRef(0)
     , scriptRef(0)
     , groups(0)

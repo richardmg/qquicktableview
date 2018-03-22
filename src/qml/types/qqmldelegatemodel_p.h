@@ -118,7 +118,9 @@ public:
     int count() const override;
     bool isValid() const override { return delegate() != nullptr; }
     QObject *object(int index, QQmlIncubator::IncubationMode incubationMode = QQmlIncubator::AsynchronousIfNested) override;
-    ReleaseFlags release(QObject *object) override;
+    ReleaseFlags release(QObject *object, bool recyclable);
+    ReleaseFlags release(QObject *object) override { return release(object, false); }
+    void drainRecyclePool(int maxPoolTime);
     void cancel(int index) override;
     QString stringValue(int index, const QString &role) override;
     void setWatchedRoles(const QList<QByteArray> &roles) override;
@@ -134,7 +136,6 @@ public:
     QQmlDelegateModelGroup *persistedItems();
     QQmlListProperty<QQmlDelegateModelGroup> groups();
     QObject *parts();
-
     bool event(QEvent *) override;
 
     static QQmlDelegateModelAttached *qmlAttachedProperties(QObject *obj);
@@ -143,6 +144,7 @@ Q_SIGNALS:
     void filterGroupChanged();
     void defaultGroupsChanged();
     void rootIndexChanged();
+    Q_REVISION(12) void initRecycledItem(int index, QObject *object);
     Q_REVISION(12) void rowsChanged();
     Q_REVISION(12) void columnsChanged();
 
