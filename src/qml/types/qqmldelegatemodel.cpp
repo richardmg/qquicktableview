@@ -570,6 +570,9 @@ QQmlDelegateModel::ReleaseFlags QQmlDelegateModelPrivate::release(QObject *objec
         return stat;
 
     if (QQmlDelegateModelItem *cacheItem = QQmlDelegateModelItem::dataForObject(object)) {
+        if (cacheItem->refCount() == 1 && transferFromCacheToRecyclePool(cacheItem))
+            return QQmlInstanceModel::Referenced;
+
         if (cacheItem->releaseObject()) {
             cacheItem->destroyObject();
             emitDestroyingItem(object);
@@ -891,6 +894,53 @@ void QQmlDelegateModelPrivate::releaseIncubator(QQDMIncubationTask *incubationTa
     }
 }
 
+bool QQmlDelegateModelPrivate::transferFromCacheToRecyclePool(QQmlDelegateModelItem *cacheItem)
+{
+    if (m_recyclePool.size() >= m_recyclePoolMaxSize) {
+        // The pool is full, so we refuse to transfer the item
+        return false;
+    }
+
+    if (cacheItem->incubationTask) {
+        // Don't recycle unloaded items
+        return false;
+    }
+
+    if (!cacheItem->object) {
+        // Don't recycle uncomplete model items
+        return false;
+    }
+
+    // TODO: remember to release all items in pool on destruction!
+
+    removeCacheItem(cacheItem);
+    m_recyclePool.append(cacheItem);
+    return true;
+}
+
+QQmlDelegateModelItem *QQmlDelegateModelPrivate::transferFromRecyclePoolToCache(int modelIndex, Compositor::iterator it)
+{
+    auto item = m_recyclePool.takeLast();
+
+    // Transfer the item to the cache before we start changing the item (and emit signals)
+    addCacheItem(item, it);
+    // Let the view init the item (assign values to attached props)
+    Q_EMIT q_func()->initItem(modelIndex, item->object);
+    // Update model data
+    item->setModelIndex(modelIndex);
+    m_adaptorModel.notify(m_cache, modelIndex, 1, QVector<int>());
+
+    return item;
+}
+
+void QQmlDelegateModelPrivate::addCacheItem(QQmlDelegateModelItem *item, Compositor::iterator it)
+{
+    item->groups = it->flags;
+    m_cache.insert(it.cacheIndex, item);
+    m_compositor.setFlags(it, 1, Compositor::CacheFlag);
+    Q_ASSERT(m_cache.count() == m_compositor.count(Compositor::Cache));
+}
+
 void QQmlDelegateModelPrivate::removeCacheItem(QQmlDelegateModelItem *cacheItem)
 {
     int cidx = m_cache.lastIndexOf(cacheItem);
@@ -974,15 +1024,18 @@ QObject *QQmlDelegateModelPrivate::object(Compositor::Group group, int index, QQ
     QQmlDelegateModelItem *cacheItem = it->inCache() ? m_cache.at(it.cacheIndex) : 0;
 
     if (!cacheItem) {
+        if (!m_recyclePool.isEmpty()) {
+            cacheItem = transferFromRecyclePoolToCache(index, it);
+            // Items in the pool are already incubated, so we
+            // can return the received item directly.
+            return cacheItem->object;
+        }
+
         cacheItem = m_adaptorModel.createItem(m_cacheMetaType, it.modelIndex());
         if (!cacheItem)
             return nullptr;
 
-        cacheItem->groups = it->flags;
-
-        m_cache.insert(it.cacheIndex, cacheItem);
-        m_compositor.setFlags(it, 1, Compositor::CacheFlag);
-        Q_ASSERT(m_cache.count() == m_compositor.count(Compositor::Cache));
+        addCacheItem(cacheItem, it);
     }
 
     // Bump the reference counts temporarily so neither the content data or the delegate object

@@ -103,6 +103,7 @@ public:
     void referenceObject() { ++objectRef; }
     bool releaseObject() { return --objectRef == 0 && !(groups & Compositor::PersistedFlag); }
     bool isObjectReferenced() const { return objectRef != 0 || (groups & Compositor::PersistedFlag); }
+    int refCount() { return objectRef; }
 
     bool isReferenced() const {
         return scriptRef
@@ -269,7 +270,11 @@ public:
         Q_EMIT q_func()->initItem(incubationTask->index[m_compositorGroup], item); }
     void emitDestroyingPackage(QQuickPackage *package);
     void emitDestroyingItem(QObject *item) { Q_EMIT q_func()->destroyingItem(item); }
+    void addCacheItem(QQmlDelegateModelItem *item, Compositor::iterator it);
     void removeCacheItem(QQmlDelegateModelItem *cacheItem);
+
+    bool transferFromCacheToRecyclePool(QQmlDelegateModelItem *cacheItem);
+    QQmlDelegateModelItem *transferFromRecyclePoolToCache(int modelIndex, QQmlListCompositor::iterator it);
 
     void updateFilterGroup();
 
@@ -312,6 +317,7 @@ public:
     QQmlDelegateModelGroupEmitterList m_pendingParts;
 
     QList<QQmlDelegateModelItem *> m_cache;
+    QList<QQmlDelegateModelItem *> m_recyclePool;
     QList<QQDMIncubationTask *> m_finishedIncubating;
     QList<QByteArray> m_watchedRoles;
 
@@ -319,6 +325,7 @@ public:
 
     int m_count;
     int m_groupCount;
+    int m_recyclePoolMaxSize = 0;
 
     QQmlListCompositor::Group m_compositorGroup;
     bool m_complete : 1;
