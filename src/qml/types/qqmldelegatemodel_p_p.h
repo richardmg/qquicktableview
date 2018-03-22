@@ -103,6 +103,7 @@ public:
     void referenceObject() { ++objectRef; }
     bool releaseObject() { return --objectRef == 0 && !(groups & Compositor::PersistedFlag); }
     bool isObjectReferenced() const { return objectRef != 0 || (groups & Compositor::PersistedFlag); }
+    int refCount() { return objectRef; }
 
     bool isReferenced() const {
         return scriptRef
@@ -141,6 +142,7 @@ public:
     QPointer<QObject> object;
     QPointer<QQmlDelegateModelAttached> attached;
     QQDMIncubationTask *incubationTask;
+    QQmlComponent *delegate;
     int objectRef;
     int scriptRef;
     int groups;
@@ -259,7 +261,7 @@ public:
 
     void requestMoreIfNecessary();
     QObject *object(Compositor::Group group, int index, QQmlIncubator::IncubationMode incubationMode);
-    QQmlDelegateModel::ReleaseFlags release(QObject *object);
+    QQmlDelegateModel::ReleaseFlags release(QObject *object, bool recyclable = false);
     QString stringValue(Compositor::Group group, int index, const QString &name);
     void emitCreatedPackage(QQDMIncubationTask *incubationTask, QQuickPackage *package);
     void emitInitPackage(QQDMIncubationTask *incubationTask, QQuickPackage *package);
@@ -269,7 +271,12 @@ public:
         Q_EMIT q_func()->initItem(incubationTask->index[m_compositorGroup], item); }
     void emitDestroyingPackage(QQuickPackage *package);
     void emitDestroyingItem(QObject *item) { Q_EMIT q_func()->destroyingItem(item); }
+    void addCacheItem(QQmlDelegateModelItem *item, Compositor::iterator it);
     void removeCacheItem(QQmlDelegateModelItem *cacheItem);
+
+    bool insertIntoRecyclePool(QQmlDelegateModelItem *cacheItem);
+    QQmlDelegateModelItem *takeFromRecyclePool(const QQmlComponent *delegate);
+    void drainRecyclePool(int maxSize);
 
     void updateFilterGroup();
 
@@ -293,6 +300,7 @@ public:
     void emitChanges();
     void emitModelUpdated(const QQmlChangeSet &changeSet, bool reset) override;
     void delegateChanged(bool add = true, bool remove = true);
+    QQmlComponent *resolveDelegate(int index);
 
     bool insert(Compositor::insert_iterator &before, const QV4::Value &object, int groups);
 
@@ -314,6 +322,7 @@ public:
     QQmlDelegateModelGroupEmitterList m_pendingParts;
 
     QList<QQmlDelegateModelItem *> m_cache;
+    QList<QQmlDelegateModelItem *> m_recyclePool;
     QList<QQDMIncubationTask *> m_finishedIncubating;
     QList<QByteArray> m_watchedRoles;
 
@@ -321,6 +330,7 @@ public:
 
     int m_count;
     int m_groupCount;
+    int m_recyclePoolMaxSize;
 
     QQmlListCompositor::Group m_compositorGroup;
     bool m_complete : 1;
