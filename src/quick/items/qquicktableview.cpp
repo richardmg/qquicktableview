@@ -247,6 +247,7 @@ protected:
     bool tableInvalid = false;
     bool tableRebuilding = false;
     bool columnRowPositionsInvalid = false;
+    bool verifyDelegateProperties = true;
 
     QVector<ColumnRowSize> columnWidths;
     QVector<ColumnRowSize> rowHeights;
@@ -597,6 +598,16 @@ FxTableItem *QQuickTableViewPrivate::createFxTableItem(const QPoint &cell, QQmlI
         ownItem = true;
     }
 
+    if (verifyDelegateProperties) {
+        if (QQuickItemPrivate::get(item)->widthValid || QQuickItemPrivate::get(item)->heightValid) {
+            verifyDelegateProperties = false;
+            // A delegate cannot logically set it's own size, since it needs to fit it into the
+            // table grid. But it can set an implicit size that we can use as a hint to calculate
+            // column widths / row heights. And that will also work better when we recycle delegates.
+            qWarning() << "TableView: setting width and height on a delegate is not supported. Use implicitWidth and implicitHeight instead.";
+        }
+    }
+
     item->setParentItem(q->contentItem());
 
     FxTableItem *fxTableItem = new FxTableItem(item, q, ownItem);
@@ -762,8 +773,8 @@ void QQuickTableViewPrivate::calculateColumnWidthsAfterRebuilding()
     for (int column = loadedTable.left(); column <= loadedTable.right(); ++column) {
         qreal columnWidth = 0;
         for (int row = loadedTable.top(); row <= loadedTable.bottom(); ++row) {
-            auto const item = loadedTableItem(QPoint(column, row));
-            columnWidth = qMax(columnWidth, item->geometry().width());
+            auto const fxTableItem = loadedTableItem(QPoint(column, row));
+            columnWidth = qMax(columnWidth, fxTableItem->item->implicitWidth());
         }
 
         if (columnWidth == prevColumnWidth)
@@ -786,8 +797,8 @@ void QQuickTableViewPrivate::calculateRowHeightsAfterRebuilding()
     for (int row = loadedTable.top(); row <= loadedTable.bottom(); ++row) {
         qreal rowHeight = 0;
         for (int column = loadedTable.left(); column <= loadedTable.right(); ++column) {
-            auto const item = loadedTableItem(QPoint(column, row));
-            rowHeight = qMax(rowHeight, item->geometry().height());
+            auto const fxTableItem = loadedTableItem(QPoint(column, row));
+            rowHeight = qMax(rowHeight, fxTableItem->item->implicitHeight());
         }
 
         if (rowHeight == prevRowHeight)
@@ -813,8 +824,8 @@ void QQuickTableViewPrivate::calculateColumnWidth(int column)
 
     qreal columnWidth = 0;
     for (int row = loadedTable.top(); row <= loadedTable.bottom(); ++row) {
-        auto const item = loadedTableItem(QPoint(column, row));
-        columnWidth = qMax(columnWidth, item->geometry().width());
+        auto const fxTableItem = loadedTableItem(QPoint(column, row));
+        columnWidth = qMax(columnWidth, fxTableItem->item->implicitWidth());
     }
 
     if (columnWidth == columnWidths.last().size)
@@ -833,8 +844,8 @@ void QQuickTableViewPrivate::calculateRowHeight(int row)
 
     qreal rowHeight = 0;
     for (int column = loadedTable.left(); column <= loadedTable.right(); ++column) {
-        auto const item = loadedTableItem(QPoint(column, row));
-        rowHeight = qMax(rowHeight, item->geometry().height());
+        auto const fxTableItem = loadedTableItem(QPoint(column, row));
+        rowHeight = qMax(rowHeight, fxTableItem->item->implicitHeight());
     }
 
     if (rowHeight == rowHeights.last().size)
