@@ -72,8 +72,8 @@ Window {
             delegate: Component {
                 Rectangle {
                     id: tableDelegate
-                    width: 100
-                    height: 50
+                    implicitWidth: 100
+                    implicitHeight: 50
 
                     Text {
                         anchors.centerIn: parent
