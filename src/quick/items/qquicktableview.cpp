@@ -1409,6 +1409,8 @@ qreal QQuickTableView::rowSpacing() const
 void QQuickTableView::setRowSpacing(qreal spacing)
 {
     Q_D(QQuickTableView);
+    if (qt_is_nan(spacing))
+        return;
     if (qFuzzyCompare(d->cellSpacing.height(), spacing))
         return;
 
@@ -1425,6 +1427,8 @@ qreal QQuickTableView::columnSpacing() const
 void QQuickTableView::setColumnSpacing(qreal spacing)
 {
     Q_D(QQuickTableView);
+    if (qt_is_nan(spacing))
+        return;
     if (qFuzzyCompare(d->cellSpacing.width(), spacing))
         return;
 
