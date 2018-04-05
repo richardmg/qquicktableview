@@ -43,6 +43,7 @@
 #include <QtQml/private/qqmldelegatemodel_p.h>
 #include <QtQml/private/qqmlincubator_p.h>
 #include <QtQml/private/qqmlchangeset_p.h>
+#include <QtQml/private/qqmldelegatemodel_p_p.h>
 #include <QtQml/qqmlinfo.h>
 
 #include <QtQuick/private/qquickflickable_p_p.h>
@@ -1361,6 +1362,10 @@ void QQuickTableViewPrivate::createWrapperModel()
     auto delegateModel = new QQmlDelegateModel(qmlContext(q), q);
     if (q->isComponentComplete())
         delegateModel->componentComplete();
+
+    // Inform delegate model that is can recycle items
+    QQmlDelegateModelPrivate::get(delegateModel)->m_recyclePoolMaxSize = 150;
+
     model = delegateModel;
 }
 
