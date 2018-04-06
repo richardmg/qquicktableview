@@ -207,6 +207,7 @@ public:
 
 public:
     QQuickTableViewPrivate();
+    ~QQuickTableViewPrivate() override;
 
     static inline QQuickTableViewPrivate *get(QQuickTableView *q) { return q->d_func(); }
 
@@ -361,6 +362,11 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
 {
     cacheBufferDelayTimer.setSingleShot(true);
     QObject::connect(&cacheBufferDelayTimer, &QTimer::timeout, [=]{ loadBuffer(); });
+}
+
+QQuickTableViewPrivate::~QQuickTableViewPrivate()
+{
+    clear();
 }
 
 QString QQuickTableViewPrivate::tableLayoutToString() const
