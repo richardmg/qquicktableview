@@ -207,6 +207,7 @@ public:
 
 public:
     QQuickTableViewPrivate();
+    ~QQuickTableViewPrivate() override;
 
     static inline QQuickTableViewPrivate *get(QQuickTableView *q) { return q->d_func(); }
 
@@ -339,6 +340,10 @@ public:
     {
     }
 
+    ~FxTableItem() override
+    {
+    }
+
     qreal position() const override { return 0; }
     qreal endPosition() const override { return 0; }
     qreal size() const override { return 0; }
@@ -360,6 +365,11 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
 {
     cacheBufferDelayTimer.setSingleShot(true);
     QObject::connect(&cacheBufferDelayTimer, &QTimer::timeout, [=]{ loadBuffer(); });
+}
+
+QQuickTableViewPrivate::~QQuickTableViewPrivate()
+{
+    clear();
 }
 
 QString QQuickTableViewPrivate::tableLayoutToString() const
@@ -1388,6 +1398,10 @@ void QQuickTableViewPrivate::modelUpdated(const QQmlChangeSet &changeSet, bool r
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
     : QQuickFlickable(*(new QQuickTableViewPrivate), parent)
+{
+}
+
+QQuickTableView::~QQuickTableView()
 {
 }
 

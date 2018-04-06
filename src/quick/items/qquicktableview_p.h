@@ -76,6 +76,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickTableView : public QQuickFlickable
 
 public:
     QQuickTableView(QQuickItem *parent = nullptr);
+    ~QQuickTableView();
 
     int rows() const;
     int columns() const;
