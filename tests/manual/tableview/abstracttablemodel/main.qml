@@ -68,7 +68,7 @@ Window {
 
             model: tableModel
             delegate: tableViewDelegate
-            cacheBuffer: 500
+            cacheBuffer: 0
             columnSpacing: 1
             rowSpacing: 1
             topMargin: header.height
@@ -86,7 +86,7 @@ Window {
                 delegate: Rectangle {
                     id: headerDelegate
                     color: "lightblue"
-                    width: index % 3 ? 80 : 50
+                    width: index % 3 ? 150 : 170
                     height: header.height
                     Text {
                         text: "col: " + index
@@ -110,12 +110,18 @@ Window {
         Component {
             id: tableViewDelegate
             Rectangle {
-                implicitWidth: TableView.column % 3 ? 80 : 50
-                implicitHeight: TableView.row % 3 ? 80 : 50
+                implicitWidth: TableView.column % 3 ? 150 : 170
+                implicitHeight: TableView.row % 3 ? 50 : 60
+                color: modelData == "Clicked" ? "lightblue" : "white"
 
                 Text {
                     anchors.centerIn: parent
                     text: modelData
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: tableModel.cellClicked(row, column)
                 }
             }
         }
