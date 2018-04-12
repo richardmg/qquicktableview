@@ -40,6 +40,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QAbstractTableModel>
+#include <QSet>
 
 class TestTableModel : public QAbstractTableModel
 {
@@ -67,12 +68,24 @@ public:
     {
         if (!index.isValid() || role != Qt::DisplayRole)
             return QVariant();
-        return QString("[%1-%2]").arg(index.column()).arg(index.row());
+
+        int cell = index.row() + (index.column() * m_cols);
+        if (clickedCells.contains(cell))
+            return QStringLiteral("Clicked");
+        return QString("%1,%2").arg(index.column()).arg(index.row());
     }
 
     QHash<int, QByteArray> roleNames() const override
     {
         return { {Qt::DisplayRole, "display"} };
+    }
+
+    Q_INVOKABLE void cellClicked(int row, int column)
+    {
+        int cell = row + (column * m_cols);
+        clickedCells.insert(cell);
+        auto index = createIndex(row, column, nullptr);
+        emit dataChanged(index, index);
     }
 
 signals:
@@ -82,6 +95,7 @@ signals:
 private:
     int m_rows = 0;
     int m_cols = 0;
+    QSet<int> clickedCells;
 };
 
 int main(int argc, char *argv[])
