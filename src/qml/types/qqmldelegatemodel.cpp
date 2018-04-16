@@ -575,7 +575,7 @@ QVariant QQmlDelegateModel::parentModelIndex() const
 int QQmlDelegateModel::count() const
 {
     Q_D(const QQmlDelegateModel);
-    if (!d->m_delegate)
+    if (!d->m_delegate && !d->m_delegateChooser)
         return 0;
     return d->m_compositor.count(d->m_compositorGroup);
 }
@@ -979,7 +979,12 @@ void QQmlDelegateModelPrivate::setInitialState(QQDMIncubationTask *incubationTas
 
 QObject *QQmlDelegateModelPrivate::object(Compositor::Group group, int index, QQmlIncubator::IncubationMode incubationMode)
 {
-    if (!m_delegate || index < 0 || index >= m_compositor.count(group)) {
+    if (!m_delegate && !m_delegateChooser) {
+        qWarning() << "DelegateModel::item: no delegate / delegate chooser";
+        return nullptr;
+    }
+
+    if (index < 0 || index >= m_compositor.count(group)) {
         qWarning() << "DelegateModel::item: index out range" << index << m_compositor.count(group);
         return nullptr;
     } else if (!m_context || !m_context->isValid()) {
@@ -1082,7 +1087,12 @@ QObject *QQmlDelegateModelPrivate::object(Compositor::Group group, int index, QQ
 QObject *QQmlDelegateModel::object(int index, QQmlIncubator::IncubationMode incubationMode)
 {
     Q_D(QQmlDelegateModel);
-    if (!d->m_delegate || index < 0 || index >= d->m_compositor.count(d->m_compositorGroup)) {
+    if (!d->m_delegate && !d->m_delegateChooser) {
+        qWarning() << "DelegateModel::item: no delegate / delegate chooser";
+        return nullptr;
+    }
+
+    if (index < 0 || index >= d->m_compositor.count(d->m_compositorGroup)) {
         qWarning() << "DelegateModel::item: index out range" << index << d->m_compositor.count(d->m_compositorGroup);
         return nullptr;
     }
