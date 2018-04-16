@@ -1622,6 +1622,29 @@ void QQuickTableView::setDelegate(QQmlComponent *newDelegate)
     emit delegateChanged();
 }
 
+QQmlDelegateChooser *QQuickTableView::delegateChooser() const
+{
+    if (auto wrapperModel = d_func()->wrapperModel())
+        return wrapperModel->delegateChooser();
+
+    return 0;
+}
+
+void QQuickTableView::setDelegateChooser(QQmlDelegateChooser *chooser)
+{
+    Q_D(QQuickTableView);
+    if (chooser == delegateChooser())
+        return;
+
+    if (!d->wrapperModel())
+        d->createWrapperModel();
+
+    d->wrapperModel()->setDelegateChooser(chooser);
+    d->invalidateTable();
+
+    emit delegateChooserChanged();
+}
+
 QQuickTableViewAttached *QQuickTableView::qmlAttachedProperties(QObject *obj)
 {
     return new QQuickTableViewAttached(obj);

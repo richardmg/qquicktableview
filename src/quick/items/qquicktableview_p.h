@@ -54,6 +54,7 @@
 #include <QtCore/qpointer.h>
 #include <QtQuick/private/qtquickglobal_p.h>
 #include <QtQuick/private/qquickflickable_p.h>
+#include <QtQuick/private/qquickitemview_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -77,6 +78,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickTableView : public QQuickFlickable
 
     Q_PROPERTY(QVariant model READ model WRITE setModel NOTIFY modelChanged)
     Q_PROPERTY(QQmlComponent *delegate READ delegate WRITE setDelegate NOTIFY delegateChanged)
+    Q_PROPERTY(QQmlDelegateChooser *delegateChooser READ delegateChooser WRITE setDelegateChooser NOTIFY delegateChooserChanged)
 
 public:
     QQuickTableView(QQuickItem *parent = nullptr);
@@ -111,6 +113,9 @@ public:
     QQmlComponent *delegate() const;
     void setDelegate(QQmlComponent *);
 
+    QQmlDelegateChooser *delegateChooser() const;
+    void setDelegateChooser(QQmlDelegateChooser *);
+
     static QQuickTableViewAttached *qmlAttachedProperties(QObject *);
 
 Q_SIGNALS:
@@ -123,6 +128,7 @@ Q_SIGNALS:
     void cacheBufferChanged();
     void modelChanged();
     void delegateChanged();
+    void delegateChooserChanged();
 
 protected:
     void geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry) override;
