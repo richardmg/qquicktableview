@@ -40,7 +40,7 @@
 import QtQuick 2.12
 import QtQuick.Window 2.3
 import Qt.labs.tableview 1.0
-import QtQml.Models 2.2
+import QtQml.Models 2.11
 
 Window {
     id: window
@@ -52,7 +52,7 @@ Window {
         id: listModel
         Component.onCompleted: {
             for (var i = 0; i < 30; ++i)
-                listModel.append({"name" : i})
+                listModel.append({"role" : i % 2 ? "foo" : "bar", "name" : "baz" })
         }
     }
 
@@ -69,15 +69,35 @@ Window {
             columnSpacing: 1
             rowSpacing: 1
             model: listModel
-            delegate: Component {
-                Rectangle {
-                    id: tableDelegate
-                    implicitWidth: 100
-                    implicitHeight: 50
 
-                    Text {
-                        anchors.centerIn: parent
-                        text: name + "\n[" + tableDelegate.TableView.column + ", " + tableDelegate.TableView.row + "]"
+            delegateChooser: DefaultDelegateChooser {
+                role: "role"
+                DelegateChoice {
+                    value: "foo"
+                    delegate: Rectangle {
+                        id: fooDelegate
+                        implicitWidth: 100
+                        implicitHeight: 50
+                        color: "red"
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: name + "\n[" + fooDelegate.TableView.column + ", " + fooDelegate.TableView.row + "]"
+                        }
+                    }
+                }
+                DelegateChoice {
+                    value: "bar"
+                    delegate: Rectangle {
+                        id: barDelegate
+                        implicitWidth: 100
+                        implicitHeight: 50
+                        color: "blue"
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: name + "\n[" + barDelegate.TableView.column + ", " + barDelegate.TableView.row + "]"
+                        }
                     }
                 }
             }
