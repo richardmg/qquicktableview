@@ -62,6 +62,8 @@ class QQuickTableViewAttached;
 class QQuickTableViewPrivate;
 class QQmlChangeSet;
 
+static const bool kRecycleItemsByDefault = true;
+
 class Q_QUICK_PRIVATE_EXPORT QQuickTableView : public QQuickFlickable
 {
     Q_OBJECT
@@ -149,6 +151,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickTableViewAttached : public QObject
     Q_PROPERTY(QQuickTableView *tableView READ tableView NOTIFY tableViewChanged)
     Q_PROPERTY(int row READ row NOTIFY rowChanged)
     Q_PROPERTY(int column READ column NOTIFY columnChanged)
+    Q_PROPERTY(bool recyclable READ recyclable WRITE setRecyclable NOTIFY recyclableChanged)
 
 public:
     QQuickTableViewAttached(QObject *parent)
@@ -178,15 +181,26 @@ public:
         Q_EMIT columnChanged();
     }
 
+    bool recyclable() const { return m_recyclable; }
+    void setRecyclable(bool recyclable) {
+        if (recyclable == m_recyclable)
+            return;
+        m_recyclable = recyclable;
+        Q_EMIT recyclableChanged();
+    }
+
 Q_SIGNALS:
     void tableViewChanged();
     void rowChanged();
     void columnChanged();
+    void recyclableChanged();
+    void recycled();
 
 private:
     QPointer<QQuickTableView> m_tableview;
     int m_row = -1;
     int m_column = -1;
+    bool m_recyclable = kRecycleItemsByDefault;
 };
 
 QT_END_NAMESPACE
