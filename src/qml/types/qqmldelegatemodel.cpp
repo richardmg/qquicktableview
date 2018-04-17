@@ -913,10 +913,12 @@ void QQmlDelegateModelPrivate::releaseIncubator(QQDMIncubationTask *incubationTa
 
 bool QQmlDelegateModelPrivate::transferFromCacheToRecyclePool(QQmlDelegateModelItem *cacheItem)
 {
-    if (m_recyclePool.size() >= m_recyclePoolMaxSize) {
-        // The pool is full, so we refuse to transfer the item
-        return false;
-    }
+    // Rewrite to instead remove all cached items if not used withing the same cycle?
+
+//    if (m_recyclePool.size() >= m_recyclePoolMaxSize) {
+//        // The pool is full, so we refuse to transfer the item
+//        return false;
+//    }
 
     if (cacheItem->incubationTask) {
         // Don't recycle unloaded items
@@ -931,21 +933,28 @@ bool QQmlDelegateModelPrivate::transferFromCacheToRecyclePool(QQmlDelegateModelI
     // TODO: remember to release all items in pool on destruction!
 
     removeCacheItem(cacheItem);
-    m_recyclePool.append(cacheItem);
+    m_recyclePool[cacheItem->delegate].append(cacheItem);
     return true;
 }
 
-QQmlDelegateModelItem *QQmlDelegateModelPrivate::transferFromRecyclePoolToCache(int modelIndex, Compositor::iterator it)
+QQmlDelegateModelItem *QQmlDelegateModelPrivate::transferFromRecyclePoolToCache(const Compositor::iterator cacheIterator, const QQmlComponent *delegate)
 {
-    auto item = m_recyclePool.takeLast();
+    if (!m_recyclePool.contains(delegate))
+        return nullptr;
+    QList<QQmlDelegateModelItem *> &delegatePool = m_recyclePool[delegate];
+    if (delegatePool.isEmpty())
+        return nullptr;
+
+    int index = cacheIterator.modelIndex();
+    QQmlDelegateModelItem *item = delegatePool.takeLast();
 
     // Transfer the item to the cache before we start changing the item (and emit signals)
-    addCacheItem(item, it);
+    addCacheItem(item, cacheIterator);
     // Let the view init the item (assign values to attached props)
-    Q_EMIT q_func()->initItem(modelIndex, item->object);
+    Q_EMIT q_func()->initItem(index, item->object);
     // Update model data
-    item->setModelIndex(modelIndex);
-    m_adaptorModel.notify(m_cache, modelIndex, 1, QVector<int>());
+    item->setModelIndex(index);
+    m_adaptorModel.notify(m_cache, index, 1, QVector<int>());
 
     return item;
 }
@@ -1027,6 +1036,16 @@ void QQmlDelegateModelPrivate::setInitialState(QQDMIncubationTask *incubationTas
         emitInitItem(incubationTask, cacheItem->object);
 }
 
+QQmlComponent *QQmlDelegateModelPrivate::resolveDelegate(int index)
+{
+    QQmlComponent *delegate = nullptr;
+    if (m_delegateChooser)
+        delegate = m_delegateChooser->delegate(index);
+    if (!delegate)
+        delegate = m_delegate;
+    return delegate;
+}
+
 QObject *QQmlDelegateModelPrivate::object(Compositor::Group group, int index, QQmlIncubator::IncubationMode incubationMode)
 {
     if (!m_delegate && !m_delegateChooser) {
@@ -1041,13 +1060,15 @@ QObject *QQmlDelegateModelPrivate::object(Compositor::Group group, int index, QQ
         return nullptr;
     }
 
+    QQmlComponent *delegate = nullptr;
     Compositor::iterator it = m_compositor.find(group, index);
 
     QQmlDelegateModelItem *cacheItem = it->inCache() ? m_cache.at(it.cacheIndex) : 0;
 
     if (!cacheItem) {
-        if (!m_recyclePool.isEmpty()) {
-            cacheItem = transferFromRecyclePoolToCache(index, it);
+        delegate = resolveDelegate(index);
+        cacheItem = transferFromRecyclePoolToCache(it, delegate);
+        if (cacheItem) {
             // Items in the pool are already incubated, so we
             // can return the received item directly.
             return cacheItem->object;
@@ -1072,11 +1093,9 @@ QObject *QQmlDelegateModelPrivate::object(Compositor::Group group, int index, QQ
             cacheItem->incubationTask->forceCompletion();
         }
     } else if (!cacheItem->object) {
-        QQmlComponent *delegate = nullptr;
-        if (m_delegateChooser)
-            delegate = m_delegateChooser->delegate(index);
         if (!delegate)
-            delegate = m_delegate;
+            delegate = resolveDelegate(index);
+        cacheItem->delegate = delegate;
 
         QQmlContext *creationContext = delegate->creationContext();
 
@@ -2064,6 +2083,7 @@ QQmlDelegateModelItem::QQmlDelegateModelItem(
     , object(nullptr)
     , attached(nullptr)
     , incubationTask(nullptr)
+    , delegate(nullptr)
     , objectRef(0)
     , scriptRef(0)
     , groups(0)

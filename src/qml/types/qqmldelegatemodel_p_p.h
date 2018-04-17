@@ -142,6 +142,7 @@ public:
     QPointer<QObject> object;
     QPointer<QQmlDelegateModelAttached> attached;
     QQDMIncubationTask *incubationTask;
+    QQmlComponent *delegate;
     int objectRef;
     int scriptRef;
     int groups;
@@ -274,7 +275,7 @@ public:
     void removeCacheItem(QQmlDelegateModelItem *cacheItem);
 
     bool transferFromCacheToRecyclePool(QQmlDelegateModelItem *cacheItem);
-    QQmlDelegateModelItem *transferFromRecyclePoolToCache(int modelIndex, QQmlListCompositor::iterator it);
+    QQmlDelegateModelItem *transferFromRecyclePoolToCache(const QQmlListCompositor::iterator cacheIterator, const QQmlComponent *delegate);
 
     void updateFilterGroup();
 
@@ -298,6 +299,7 @@ public:
     void emitChanges();
     void emitModelUpdated(const QQmlChangeSet &changeSet, bool reset) override;
     void delegateChanged(bool add = true, bool remove = true);
+    QQmlComponent *resolveDelegate(int index);
 
     bool insert(Compositor::insert_iterator &before, const QV4::Value &object, int groups);
 
@@ -319,7 +321,7 @@ public:
     QQmlDelegateModelGroupEmitterList m_pendingParts;
 
     QList<QQmlDelegateModelItem *> m_cache;
-    QList<QQmlDelegateModelItem *> m_recyclePool;
+    QMap<const QQmlComponent *, QList<QQmlDelegateModelItem *> > m_recyclePool;
     QList<QQDMIncubationTask *> m_finishedIncubating;
     QList<QByteArray> m_watchedRoles;
 
