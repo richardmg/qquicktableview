@@ -42,6 +42,7 @@ import QtQuick.Window 2.3
 import QtQml.Models 2.2
 import Qt.labs.tableview 1.0
 import TestTableModel 0.1
+import QtQuick.Controls 1.4 as QQC1
 
 Window {
     id: window
@@ -101,7 +102,7 @@ Window {
                 height: 20
                 z: 1
                 color: "lightblue"
-                Text {
+                QQC1.Button {
                     text: "Footer"
                 }
             }
@@ -114,7 +115,10 @@ Window {
                 implicitHeight: TableView.row % 3 ? 50 : 60
                 color: modelData == "Clicked" ? "lightblue" : "white"
 
-                Text {
+                TableView.recyclable: true
+//                TableView.onRecycled: print("recycled:", index)
+
+                QQC1.Button {
                     anchors.centerIn: parent
                     text: modelData
                 }
