@@ -69,6 +69,7 @@ Window {
             columnSpacing: 1
             rowSpacing: 1
             model: listModel
+            cacheBuffer: 0
 
             delegateChooser: DefaultDelegateChooser {
                 role: "role"
@@ -79,6 +80,9 @@ Window {
                         implicitWidth: 100
                         implicitHeight: 50
                         color: "red"
+
+                        TableView.recyclable: true
+                        TableView.onRecycled: print("recycled:", index);
 
                         Text {
                             anchors.centerIn: parent
