@@ -81,12 +81,15 @@ Window {
                         implicitHeight: 50
                         color: "red"
 
+                        onParentChanged: if (!parent) print("parent:", parent, "index:", index)
+                        onVisibleChanged: print("visible:", visible, "index:", index);
+
                         TableView.recyclable: true
                         TableView.onRecycled: print("recycled:", index);
 
                         Text {
                             anchors.centerIn: parent
-                            text: name + "\n[" + fooDelegate.TableView.column + ", " + fooDelegate.TableView.row + "]"
+                            text: name + "\n" + index + "\n[" + fooDelegate.TableView.column + ", " + fooDelegate.TableView.row + "]"
                         }
                     }
                 }
