@@ -114,6 +114,7 @@ Window {
                 implicitWidth: TableView.column % 3 ? 150 : 170
                 implicitHeight: TableView.row % 3 ? 50 : 60
                 color: modelData == "Clicked" ? "lightblue" : "white"
+                onVisibleChanged: print("visible:", visible, "index:", index);
 
                 TableView.recyclable: true
 //                TableView.onRecycled: print("recycled:", index)
