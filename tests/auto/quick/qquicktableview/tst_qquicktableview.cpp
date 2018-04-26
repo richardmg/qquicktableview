@@ -70,7 +70,8 @@ public:
 private slots:
     void initTestCase() override;
 
-    void setAndGetQAIM();
+    void setAndGetModel_data();
+    void setAndGetModel();
     void countDelegateItems_data();
     void countDelegateItems();
 };
@@ -93,14 +94,23 @@ QList<QQuickItem *> tst_QQuickTableView::findDelegateItems(QQuickTableView *tabl
     return findItems<QQuickItem>(tableView, delegateObjectName);
 }
 
-void tst_QQuickTableView::setAndGetQAIM()
+void tst_QQuickTableView::setAndGetModel_data()
 {
+    QTest::addColumn<QVariant>("model");
+
+    QTest::newRow("QAIM 1x1") << TestModelAsVariant(1, 1);
+    QTest::newRow("Number model 1") << QVariant::fromValue(1);
+    QTest::newRow("QStringList 1") << QVariant::fromValue(QStringList() << "one");
+}
+
+void tst_QQuickTableView::setAndGetModel()
+{
+    // Test that we can set and get different kind of models
+    QFETCH(QVariant, model);
     LOAD_TABLEVIEW("plaintableview.qml");
 
-    TestModel model(2, 2);
-    tableView->setModel(QVariant::fromValue<QObject *>(&model));
-    auto returnModel = tableView->model().value<TestModel *>();
-    QCOMPARE(&model, returnModel);
+    tableView->setModel(model);
+    QCOMPARE(model, tableView->model());
 }
 
 void tst_QQuickTableView::countDelegateItems_data()
@@ -131,9 +141,9 @@ void tst_QQuickTableView::countDelegateItems()
     // Assign different models of various sizes, and check that the number of
     // delegate items in the view matches the size of the model. Note that for
     // this test to be valid, all items must be within the visible area of the view.
-    LOAD_TABLEVIEW("plaintableview.qml");
     QFETCH(QVariant, model);
     QFETCH(int, count);
+    LOAD_TABLEVIEW("plaintableview.qml");
 
     tableView->setModel(model);
     auto const items = findDelegateItems(tableView);
