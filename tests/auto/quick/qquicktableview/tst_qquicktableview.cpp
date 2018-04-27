@@ -68,7 +68,7 @@ class tst_QQuickTableView : public QQmlDataTest
 public:
     tst_QQuickTableView();
 
-    QList<QQuickItem *> findDelegateItems(QQuickTableView *tableView);
+    QQuickTableViewAttached *getAttachedObject(const QObject *object) const;
 
 private slots:
     void initTestCase() override;
@@ -79,6 +79,8 @@ private slots:
     void emptyModel();
     void countDelegateItems_data();
     void countDelegateItems();
+    void checkLayoutOfVisibleDelegateItems_data();
+    void checkLayoutOfVisibleDelegateItems();
 };
 
 tst_QQuickTableView::tst_QQuickTableView()
@@ -91,12 +93,10 @@ void tst_QQuickTableView::initTestCase()
     qmlRegisterType<TestModel>("TestModel", 0, 1, "TestModel");
 }
 
-QList<QQuickItem *> tst_QQuickTableView::findDelegateItems(QQuickTableView *tableView)
+QQuickTableViewAttached *tst_QQuickTableView::getAttachedObject(const QObject *object) const
 {
-    static const QString delegateObjectName = QStringLiteral("tableViewDelegate");
-    // Call processEvents to process any pending polish event posted for tableView
-    qApp->processEvents();
-    return findItems<QQuickItem>(tableView, delegateObjectName);
+    QObject *attachedObject = qmlAttachedPropertiesObject<QQuickTableView>(object);
+    return static_cast<QQuickTableViewAttached *>(attachedObject);
 }
 
 void tst_QQuickTableView::setAndGetModel_data()
@@ -145,9 +145,9 @@ void tst_QQuickTableView::countDelegateItems_data()
 
     QTest::newRow("QAIM 1x1") << TestModelAsVariant(1, 1) << 1;
     QTest::newRow("QAIM 2x1") << TestModelAsVariant(2, 1) << 2;
-    QTest::newRow("QAIM 2x1") << TestModelAsVariant(2, 1) << 2;
+    QTest::newRow("QAIM 4x1") << TestModelAsVariant(4, 1) << 4;
     QTest::newRow("QAIM 1x2") << TestModelAsVariant(1, 2) << 2;
-    QTest::newRow("QAIM 1x2") << TestModelAsVariant(1, 2) << 2;
+    QTest::newRow("QAIM 1x4") << TestModelAsVariant(1, 4) << 4;
     QTest::newRow("QAIM 2x2") << TestModelAsVariant(2, 2) << 4;
     QTest::newRow("QAIM 4x4") << TestModelAsVariant(4, 4) << 16;
 
@@ -170,6 +170,58 @@ void tst_QQuickTableView::countDelegateItems()
     tableView->setModel(model);
     GET_DELEGATE_ITEMS(items);
     QCOMPARE(items.count(), count);
+}
+
+void tst_QQuickTableView::checkLayoutOfVisibleDelegateItems_data()
+{
+    QTest::addColumn<QVariant>("model");
+    QTest::addColumn<int>("rows");
+    QTest::addColumn<int>("columns");
+    QTest::addColumn<qreal>("rowSpacing");
+    QTest::addColumn<qreal>("columnSpacing");
+
+    QTest::newRow("QAIM 1x1 1,1") << TestModelAsVariant(1, 1) << 1 << 1 << 1. << 1.;
+    QTest::newRow("QAIM 5x5 0,0") << TestModelAsVariant(5, 5) << 5 << 5 << 0. << 0.;
+    QTest::newRow("QAIM 5x5 1,0") << TestModelAsVariant(5, 5) << 5 << 5 << 1. << 0.;
+    QTest::newRow("QAIM 5x5 0,1") << TestModelAsVariant(5, 5) << 5 << 5 << 0. << 1.;
+}
+
+void tst_QQuickTableView::checkLayoutOfVisibleDelegateItems()
+{
+    // Check that the geometry of the delegate items are correct
+    QFETCH(QVariant, model);
+    QFETCH(int, rows);
+    QFETCH(int, columns);
+    QFETCH(qreal, rowSpacing);
+    QFETCH(qreal, columnSpacing);
+    LOAD_TABLEVIEW("plaintableview.qml");
+
+    tableView->setModel(model);
+    tableView->setRowSpacing(rowSpacing);
+    tableView->setColumnSpacing(columnSpacing);
+
+    GET_DELEGATE_ITEMS(items);
+
+    const QQuickItem *firstItem = items.at(0);
+    qreal width = firstItem->width();
+    qreal height = firstItem->height();
+    QVERIFY(width > 0);
+    QVERIFY(height > 0);
+
+    for (int i = 0; i < rows * columns; ++i) {
+        const QQuickItem *item = items.at(i);
+        auto attached = getAttachedObject(item);
+        int row = attached->row();
+        int column = attached->column();
+        QVERIFY(row >= 0);
+        QVERIFY(column >= 0);
+        qreal x = column * (width + columnSpacing);
+        qreal y = row * (height + rowSpacing);
+        QCOMPARE(item->x(), x);
+        QCOMPARE(item->y(), y);
+        QCOMPARE(item->width(), width);
+        QCOMPARE(item->height(), height);
+    }
 }
 
 QTEST_MAIN(tst_QQuickTableView)
