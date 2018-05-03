@@ -194,6 +194,21 @@ void tst_QQuickTableView::checkLayoutOfVisibleDelegateItems_data()
     QTest::newRow("QAIM 4x4 2,2 1234") << TestModelAsVariant(4, 4) << 4 << 4 << QSizeF(2, 2) << QMarginsF(1, 2, 3, 4);
 }
 
+void tst_QQuickTableView::verifyItemGeometry(const QQuickItem *item, const QSizeF spacing, const QMarginsF margins)
+{
+    auto attached = getAttachedObject(item);
+    int row = attached->row();
+    int column = attached->column();
+    QVERIFY(row >= 0);
+    QVERIFY(column >= 0);
+    qreal x = margins.left() + (column * (width + spacing.width()));
+    qreal y = margins.top() + (row * (height + spacing.height()));
+    QCOMPARE(item->x(), x);
+    QCOMPARE(item->y(), y);
+    QCOMPARE(item->width(), width);
+    QCOMPARE(item->height(), height);
+}
+
 void tst_QQuickTableView::checkLayoutOfVisibleDelegateItems()
 {
     // Check that the geometry of the delegate items are correct
@@ -215,7 +230,6 @@ void tst_QQuickTableView::checkLayoutOfVisibleDelegateItems()
     GET_DELEGATE_ITEMS(items);
 
     const QQuickItem *firstItem = items.at(0);
-    const QQuickItem *bottomRightItem = nullptr;
     qreal width = firstItem->width();
     qreal height = firstItem->height();
     QVERIFY(width > 0);
@@ -223,27 +237,21 @@ void tst_QQuickTableView::checkLayoutOfVisibleDelegateItems()
 
     // Check that all delegate items have the geometry we expect
     // them to have according to their attached row and column.
-    for (int i = 0; i < rows * columns; ++i) {
-        const QQuickItem *item = items.at(i);
-        auto attached = getAttachedObject(item);
-        int row = attached->row();
-        int column = attached->column();
-        QVERIFY(row >= 0);
-        QVERIFY(column >= 0);
-        qreal x = margins.left() + (column * (width + spacing.width()));
-        qreal y = margins.top() + (row * (height + spacing.height()));
-        QCOMPARE(item->x(), x);
-        QCOMPARE(item->y(), y);
-        QCOMPARE(item->width(), width);
-        QCOMPARE(item->height(), height);
-
-        if (row == rows -1 && column == columns - 1)
-            bottomRightItem = item;
-    }
+    for (int i = 0; i < rows * columns; ++i)
+        verifyItemGeometry(items.at(i), spacing, margins);
 
     // Check that the space between the edge of the bottom right item to
     // the edge of the content view matches the margins. Top- and left
     // margins have already been tested in the for-loop above.
+    const QQuickItem *bottomRightItem = nullptr;
+    for (int i = 0; i < rows * columns; ++i) {
+        auto attached = getAttachedObject(items.at(i));
+        int row = attached->row();
+        int column = attached->column();
+        if (row == rows -1 && column == columns - 1)
+            bottomRightItem = item;
+    }
+
     QVERIFY(bottomRightItem);
     qreal rightSpace = tableView->contentWidth() - (bottomRightItem->x() + bottomRightItem->width());
     qreal bottomSpace = tableView->contentHeight() - (bottomRightItem->y() + bottomRightItem->height());
