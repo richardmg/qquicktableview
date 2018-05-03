@@ -46,6 +46,7 @@ Item {
     height: 480
 
     property alias tableView: tableView
+    property bool delegatesCreated: false
 
     TableView {
         id: tableView
@@ -69,6 +70,8 @@ Item {
                 anchors.centerIn: parent
                 text: modelData
             }
+
+            Component.onCompleted: delegatesCreated = true;
         }
     }
 

@@ -48,16 +48,19 @@
 using namespace QQuickViewTestUtil;
 using namespace QQuickVisualTestUtil;
 
-#define CREATE_VAR_FROM_PROPERTY(name, T) \
-    T *name = view->rootObject()->property(#name).value<T *>(); \
-    QVERIFY(name)
+static const QString kDelegateObjectName = QStringLiteral("tableViewDelegate");
 
 #define LOAD_TABLEVIEW(fileName) \
     QScopedPointer<QQuickView> view(createView()); \
     view->setSource(testFileUrl(fileName)); \
     view->show(); \
     QVERIFY(QTest::qWaitForWindowActive(view.data())); \
-    CREATE_VAR_FROM_PROPERTY(tableView, QQuickTableView)
+    auto tableView = view->rootObject()->property("tableView").value<QQuickTableView *>()
+
+#define GET_DELEGATE_ITEMS(varName) \
+    view->rootObject()->property("delegatesCreated").setValue(false); \
+    QTRY_VERIFY(view->rootObject()->property("delegatesCreated").value<bool>()); \
+    auto varName = findItems<QQuickItem>(tableView, kDelegateObjectName);
 
 class tst_QQuickTableView : public QQmlDataTest
 {
@@ -70,7 +73,10 @@ public:
 private slots:
     void initTestCase() override;
 
-    void setAndGetQAIM();
+    void setAndGetModel_data();
+    void setAndGetModel();
+    void emptyModel_data();
+    void emptyModel();
     void countDelegateItems_data();
     void countDelegateItems();
 };
@@ -93,14 +99,43 @@ QList<QQuickItem *> tst_QQuickTableView::findDelegateItems(QQuickTableView *tabl
     return findItems<QQuickItem>(tableView, delegateObjectName);
 }
 
-void tst_QQuickTableView::setAndGetQAIM()
+void tst_QQuickTableView::setAndGetModel_data()
 {
+    QTest::addColumn<QVariant>("model");
+
+    QTest::newRow("QAIM 1x1") << TestModelAsVariant(1, 1);
+    QTest::newRow("Number model 1") << QVariant::fromValue(1);
+    QTest::newRow("QStringList 1") << QVariant::fromValue(QStringList() << "one");
+}
+
+void tst_QQuickTableView::setAndGetModel()
+{
+    // Test that we can set and get different kind of models
+    QFETCH(QVariant, model);
     LOAD_TABLEVIEW("plaintableview.qml");
 
-    TestModel model(2, 2);
-    tableView->setModel(QVariant::fromValue<QObject *>(&model));
-    auto returnModel = tableView->model().value<TestModel *>();
-    QCOMPARE(&model, returnModel);
+    tableView->setModel(model);
+    QCOMPARE(model, tableView->model());
+}
+
+void tst_QQuickTableView::emptyModel_data()
+{
+    QTest::addColumn<QVariant>("model");
+
+    QTest::newRow("QAIM") << TestModelAsVariant(0, 0);
+    QTest::newRow("Number model") << QVariant::fromValue(0);
+    QTest::newRow("QStringList") << QVariant::fromValue(QStringList());
+}
+
+void tst_QQuickTableView::emptyModel()
+{
+    // Check that if we assign an empty model to
+    // TableView, no delegate items will be created.
+    QFETCH(QVariant, model);
+    LOAD_TABLEVIEW("plaintableview.qml");
+
+    tableView->setModel(model);
+    QTRY_COMPARE_WITH_TIMEOUT(view->rootObject()->property("delegatesCreated").value<bool>(), 0, 500);
 }
 
 void tst_QQuickTableView::countDelegateItems_data()
@@ -108,20 +143,17 @@ void tst_QQuickTableView::countDelegateItems_data()
     QTest::addColumn<QVariant>("model");
     QTest::addColumn<int>("count");
 
-    QTest::newRow("QAIM 0x0") << TestModelAsVariant(0, 0) << 0;
     QTest::newRow("QAIM 1x1") << TestModelAsVariant(1, 1) << 1;
     QTest::newRow("QAIM 2x1") << TestModelAsVariant(2, 1) << 2;
-    QTest::newRow("QAIM 4x1") << TestModelAsVariant(2, 1) << 2;
+    QTest::newRow("QAIM 2x1") << TestModelAsVariant(2, 1) << 2;
     QTest::newRow("QAIM 1x2") << TestModelAsVariant(1, 2) << 2;
-    QTest::newRow("QAIM 1x4") << TestModelAsVariant(1, 2) << 2;
+    QTest::newRow("QAIM 1x2") << TestModelAsVariant(1, 2) << 2;
     QTest::newRow("QAIM 2x2") << TestModelAsVariant(2, 2) << 4;
     QTest::newRow("QAIM 4x4") << TestModelAsVariant(4, 4) << 16;
 
-    QTest::newRow("Number model 0") << QVariant::fromValue(0) << 0;
     QTest::newRow("Number model 1") << QVariant::fromValue(1) << 1;
     QTest::newRow("Number model 4") << QVariant::fromValue(4) << 4;
 
-    QTest::newRow("QStringList 0") << QVariant::fromValue(QStringList()) << 0;
     QTest::newRow("QStringList 1") << QVariant::fromValue(QStringList() << "one") << 1;
     QTest::newRow("QStringList 4") << QVariant::fromValue(QStringList() << "one" << "two" << "three" << "four") << 4;
 }
@@ -131,12 +163,12 @@ void tst_QQuickTableView::countDelegateItems()
     // Assign different models of various sizes, and check that the number of
     // delegate items in the view matches the size of the model. Note that for
     // this test to be valid, all items must be within the visible area of the view.
-    LOAD_TABLEVIEW("plaintableview.qml");
     QFETCH(QVariant, model);
     QFETCH(int, count);
+    LOAD_TABLEVIEW("plaintableview.qml");
 
     tableView->setModel(model);
-    auto const items = findDelegateItems(tableView);
+    GET_DELEGATE_ITEMS(items);
     QCOMPARE(items.count(), count);
 }
 
