@@ -213,6 +213,7 @@ public:
     bool tableInvalid = false;
     bool tableRebuilding = false;
     bool columnRowPositionsInvalid = false;
+    bool drainRecyclePoolLater = false;
 
     QVector<ColumnRowSize> columnWidths;
     QVector<ColumnRowSize> rowHeights;
@@ -267,7 +268,7 @@ public:
     FxTableItem *createFxTableItem(const QPoint &cell, QQmlIncubator::IncubationMode incubationMode);
     FxTableItem *loadFxTableItem(const QPoint &cell, QQmlIncubator::IncubationMode incubationMode);
 
-    void releaseItem(FxTableItem *fxTableItem);
+    void releaseItem(FxTableItem *fxTableItem, bool recyclable);
     void releaseLoadedItems();
     void clear();
 
@@ -286,6 +287,7 @@ public:
     void loadBuffer();
     void unloadBuffer();
     QRectF bufferRect();
+    void drainRecyclePool();
 
     void invalidateTable();
     void invalidateColumnRowPositions();
@@ -293,7 +295,9 @@ public:
     void createWrapperModel();
 
     void initItemCallback(int modelIndex, QObject *item);
+    void initRecycledItemCallback(int modelIndex, QObject *object);
     void itemCreatedCallback(int modelIndex, QObject *object);
+
     void modelUpdated(const QQmlChangeSet &changeSet, bool reset);
 
     inline QString tableLayoutToString() const;

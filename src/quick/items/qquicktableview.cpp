@@ -104,6 +104,8 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
 QQuickTableViewPrivate::~QQuickTableViewPrivate()
 {
     clear();
+    if (delegateModel)
+        delegateModel->drainRecyclePool(0);
 }
 
 QString QQuickTableViewPrivate::tableLayoutToString() const
@@ -365,16 +367,23 @@ void QQuickTableViewPrivate::releaseLoadedItems() {
     auto const tmpList = loadedItems;
     loadedItems.clear();
     for (FxTableItem *item : tmpList)
-        releaseItem(item);
+        releaseItem(item, false);
 }
 
-void QQuickTableViewPrivate::releaseItem(FxTableItem *fxTableItem)
+void QQuickTableViewPrivate::releaseItem(FxTableItem *fxTableItem, bool recyclable)
 {
     if (fxTableItem->item) {
-        if (fxTableItem->ownItem)
+        if (fxTableItem->ownItem) {
             delete fxTableItem->item;
-        else if (model->release(fxTableItem->item) != QQmlInstanceModel::Destroyed)
-            fxTableItem->item->setParentItem(nullptr);
+        } else {
+            if (delegateModel) {
+                // Only QQmlDelegateModel has the ability to recycle items
+                if (delegateModel->release(fxTableItem->item, recyclable) != QQmlInstanceModel::Destroyed)
+                    fxTableItem->setVisible(false);
+            } else if (model->release(fxTableItem->item) != QQmlInstanceModel::Destroyed) {
+                fxTableItem->item->setParentItem(nullptr);
+            }
+        }
     }
 
     delete fxTableItem;
@@ -403,7 +412,10 @@ void QQuickTableViewPrivate::unloadItem(const QPoint &cell)
 {
     FxTableItem *item = loadedTableItem(cell);
     loadedItems.removeOne(item);
-    releaseItem(item);
+
+    auto attached = getAttachedObject(item->item);
+    bool recyclable = attached ? attached->recyclable() : kRecycleItemsByDefault;
+    releaseItem(item, recyclable);
 }
 
 void QQuickTableViewPrivate::unloadItems(const QLine &items)
@@ -1061,6 +1073,21 @@ QRectF QQuickTableViewPrivate::bufferRect()
     return viewportRect.adjusted(-cacheBuffer, -cacheBuffer, cacheBuffer, cacheBuffer);
 }
 
+void QQuickTableViewPrivate::drainRecyclePool()
+{
+    if (!delegateModel)
+        return;
+
+    drainRecyclePoolLater = false;
+    // Set the maximum life time of an item in the pool to be at least the number of
+    // dimensions, which for a table is two. The reason is that the user might flick
+    // both e.g the left column and the top row out at the same time, before we get
+    // around to fill up on the right and at the bottom again. Since this can take
+    // two load cycles, don't release items pool in the meantime.
+    const int maxPoolTime = 2;
+    delegateModel->drainRecyclePool(maxPoolTime);
+}
+
 void QQuickTableViewPrivate::invalidateTable() {
     tableInvalid = true;
     if (loadRequest.isActive())
@@ -1115,6 +1142,9 @@ void QQuickTableViewPrivate::updatePolish()
     if (loadRequest.isActive())
         return;
 
+    if (drainRecyclePoolLater)
+        drainRecyclePool();
+
     if (cacheBuffer > 0) {
         // When polish hasn't been called for a while (which means that the viewport
         // rect hasn't changed), we start buffering items. We delay this operation by
@@ -1131,6 +1161,7 @@ void QQuickTableViewPrivate::createWrapperModel()
     delegateModel = new QQmlDelegateModel(qmlContext(q), q);
     if (q->isComponentComplete())
         delegateModel->componentComplete();
+
     model = delegateModel;
 }
 
@@ -1168,6 +1199,13 @@ void QQuickTableViewPrivate::initItemCallback(int modelIndex, QObject *object)
     attached->setTableView(q_func());
     attached->setColumn(cell.x());
     attached->setRow(cell.y());
+}
+
+void QQuickTableViewPrivate::initRecycledItemCallback(int modelIndex, QObject *object)
+{
+    initItemCallback(modelIndex, object);
+    if (auto attached = getAttachedObject(object))
+        emit attached->recycled();
 }
 
 void QQuickTableViewPrivate::modelUpdated(const QQmlChangeSet &changeSet, bool reset)
@@ -1345,6 +1383,10 @@ void QQuickTableView::setModel(const QVariant &newModel)
         QObjectPrivate::disconnect(d->model, &QQmlInstanceModel::modelUpdated, d, &QQuickTableViewPrivate::modelUpdated);
     }
 
+   if (d->delegateModel) {
+        QObjectPrivate::disconnect(d->delegateModel, &QQmlDelegateModel::initRecycledItem, d, &QQuickTableViewPrivate::initRecycledItemCallback);
+   }
+
     const auto instanceModel = qobject_cast<QQmlInstanceModel *>(qvariant_cast<QObject*>(effectiveModelVariant));
 
     if (instanceModel) {
@@ -1361,6 +1403,10 @@ void QQuickTableView::setModel(const QVariant &newModel)
     QObjectPrivate::connect(d->model, &QQmlInstanceModel::createdItem, d, &QQuickTableViewPrivate::itemCreatedCallback);
     QObjectPrivate::connect(d->model, &QQmlInstanceModel::initItem, d, &QQuickTableViewPrivate::initItemCallback);
     QObjectPrivate::connect(d->model, &QQmlInstanceModel::modelUpdated, d, &QQuickTableViewPrivate::modelUpdated);
+
+    if (d->delegateModel) {
+         QObjectPrivate::connect(d->delegateModel, &QQmlDelegateModel::initRecycledItem, d, &QQuickTableViewPrivate::initRecycledItemCallback);
+    }
 
     d->invalidateTable();
 
