@@ -182,6 +182,7 @@ public:
     QList<FxTableItem *> loadedItems;
 
     QQmlInstanceModel* model = nullptr;
+    QPointer<QQmlDelegateModel> delegateModel = nullptr;
     QVariant modelVariant;
 
     // loadedTable describes the table cells that are currently loaded (from top left
@@ -226,7 +227,6 @@ public:
 #endif
 
 public:
-    inline QQmlDelegateModel *wrapperModel() const { return qobject_cast<QQmlDelegateModel*>(model); }
     QQuickTableViewAttached *getAttachedObject(const QObject *object) const;
 
     int modelIndexAtCell(const QPoint &cell);
