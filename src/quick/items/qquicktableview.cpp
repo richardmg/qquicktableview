@@ -58,6 +58,7 @@ Q_LOGGING_CATEGORY(lcTableViewDelegateLifecycle, "qt.quick.tableview.lifecycle")
 
 static const Qt::Edge allTableEdges[] = { Qt::LeftEdge, Qt::RightEdge, Qt::TopEdge, Qt::BottomEdge };
 static const int kBufferTimerInterval = 300;
+static const int kRecyclePoolSizeMultiplier = 2; // store max 2 edges of items in the pool
 
 static QLine rectangleEdge(const QRect &rect, Qt::Edge tableEdge)
 {
@@ -104,6 +105,8 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
 QQuickTableViewPrivate::~QQuickTableViewPrivate()
 {
     clear();
+    if (delegateModel)
+        delegateModel->setRecyclePoolMaxSize(0);
 }
 
 QString QQuickTableViewPrivate::tableLayoutToString() const
@@ -365,16 +368,23 @@ void QQuickTableViewPrivate::releaseLoadedItems() {
     auto const tmpList = loadedItems;
     loadedItems.clear();
     for (FxTableItem *item : tmpList)
-        releaseItem(item);
+        releaseItem(item, false);
 }
 
-void QQuickTableViewPrivate::releaseItem(FxTableItem *fxTableItem)
+void QQuickTableViewPrivate::releaseItem(FxTableItem *fxTableItem, bool recyclable)
 {
     if (fxTableItem->item) {
-        if (fxTableItem->ownItem)
+        if (fxTableItem->ownItem) {
             delete fxTableItem->item;
-        else if (model->release(fxTableItem->item) != QQmlInstanceModel::Destroyed)
-            fxTableItem->item->setParentItem(nullptr);
+        } else {
+            if (delegateModel) {
+                // Only QQmlDelegateModel has the ability to recycle items
+                if (delegateModel->release(fxTableItem->item, recyclable) != QQmlInstanceModel::Destroyed)
+                    fxTableItem->setVisible(false);
+            } else if (model->release(fxTableItem->item) != QQmlInstanceModel::Destroyed) {
+                fxTableItem->item->setParentItem(nullptr);
+            }
+        }
     }
 
     delete fxTableItem;
@@ -403,7 +413,10 @@ void QQuickTableViewPrivate::unloadItem(const QPoint &cell)
 {
     FxTableItem *item = loadedTableItem(cell);
     loadedItems.removeOne(item);
-    releaseItem(item);
+
+    auto attached = getAttachedObject(item->item);
+    bool recyclable = attached ? attached->recyclable() : kRecycleItemsByDefault;
+    releaseItem(item, recyclable);
 }
 
 void QQuickTableViewPrivate::unloadItems(const QLine &items)
@@ -1043,6 +1056,24 @@ QRectF QQuickTableViewPrivate::bufferRect()
     return viewportRect.adjusted(-cacheBuffer, -cacheBuffer, cacheBuffer, cacheBuffer);
 }
 
+void QQuickTableViewPrivate::updateRecyclePoolMaxSize()
+{
+    if (!delegateModel)
+        return;
+
+    int poolSize = 0;
+    if (tableSize.width() == 1 || tableSize.height() == 1) {
+        // For list models, only one item will ever be flicked in/out at a
+        // time, so we don't need that many items in the pool.
+        poolSize = kRecyclePoolSizeMultiplier;
+    } else {
+        poolSize = kRecyclePoolSizeMultiplier * qMax(loadedTable.width(), loadedTable.height());
+    }
+
+    if (poolSize != delegateModel->recyclePoolMaxSize())
+        delegateModel->setRecyclePoolMaxSize(poolSize);
+}
+
 void QQuickTableViewPrivate::invalidateTable() {
     tableInvalid = true;
     if (loadRequest.isActive())
@@ -1097,6 +1128,8 @@ void QQuickTableViewPrivate::updatePolish()
     if (loadRequest.isActive())
         return;
 
+    updateRecyclePoolMaxSize();
+
     if (cacheBuffer > 0) {
         // When polish hasn't been called for a while (which means that the viewport
         // rect hasn't changed), we start buffering items. We delay this operation by
@@ -1113,6 +1146,7 @@ void QQuickTableViewPrivate::createWrapperModel()
     delegateModel = new QQmlDelegateModel(qmlContext(q), q);
     if (q->isComponentComplete())
         delegateModel->componentComplete();
+
     model = delegateModel;
 }
 
@@ -1150,6 +1184,13 @@ void QQuickTableViewPrivate::initItemCallback(int modelIndex, QObject *object)
     attached->setTableView(q_func());
     attached->setColumn(cell.x());
     attached->setRow(cell.y());
+}
+
+void QQuickTableViewPrivate::initRecycledItemCallback(int modelIndex, QObject *object)
+{
+    initItemCallback(modelIndex, object);
+    if (auto attached = getAttachedObject(object))
+        emit attached->recycled();
 }
 
 void QQuickTableViewPrivate::modelUpdated(const QQmlChangeSet &changeSet, bool reset)
@@ -1327,6 +1368,10 @@ void QQuickTableView::setModel(const QVariant &newModel)
         QObjectPrivate::disconnect(d->model, &QQmlInstanceModel::modelUpdated, d, &QQuickTableViewPrivate::modelUpdated);
     }
 
+   if (d->delegateModel) {
+        QObjectPrivate::disconnect(d->delegateModel, &QQmlDelegateModel::initRecycledItem, d, &QQuickTableViewPrivate::initRecycledItemCallback);
+   }
+
     const auto instanceModel = qobject_cast<QQmlInstanceModel *>(qvariant_cast<QObject*>(effectiveModelVariant));
 
     if (instanceModel) {
@@ -1343,6 +1388,10 @@ void QQuickTableView::setModel(const QVariant &newModel)
     QObjectPrivate::connect(d->model, &QQmlInstanceModel::createdItem, d, &QQuickTableViewPrivate::itemCreatedCallback);
     QObjectPrivate::connect(d->model, &QQmlInstanceModel::initItem, d, &QQuickTableViewPrivate::initItemCallback);
     QObjectPrivate::connect(d->model, &QQmlInstanceModel::modelUpdated, d, &QQuickTableViewPrivate::modelUpdated);
+
+    if (d->delegateModel) {
+         QObjectPrivate::connect(d->delegateModel, &QQmlDelegateModel::initRecycledItem, d, &QQuickTableViewPrivate::initRecycledItemCallback);
+    }
 
     d->invalidateTable();
 
@@ -1375,8 +1424,9 @@ void QQuickTableView::setDelegate(QQmlComponent *newDelegate)
 
 QQmlDelegateChooser *QQuickTableView::delegateChooser() const
 {
-    if (auto wrapperModel = d_func()->wrapperModel())
-        return wrapperModel->delegateChooser();
+    Q_D(const QQuickTableView);
+    if (d->delegateModel)
+        return d->delegateModel->delegateChooser();
 
     return 0;
 }
@@ -1387,10 +1437,10 @@ void QQuickTableView::setDelegateChooser(QQmlDelegateChooser *chooser)
     if (chooser == delegateChooser())
         return;
 
-    if (!d->wrapperModel())
+    if (!d->delegateModel)
         d->createWrapperModel();
 
-    d->wrapperModel()->setDelegateChooser(chooser);
+    d->delegateModel->setDelegateChooser(chooser);
     d->invalidateTable();
 
     emit delegateChooserChanged();
