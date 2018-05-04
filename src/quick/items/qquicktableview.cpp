@@ -497,8 +497,8 @@ void QQuickTableViewPrivate::calculateColumnWidthsAfterRebuilding()
     for (int column = loadedTable.left(); column <= loadedTable.right(); ++column) {
         qreal columnWidth = 0;
         for (int row = loadedTable.top(); row <= loadedTable.bottom(); ++row) {
-            auto const item = loadedTableItem(QPoint(column, row));
-            columnWidth = qMax(columnWidth, item->geometry().width());
+            auto const fxTableItem = loadedTableItem(QPoint(column, row));
+            columnWidth = qMax(columnWidth, fxTableItem->item->implicitWidth());
         }
 
         if (columnWidth == prevColumnWidth)
@@ -521,8 +521,8 @@ void QQuickTableViewPrivate::calculateRowHeightsAfterRebuilding()
     for (int row = loadedTable.top(); row <= loadedTable.bottom(); ++row) {
         qreal rowHeight = 0;
         for (int column = loadedTable.left(); column <= loadedTable.right(); ++column) {
-            auto const item = loadedTableItem(QPoint(column, row));
-            rowHeight = qMax(rowHeight, item->geometry().height());
+            auto const fxTableItem = loadedTableItem(QPoint(column, row));
+            rowHeight = qMax(rowHeight, fxTableItem->item->implicitHeight());
         }
 
         if (rowHeight == prevRowHeight)
@@ -548,8 +548,8 @@ void QQuickTableViewPrivate::calculateColumnWidth(int column)
 
     qreal columnWidth = 0;
     for (int row = loadedTable.top(); row <= loadedTable.bottom(); ++row) {
-        auto const item = loadedTableItem(QPoint(column, row));
-        columnWidth = qMax(columnWidth, item->geometry().width());
+        auto const fxTableItem = loadedTableItem(QPoint(column, row));
+        columnWidth = qMax(columnWidth, fxTableItem->item->implicitWidth());
     }
 
     if (columnWidth == columnWidths.last().size)
@@ -568,8 +568,8 @@ void QQuickTableViewPrivate::calculateRowHeight(int row)
 
     qreal rowHeight = 0;
     for (int column = loadedTable.left(); column <= loadedTable.right(); ++column) {
-        auto const item = loadedTableItem(QPoint(column, row));
-        rowHeight = qMax(rowHeight, item->geometry().height());
+        auto const fxTableItem = loadedTableItem(QPoint(column, row));
+        rowHeight = qMax(rowHeight, fxTableItem->item->implicitHeight());
     }
 
     if (rowHeight == rowHeights.last().size)
