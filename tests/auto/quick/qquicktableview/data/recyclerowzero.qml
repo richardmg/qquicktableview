@@ -47,14 +47,6 @@ Item {
     height: 450
 
     property alias tableView: tableView
-    property bool recyclableDelegates: true
-
-    // currentDelegateCount is the number of currently visible items
-    property int currentDelegateCount: 0
-    // maxDelegateCount is the largest number of items that has ever been visible at the same time
-    property int maxDelegateCount: 0
-    // delegatesCreatedCount is the number of items created during the lifetime of the test
-    property int delegatesCreatedCount: 0
 
     TableView {
         id: tableView
@@ -72,28 +64,19 @@ Item {
         id: tableViewDelegate
         Rectangle {
             objectName: "tableViewDelegate"
-            color: "lightgray"
-            border.width: 1
-            property int recycledCount: 0
-
             TableView.cellWidth: 100
             TableView.cellHeight: 50
-            TableView.recyclable: recyclableDelegates
+
+            color: "lightgray"
+            border.width: 1
+
+            TableView.recyclable: row == 0
+            property int recycledCount: 0
             TableView.onRecycled: recycledCount++;
 
             Text {
                 anchors.centerIn: parent
                 text: modelData
-            }
-
-            Component.onCompleted: {
-                delegatesCreatedCount++;
-                currentDelegateCount++;
-                maxDelegateCount = Math.max(maxDelegateCount, currentDelegateCount);
-            }
-
-            Component.onDestruction: {
-                currentDelegateCount--;
             }
         }
     }

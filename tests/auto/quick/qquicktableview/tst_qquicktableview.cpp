@@ -39,6 +39,7 @@
 #include <QtQml/private/qqmlobjectmodel_p.h>
 #include <QtQml/private/qqmllistmodel_p.h>
 #include <QtQml/private/qqmldelegatemodel_p.h>
+#include <QtQml/private/qqmldelegatemodel_p_p.h>
 
 #include "testmodel.h"
 
@@ -51,6 +52,7 @@ using namespace QQuickVisualTestUtil;
 
 static const char* kTableViewPropName = "tableView";
 static const char* kDelegateObjectName = "tableViewDelegate";
+static const char *kDelegatesCreatedCountProp = "delegatesCreatedCount";
 
 Q_DECLARE_METATYPE(QMarginsF);
 
@@ -76,6 +78,7 @@ public:
 
     QQuickTableViewAttached *getAttachedObject(const QObject *object) const;
     FxTableItem *findFxTableItem(int row, int column, const QList<FxTableItem *> items) const;
+    FxTableItem *findLoadedTopLeftItem(const QList<FxTableItem *> items) const;
     FxTableItem *findLoadedBottomRightItem(const QList<FxTableItem *> items) const;
 
 private slots:
@@ -101,6 +104,12 @@ private slots:
     void flickOvershoot_data();
     void flickOvershoot();
     void checkRowColumnCount();
+    void checkDefaultRecyclingValues();
+    void checkIfDelegatesAreRecycled_data();
+    void checkIfDelegatesAreRecycled();
+    void checkIfDelegatesAreRecycledTopRowOnly();
+    void checkAttachedProperties_data();
+    void checkAttachedProperties();
 };
 
 tst_QQuickTableView::tst_QQuickTableView()
@@ -128,6 +137,21 @@ FxTableItem *tst_QQuickTableView::findFxTableItem(int row, int column, const QLi
             return fxitem;
     }
     return nullptr;
+}
+
+FxTableItem *tst_QQuickTableView::findLoadedTopLeftItem(const QList<FxTableItem *> items) const
+{
+    FxTableItem *topLeftItem = nullptr;
+    int topLeftIndex = INT_MAX;
+
+    for (int i = 0; i < items.count(); ++i) {
+        FxTableItem *fxitem = items[i];
+        if (fxitem->index < topLeftIndex) {
+            topLeftItem = fxitem;
+            topLeftIndex = fxitem->index;
+        }
+    }
+    return topLeftItem;
 }
 
 FxTableItem *tst_QQuickTableView::findLoadedBottomRightItem(const QList<FxTableItem *> items) const
@@ -509,11 +533,16 @@ void tst_QQuickTableView::flick_data()
 {
     QTest::addColumn<QSizeF>("spacing");
     QTest::addColumn<QMarginsF>("margins");
+    QTest::addColumn<bool>("recycleItems");
 
-    QTest::newRow("s:0 m:0") << QSizeF(0, 0) << QMarginsF(0, 0, 0, 0);
-    QTest::newRow("s:5 m:0") << QSizeF(5, 5) << QMarginsF(0, 0, 0, 0);
-    QTest::newRow("s:0 m:20") << QSizeF(0, 0) << QMarginsF(20, 20, 20, 20);
-    QTest::newRow("s:5 m:20") << QSizeF(5, 5) << QMarginsF(20, 20, 20, 20);
+    QTest::newRow("s:0 m:0 recycleItems") << QSizeF(0, 0) << QMarginsF(0, 0, 0, 0) << true;
+    QTest::newRow("s:5 m:0 recycleItems") << QSizeF(5, 5) << QMarginsF(0, 0, 0, 0) << true;
+    QTest::newRow("s:0 m:20 recycleItems") << QSizeF(0, 0) << QMarginsF(20, 20, 20, 20) << true;
+    QTest::newRow("s:5 m:20 recycleItems") << QSizeF(5, 5) << QMarginsF(20, 20, 20, 20) << true;
+    QTest::newRow("s:0 m:0") << QSizeF(0, 0) << QMarginsF(0, 0, 0, 0) << false;
+    QTest::newRow("s:5 m:0") << QSizeF(5, 5) << QMarginsF(0, 0, 0, 0) << false;
+    QTest::newRow("s:0 m:20") << QSizeF(0, 0) << QMarginsF(20, 20, 20, 20) << false;
+    QTest::newRow("s:5 m:20") << QSizeF(5, 5) << QMarginsF(20, 20, 20, 20) << false;
 }
 
 void tst_QQuickTableView::flick()
@@ -522,6 +551,7 @@ void tst_QQuickTableView::flick()
     // with different table configurations.
     QFETCH(QSizeF, spacing);
     QFETCH(QMarginsF, margins);
+    QFETCH(bool, recycleItems);
     LOAD_TABLEVIEW("plaintableview.qml");
 
     const qreal delegateWidth = 100;
@@ -540,6 +570,7 @@ void tst_QQuickTableView::flick()
     tableView->setRightMargin(margins.right());
     tableView->setBottomMargin(margins.bottom());
     tableView->setCacheBuffer(0);
+    tableView->setRecycleItems(recycleItems);
     tableView->setWidth(margins.left() + (visualColumnCount * cellWidth) - spacing.width());
     tableView->setHeight(margins.top() + (visualRowCount * cellHeight) - spacing.height());
 
@@ -573,11 +604,16 @@ void tst_QQuickTableView::flickOvershoot_data()
 {
     QTest::addColumn<QSizeF>("spacing");
     QTest::addColumn<QMarginsF>("margins");
+    QTest::addColumn<bool>("recycleItems");
 
-    QTest::newRow("s:0 m:0") << QSizeF(0, 0) << QMarginsF(0, 0, 0, 0);
-    QTest::newRow("s:5 m:0") << QSizeF(5, 5) << QMarginsF(0, 0, 0, 0);
-    QTest::newRow("s:0 m:20") << QSizeF(0, 0) << QMarginsF(20, 20, 20, 20);
-    QTest::newRow("s:5 m:20") << QSizeF(5, 5) << QMarginsF(20, 20, 20, 20);
+    QTest::newRow("s:0 m:0 recycleItems") << QSizeF(0, 0) << QMarginsF(0, 0, 0, 0) << true;
+    QTest::newRow("s:5 m:0 recycleItems") << QSizeF(5, 5) << QMarginsF(0, 0, 0, 0) << true;
+    QTest::newRow("s:0 m:20 recycleItems") << QSizeF(0, 0) << QMarginsF(20, 20, 20, 20) << true;
+    QTest::newRow("s:5 m:20 recycleItems") << QSizeF(5, 5) << QMarginsF(20, 20, 20, 20) << true;
+    QTest::newRow("s:0 m:0") << QSizeF(0, 0) << QMarginsF(0, 0, 0, 0) << false;
+    QTest::newRow("s:5 m:0") << QSizeF(5, 5) << QMarginsF(0, 0, 0, 0) << false;
+    QTest::newRow("s:0 m:20") << QSizeF(0, 0) << QMarginsF(20, 20, 20, 20) << false;
+    QTest::newRow("s:5 m:20") << QSizeF(5, 5) << QMarginsF(20, 20, 20, 20) << false;
 }
 
 void tst_QQuickTableView::flickOvershoot()
@@ -588,6 +624,7 @@ void tst_QQuickTableView::flickOvershoot()
     // when everything is flicked out of view.
     QFETCH(QSizeF, spacing);
     QFETCH(QMarginsF, margins);
+    QFETCH(bool, recycleItems);
     LOAD_TABLEVIEW("plaintableview.qml");
 
     const int rowCount = 5;
@@ -609,6 +646,7 @@ void tst_QQuickTableView::flickOvershoot()
     tableView->setRightMargin(margins.right());
     tableView->setBottomMargin(margins.bottom());
     tableView->setCacheBuffer(0);
+    tableView->setRecycleItems(recycleItems);
     tableView->setWidth(tableWidth - margins.right() - cellWidth / 2);
     tableView->setHeight(tableHeight - margins.bottom() - cellHeight / 2);
 
@@ -764,6 +802,192 @@ void tst_QQuickTableView::checkRowColumnCount()
 
     const int qmlCountAfterUpFlick = view->rootObject()->property(maxDelegateCountProp).toInt();
     QCOMPARE(qmlCountAfterUpFlick, qmlCountAfterInit);
+}
+
+void tst_QQuickTableView::checkDefaultRecyclingValues()
+{
+    // Check that recycling is on by default
+    LOAD_TABLEVIEW("plaintableview.qml");
+    QCOMPARE(tableView->recycleItems(), true);
+    auto model = TestModelAsVariant(4, 4);
+    tableView->setModel(model);
+
+    WAIT_UNTIL_POLISHED;
+
+    for (auto fxItem : tableViewPrivate->loadedItems)
+        QCOMPARE(getAttachedObject(fxItem->item)->recyclable(), true);
+}
+
+void tst_QQuickTableView::checkIfDelegatesAreRecycled_data()
+{
+    QTest::addColumn<bool>("recycleItems");
+    QTest::addColumn<bool>("recyclable");
+
+    QTest::newRow("recycleItems = true, recyclable = true") << true << true;
+    QTest::newRow("recycleItems = false, recyclable = true") << false << true;
+    QTest::newRow("recycleItems = true, recyclable = false") << false << true;
+    QTest::newRow("recycleItems = false, recyclable = false") << false << false;
+}
+
+void tst_QQuickTableView::checkIfDelegatesAreRecycled()
+{
+    // Check that we end up recycling delegate items while flicking if
+    // both TableView and the delegate items support recycling, but
+    // otherwise not.
+    QFETCH(bool, recycleItems);
+    QFETCH(bool, recyclable);
+    LOAD_TABLEVIEW("countingtableview.qml");
+
+    const qreal delegateWidth = 100;
+    const qreal delegateHeight = 50;
+    const int visibleColumnCount = qCeil(tableView->width() / delegateWidth);
+    const int visibleRowCount = qCeil(tableView->height() / delegateHeight);
+    const bool recyclingExpected = recycleItems && recyclable;
+    const int pageFlickCount = 3;
+
+    auto model = TestModelAsVariant(100, 100);
+    tableView->setModel(model);
+    tableView->setRecycleItems(recycleItems);
+    view->setProperty("recyclableDelegates", recyclable);
+
+    WAIT_UNTIL_POLISHED;
+
+    // Count how many items we are showing after the inital layout
+    const int delegateCountAfterInit = view->rootObject()->property(kDelegatesCreatedCountProp).toInt();
+    QCOMPARE(tableViewPrivate->loadedItems.count(), delegateCountAfterInit);
+
+    for (int column = 1; column <= (visibleColumnCount * pageFlickCount); ++column) {
+        // Flick columns to the left
+        tableView->setContentX((delegateWidth * column) + (delegateWidth / 2));
+        tableView->polish();
+
+        WAIT_UNTIL_POLISHED;
+
+        // First confirm that the size of the (visible) table din't grow, as
+        // that will affect how many items that are available to be reused.
+        QCOMPARE(tableViewPrivate->loadedItems.count(), delegateCountAfterInit);
+
+        // Check that the number of delegate items created so far is what we expect.
+        const int delegatesCreatedCount = view->rootObject()->property(kDelegatesCreatedCountProp).toInt();
+        int expectedCount = delegateCountAfterInit + (recyclingExpected ? 0 : visibleRowCount * column);
+        QCOMPARE(delegatesCreatedCount, expectedCount);
+
+        // Check that we recycled all the items that were added to the recycle pool
+        auto delegateModelPrivate = QQmlDelegateModelPrivate::get(tableViewPrivate->delegateModel);
+        QCOMPARE(delegateModelPrivate->m_recyclePool.size(), 0);
+    }
+
+    // Check that each delegate item has been recycled as many times
+    // as we have flicked pages (if recycling is enabled).
+    for (auto fxItem : tableViewPrivate->loadedItems) {
+        int signalCount = fxItem->item->property("recycledCount").toInt();
+        int expectedSignalCount = recyclingExpected ? pageFlickCount : 0;
+        QCOMPARE(signalCount, expectedSignalCount);
+    }
+}
+
+void tst_QQuickTableView::checkIfDelegatesAreRecycledTopRowOnly()
+{
+    // Check that we can enable recycling of items in general, but hinder it
+    // for some delegate items. In this test we will only accept recycling of
+    // top-row items by setting the recycling property accordingly.
+    LOAD_TABLEVIEW("recyclerowzero.qml");
+
+    const qreal delegateWidth = 100;
+    const int visibleColumnCount = qCeil(tableView->width() / delegateWidth);
+    const int pageFlickCount = 3;
+
+    auto model = TestModelAsVariant(100, 100);
+    tableView->setModel(model);
+
+    WAIT_UNTIL_POLISHED;
+
+    for (int column = 1; column <= (visibleColumnCount * pageFlickCount); ++column) {
+        // Flick columns to the left
+        tableView->setContentX((delegateWidth * column) + (delegateWidth / 2));
+        tableView->polish();
+
+        WAIT_UNTIL_POLISHED;
+    }
+
+    int numberOfRecycledItemsFoundAfterFlicking = 0;
+
+    for (auto fxItem : tableViewPrivate->loadedItems) {
+        auto attached = getAttachedObject(fxItem->item);
+        int signalCount = fxItem->item->property("recycledCount").toInt();
+
+        if (attached->recyclable()) {
+            numberOfRecycledItemsFoundAfterFlicking++;
+            QCOMPARE(signalCount, pageFlickCount);
+        } else {
+            QCOMPARE(signalCount, 0);
+        }
+    }
+
+    // We expect visibleColumnCount of items to have been recycled (which ones
+    // are not defined, and left for the implementation do decide)
+    QCOMPARE(numberOfRecycledItemsFoundAfterFlicking, visibleColumnCount);
+}
+
+void tst_QQuickTableView::checkAttachedProperties_data()
+{
+    QTest::addColumn<bool>("recycleItems");
+    QTest::newRow("recycleItems = true") << true;
+    QTest::newRow("recycleItems = false") << false;
+}
+
+void tst_QQuickTableView::checkAttachedProperties()
+{
+    // Check that the context and attached properties inside the delegate
+    // items are what we expect, with or without item recycling.
+    QFETCH(bool, recycleItems);
+    LOAD_TABLEVIEW("countingtableview.qml");
+
+    const qreal delegateWidth = 100;
+    const qreal delegateHeight = 50;
+    const int visibleRowCount = qCeil(tableView->height() / delegateHeight);
+    const int visibleColumnCount = qCeil(tableView->width() / delegateWidth);
+    const int columnCount = 100;
+    const int rowCount = 100;
+    const int pageFlickCount = 3;
+
+    auto model = TestModelAsVariant(rowCount, columnCount);
+    tableView->setModel(model);
+    tableView->setRecycleItems(recycleItems);
+
+    WAIT_UNTIL_POLISHED;
+
+    for (int column = 1; column <= (visibleColumnCount * pageFlickCount); ++column) {
+        // Flick columns to the left
+        tableView->setContentX((delegateWidth * column) + (delegateWidth / 2));
+        tableView->polish();
+
+        WAIT_UNTIL_POLISHED;
+
+        for (int row = 0; row < visibleRowCount; ++row) {
+            auto item = findFxTableItem(row, column, tableViewPrivate->loadedItems)->item;
+            auto attached = getAttachedObject(item);
+            auto context = qmlContext(item.data());
+            int contextRow = context->contextProperty("row").toInt();
+            int contextColumn = context->contextProperty("column").toInt();
+            int expectedIndex = row + (column * rowCount);
+            int contextIndex = context->contextProperty("index").toInt();
+            QString contextModelData = context->contextProperty("modelData").toString();
+            QQmlDelegateModelAttached *delegateModelAttached =
+                    static_cast<QQmlDelegateModelAttached *>(
+                        qmlAttachedPropertiesObject<QQmlDelegateModel>(item));
+            int contextItemsIndex = delegateModelAttached->property("itemsIndex").toInt();
+
+            QCOMPARE(attached->row(), row);
+            QCOMPARE(attached->column(), column);
+            QCOMPARE(attached->recyclable(), true);
+            QCOMPARE(contextRow, row);
+            QCOMPARE(contextColumn, column);
+            QCOMPARE(contextIndex, expectedIndex);
+            QCOMPARE(contextModelData, QStringLiteral("%1,%2").arg(column).arg(row));
+            QCOMPARE(contextItemsIndex, expectedIndex);
+        }
+    }
 }
 
 QTEST_MAIN(tst_QQuickTableView)
