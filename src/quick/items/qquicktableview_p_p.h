@@ -267,7 +267,7 @@ public:
     FxTableItem *createFxTableItem(const QPoint &cell, QQmlIncubator::IncubationMode incubationMode);
     FxTableItem *loadFxTableItem(const QPoint &cell, QQmlIncubator::IncubationMode incubationMode);
 
-    void releaseItem(FxTableItem *fxTableItem);
+    void releaseItem(FxTableItem *fxTableItem, bool recyclable);
     void releaseLoadedItems();
     void clear();
 
@@ -287,13 +287,17 @@ public:
     void unloadBuffer();
     QRectF bufferRect();
 
+    void updateRecyclePoolMaxSize();
+
     void invalidateTable();
     void invalidateColumnRowPositions();
 
     void createWrapperModel();
 
     void initItemCallback(int modelIndex, QObject *item);
+    void initRecycledItemCallback(int modelIndex, QObject *object);
     void itemCreatedCallback(int modelIndex, QObject *object);
+
     void modelUpdated(const QQmlChangeSet &changeSet, bool reset);
 
     inline QString tableLayoutToString() const;
