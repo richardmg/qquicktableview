@@ -42,6 +42,7 @@ import QtQuick.Window 2.3
 import QtQml.Models 2.2
 import Qt.labs.tableview 1.0
 import TestTableModel 0.1
+import QtQuick.Controls 1.4 as CC
 
 Window {
     id: window
@@ -68,7 +69,7 @@ Window {
 
             model: tableModel
             delegate: tableViewDelegate
-            cacheBuffer: 500
+            cacheBuffer: 0
             columnSpacing: 1
             rowSpacing: 1
         }
@@ -76,10 +77,10 @@ Window {
         Component {
             id: tableViewDelegate
             Rectangle {
-                implicitWidth: TableView.column % 3 ? 80 : 50
-                implicitHeight: TableView.row % 3 ? 80 : 50
+                implicitWidth: 80//TableView.column % 3 ? 80 : 50
+                implicitHeight: 50//TableView.row % 3 ? 80 : 50
 
-                Text {
+                CC.Button {
                     anchors.centerIn: parent
                     text: modelData
                 }
