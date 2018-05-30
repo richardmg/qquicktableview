@@ -565,25 +565,24 @@ int QQmlDelegateModel::count() const
 
 QQmlDelegateModel::ReleaseFlags QQmlDelegateModelPrivate::release(QObject *object)
 {
-    QQmlDelegateModel::ReleaseFlags stat = nullptr;
     if (!object)
-        return stat;
+        return QQmlInstanceModel::Destroyed;
 
-    if (QQmlDelegateModelItem *cacheItem = QQmlDelegateModelItem::dataForObject(object)) {
-        if (cacheItem->releaseObject()) {
-            cacheItem->destroyObject();
-            emitDestroyingItem(object);
-            if (cacheItem->incubationTask) {
-                releaseIncubator(cacheItem->incubationTask);
-                cacheItem->incubationTask = nullptr;
-            }
-            cacheItem->Dispose();
-            stat |= QQmlInstanceModel::Destroyed;
-        } else {
-            stat |= QQmlDelegateModel::Referenced;
-        }
+    QQmlDelegateModelItem *cacheItem = QQmlDelegateModelItem::dataForObject(object);
+    if (!cacheItem)
+        return QQmlInstanceModel::Destroyed;
+
+    if (!cacheItem->releaseObject())
+        return QQmlDelegateModel::Referenced;
+
+    cacheItem->destroyObject();
+    emitDestroyingItem(object);
+    if (cacheItem->incubationTask) {
+        releaseIncubator(cacheItem->incubationTask);
+        cacheItem->incubationTask = nullptr;
     }
-    return stat;
+    cacheItem->Dispose();
+    return QQmlInstanceModel::Destroyed;
 }
 
 /*
