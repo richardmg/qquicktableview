@@ -19,7 +19,12 @@ Module {
         Property { name: "columns"; type: "int"; isReadonly: true }
         Property { name: "rowSpacing"; type: "double" }
         Property { name: "columnSpacing"; type: "double" }
+        Property { name: "topMargin"; type: "double" }
+        Property { name: "bottomMargin"; type: "double" }
+        Property { name: "leftMargin"; type: "double" }
+        Property { name: "rightMargin"; type: "double" }
         Property { name: "cacheBuffer"; type: "int" }
+        Property { name: "recycleItems"; type: "bool" }
         Property { name: "model"; type: "QVariant" }
         Property { name: "delegate"; type: "QQmlComponent"; isPointer: true }
     }
@@ -27,7 +32,11 @@ Module {
         name: "QQuickTableViewAttached"
         prototype: "QObject"
         Property { name: "tableView"; type: "QQuickTableView"; isReadonly: true; isPointer: true }
+        Property { name: "cellWidth"; type: "double" }
+        Property { name: "cellHeight"; type: "double" }
         Property { name: "row"; type: "int"; isReadonly: true }
         Property { name: "column"; type: "int"; isReadonly: true }
+        Property { name: "recyclable"; type: "bool" }
+        Signal { name: "recycled" }
     }
 }
