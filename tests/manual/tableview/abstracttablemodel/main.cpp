@@ -40,6 +40,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QAbstractTableModel>
+#include <QtDebug>
 
 class TestTableModel : public QAbstractTableModel
 {
@@ -48,13 +49,25 @@ class TestTableModel : public QAbstractTableModel
     Q_PROPERTY(int columnCount READ columnCount WRITE setColumnCount NOTIFY columnCountChanged)
 
 public:
-    TestTableModel(QObject *parent = nullptr) : QAbstractTableModel(parent) { }
+    TestTableModel(QObject *parent = nullptr) : QAbstractTableModel(parent) {
+        connect(this, &QAbstractTableModel::modelReset, this, &TestTableModel::rebuildModel);
+    }
 
     int rowCount(const QModelIndex & = QModelIndex()) const override { return m_rows; }
     void setRowCount(int count) { beginResetModel(); m_rows = count; emit rowCountChanged(); endResetModel(); }
 
     int columnCount(const QModelIndex & = QModelIndex()) const override { return m_cols; }
     void setColumnCount(int count) { beginResetModel(); m_cols = count; emit columnCountChanged(); endResetModel(); }
+
+    void rebuildModel()
+    {
+        m_modelData = QVector<QVector<QString>>(m_cols);
+        for (int x = 0; x < m_cols; ++x) {
+            m_modelData[x] = QVector<QString>(m_rows);
+            for (int y = 0; y < m_rows; ++y)
+                m_modelData[x][y] = QStringLiteral("[D %1, %2]").arg(x).arg(y);
+        }
+    }
 
     QVariant headerData(int section, Qt::Orientation orientation, int role) const
     {
@@ -67,12 +80,65 @@ public:
     {
         if (!index.isValid() || role != Qt::DisplayRole)
             return QVariant();
-        return QString("[%1-%2]").arg(index.column()).arg(index.row());
+        return m_modelData[index.column()][index.row()];
     }
 
     QHash<int, QByteArray> roleNames() const override
     {
         return { {Qt::DisplayRole, "display"} };
+    }
+
+    Q_INVOKABLE void addNewRow(int row)
+    {
+        insertRow(row);
+    }
+
+    Q_INVOKABLE void addNewColumn(int column)
+    {
+        insertColumn(column);
+    }
+
+    Q_INVOKABLE void setCellData(int row, int column, const QString &data)
+    {
+        m_modelData[column][row] = data;
+        QModelIndex cellIndex = createIndex(row, column);
+        emit dataChanged(cellIndex, cellIndex);
+    }
+
+    bool insertRows(int row, int count, const QModelIndex &parent) override
+    {
+        if (count < 1 || row < 0 || row > rowCount(parent))
+            return false;
+
+        beginInsertRows(QModelIndex(), row, row + count - 1);
+
+        Q_ASSERT(count == 1);
+        m_rows++;
+        for (int x = 0; x < m_cols; ++x)
+            m_modelData[x].insert(row, QStringLiteral("[R %1, %2]").arg(x).arg(row));
+
+        endInsertRows();
+
+        return true;
+    }
+
+    bool insertColumns(int column, int count, const QModelIndex &parent) override
+    {
+        if (column < 1 || column < 0 || column > columnCount(parent))
+            return false;
+
+        beginInsertColumns(QModelIndex(), column, column + count - 1);
+
+        Q_ASSERT(count == 1);
+        m_cols++;
+        auto newColumn = QVector<QString>(m_rows);
+        for (int y = 0; y < m_rows; ++y)
+            newColumn[y] = QStringLiteral("[C %1, %2]").arg(column).arg(y);
+        m_modelData.insert(column, newColumn);
+
+        endInsertColumns();
+
+        return true;
     }
 
 signals:
@@ -82,6 +148,8 @@ signals:
 private:
     int m_rows = 0;
     int m_cols = 0;
+
+    QVector<QVector<QString>> m_modelData;
 };
 
 int main(int argc, char *argv[])

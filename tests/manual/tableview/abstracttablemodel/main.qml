@@ -42,6 +42,7 @@ import QtQuick.Window 2.3
 import QtQml.Models 2.2
 import Qt.labs.tableview 1.0
 import TestTableModel 0.1
+import QtQuick.Controls 1.4 as CC
 
 Window {
     id: window
@@ -51,8 +52,8 @@ Window {
 
     TestTableModel {
         id: tableModel
-        rowCount: 200
-        columnCount: 200
+        rowCount: 5
+        columnCount: 5
     }
 
     Rectangle {
@@ -71,6 +72,23 @@ Window {
             cacheBuffer: 500
             columnSpacing: 1
             rowSpacing: 1
+        }
+
+        Column {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            CC.Button {
+                text: "add row"
+                onClicked: tableModel.addNewRow(2);
+            }
+            CC.Button {
+                text: "add column"
+                onClicked: tableModel.addNewColumn(2);
+            }
+            CC.Button {
+                text: "change data"
+                onClicked: tableModel.setCellData(2, 2, "Changed");
+            }
         }
 
         Component {
