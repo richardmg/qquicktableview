@@ -517,6 +517,11 @@ public:
         return model && model.aim()->canFetchMore(model.rootIndex);
     }
 
+    bool supportsRecycling() const override
+    {
+        return true;
+    }
+
     void fetchMore(QQmlAdaptorModel &model) const override
     {
         if (model)

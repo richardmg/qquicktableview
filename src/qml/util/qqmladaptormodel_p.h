@@ -104,6 +104,7 @@ public:
             return QVariant(); }
         virtual bool canFetchMore(const QQmlAdaptorModel &) const { return false; }
         virtual void fetchMore(QQmlAdaptorModel &) const {}
+        virtual bool supportsRecycling() const { return false; }
     };
 
     const Accessors *accessors;
@@ -118,6 +119,7 @@ public:
     void invalidateModel(QQmlDelegateModel *vdm);
 
     bool isValid() const;
+    bool supportsRecycling() const { return accessors->supportsRecycling(); }
     int count() const;
     int rowCount() const;
     int columnCount() const;
