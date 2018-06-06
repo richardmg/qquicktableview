@@ -720,7 +720,7 @@ class VDMObjectDelegateDataType;
 class QQmlDMObjectData : public QQmlDelegateModelItem, public QQmlAdaptorModelProxyInterface
 {
     Q_OBJECT
-    Q_PROPERTY(QObject *modelData READ modelData CONSTANT)
+    Q_PROPERTY(QObject *modelData READ modelData NOTIFY modelDataChanged)
     Q_INTERFACES(QQmlAdaptorModelProxyInterface)
 public:
     QQmlDMObjectData(
@@ -729,10 +729,22 @@ public:
             int index,
             QObject *object);
 
+    void setModelData(QObject *modelData)
+    {
+        if (modelData == object)
+            return;
+
+        object = modelData;
+        emit modelDataChanged();
+    }
+
     QObject *modelData() const { return object; }
     QObject *proxiedObject() override { return object; }
 
     QPointer<QObject> object;
+
+Q_SIGNALS:
+    void modelDataChanged();
 };
 
 class VDMObjectDelegateDataType : public QQmlRefCount, public QQmlAdaptorModel::Accessors
@@ -812,6 +824,25 @@ public:
     void cleanup(QQmlAdaptorModel &, QQmlDelegateModel *) const override
     {
         const_cast<VDMObjectDelegateDataType *>(this)->release();
+    }
+
+    bool supportsRecycling() const override
+    {
+        return true;
+    }
+
+    bool notify(const QQmlAdaptorModel &model, const QList<QQmlDelegateModelItem *> &items, int index, int count, const QVector<int> &) const override
+    {
+        for (auto modelItem : items) {
+            int modelItemIndex = modelItem->index;
+            if (modelItemIndex < index || modelItemIndex >= index + count)
+                continue;
+
+            auto objectModelItem = static_cast<QQmlDMObjectData *>(modelItem);
+            QObject *updatedModelData = qvariant_cast<QObject *>(model.list.at(objectModelItem->index));
+            objectModelItem->setModelData(updatedModelData);
+        }
+        return true;
     }
 };
 
