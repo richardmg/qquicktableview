@@ -374,6 +374,52 @@ QVariant QQmlDelegateModel::model() const
     return d->m_adaptorModel.model();
 }
 
+void QQmlDelegateModelPrivate::connectToAim()
+{
+    Q_Q(QQmlDelegateModel);
+    auto aim = m_adaptorModel.aim();
+    if (!aim)
+        return;
+
+    qmlobject_connect(aim, QAbstractItemModel, SIGNAL(rowsInserted(QModelIndex,int,int)),
+                      q, QQmlDelegateModel, SLOT(_q_rowsInserted(QModelIndex,int,int)));
+    qmlobject_connect(aim, QAbstractItemModel, SIGNAL(rowsRemoved(QModelIndex,int,int)),
+                      q,  QQmlDelegateModel, SLOT(_q_rowsRemoved(QModelIndex,int,int)));
+    qmlobject_connect(aim, QAbstractItemModel, SIGNAL(rowsAboutToBeRemoved(QModelIndex,int,int)),
+                      q,  QQmlDelegateModel, SLOT(_q_rowsAboutToBeRemoved(QModelIndex,int,int)));
+    qmlobject_connect(aim, QAbstractItemModel, SIGNAL(dataChanged(QModelIndex,QModelIndex,QVector<int>)),
+                      q, QQmlDelegateModel, SLOT(_q_dataChanged(QModelIndex,QModelIndex,QVector<int>)));
+    qmlobject_connect(aim, QAbstractItemModel, SIGNAL(rowsMoved(QModelIndex,int,int,QModelIndex,int)),
+                      q, QQmlDelegateModel, SLOT(_q_rowsMoved(QModelIndex,int,int,QModelIndex,int)));
+    qmlobject_connect(aim, QAbstractItemModel, SIGNAL(modelReset()),
+                      q, QQmlDelegateModel, SLOT(_q_modelReset()));
+    qmlobject_connect(aim, QAbstractItemModel, SIGNAL(layoutChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)),
+                      q, QQmlDelegateModel, SLOT(_q_layoutChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)));
+}
+
+void QQmlDelegateModelPrivate::disconnectToAim()
+{
+    Q_Q(QQmlDelegateModel);
+    auto aim = m_adaptorModel.aim();
+    if (!aim)
+        return;
+
+    QObject::disconnect(aim, SIGNAL(rowsInserted(QModelIndex,int,int)),
+                        q, SLOT(_q_rowsInserted(QModelIndex,int,int)));
+    QObject::disconnect(aim, SIGNAL(rowsAboutToBeRemoved(QModelIndex,int,int)),
+                        q, SLOT(_q_rowsAboutToBeRemoved(QModelIndex,int,int)));
+    QObject::disconnect(aim, SIGNAL(rowsRemoved(QModelIndex,int,int)),
+                        q, SLOT(_q_rowsRemoved(QModelIndex,int,int)));
+    QObject::disconnect(aim, SIGNAL(dataChanged(QModelIndex,QModelIndex,QVector<int>)),
+                        q, SLOT(_q_dataChanged(QModelIndex,QModelIndex,QVector<int>)));
+    QObject::disconnect(aim, SIGNAL(rowsMoved(QModelIndex,int,int,QModelIndex,int)),
+                        q, SLOT(_q_rowsMoved(QModelIndex,int,int,QModelIndex,int)));
+    QObject::disconnect(aim, SIGNAL(modelReset()),
+                        q, SLOT(_q_modelReset()));
+    QObject::disconnect(aim, SIGNAL(layoutChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)),
+                        q, SLOT(_q_layoutChanged(QList<QPersistentModelIndex>,QAbstractItemModel::LayoutChangeHint)));
+}
+
 void QQmlDelegateModel::setModel(const QVariant &model)
 {
     Q_D(QQmlDelegateModel);
@@ -381,7 +427,10 @@ void QQmlDelegateModel::setModel(const QVariant &model)
     if (d->m_complete)
         _q_itemsRemoved(0, d->m_count);
 
+    d->disconnectToAim();
     d->m_adaptorModel.setModel(model, this, d->m_context->engine());
+    d->connectToAim();
+
     d->m_adaptorModel.replaceWatchedRoles(QList<QByteArray>(), d->m_watchedRoles);
     for (int i = 0; d->m_parts && i < d->m_parts->models.count(); ++i) {
         d->m_adaptorModel.replaceWatchedRoles(
@@ -476,8 +525,12 @@ void QQmlDelegateModel::setRootIndex(const QVariant &root)
     if (changed || !d->m_adaptorModel.isValid()) {
         const int oldCount = d->m_count;
         d->m_adaptorModel.rootIndex = modelIndex;
-        if (!d->m_adaptorModel.isValid() && d->m_adaptorModel.aim())  // The previous root index was invalidated, so we need to reconnect the model.
+        if (!d->m_adaptorModel.isValid() && d->m_adaptorModel.aim()) {
+            // The previous root index was invalidated, so we need to reconnect the model.
+            d->disconnectToAim();
             d->m_adaptorModel.setModel(d->m_adaptorModel.list.list(), this, d->m_context->engine());
+            d->connectToAim();
+        }
         if (d->m_adaptorModel.canFetchMore())
             d->m_adaptorModel.fetchMore();
         if (d->m_complete) {
@@ -1600,7 +1653,8 @@ void QQmlDelegateModel::_q_rowsAboutToBeRemoved(const QModelIndex &parent, int b
     if (index.parent() == parent && index.row() >= begin && index.row() <= end) {
         const int oldCount = d->m_count;
         d->m_count = 0;
-        d->m_adaptorModel.invalidateModel(this);
+        d->disconnectToAim();
+        d->m_adaptorModel.invalidateModel();
 
         if (d->m_complete && oldCount > 0) {
             QVector<Compositor::Remove> removes;

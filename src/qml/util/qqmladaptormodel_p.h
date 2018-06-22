@@ -68,7 +68,7 @@ class QQmlDelegateModel;
 class QQmlDelegateModelItem;
 class QQmlDelegateModelItemMetaType;
 
-class QQmlAdaptorModel : public QQmlStrongJSQObjectReference<QObject>
+class Q_QML_PRIVATE_EXPORT QQmlAdaptorModel : public QQmlStrongJSQObjectReference<QObject>
 {
 public:
     class Accessors
@@ -78,7 +78,7 @@ public:
         virtual ~Accessors();
         virtual int rowCount(const QQmlAdaptorModel &) const { return 0; }
         virtual int columnCount(const QQmlAdaptorModel &) const { return 0; }
-        virtual void cleanup(QQmlAdaptorModel &, QQmlDelegateModel * = nullptr) const {}
+        virtual void cleanup(QQmlAdaptorModel &) const {}
 
         virtual QVariant value(const QQmlAdaptorModel &, int, const QString &) const {
             return QVariant(); }
@@ -115,8 +115,8 @@ public:
     ~QQmlAdaptorModel();
 
     inline QVariant model() const { return list.list(); }
-    void setModel(const QVariant &variant, QQmlDelegateModel *vdm, QQmlEngine *engine);
-    void invalidateModel(QQmlDelegateModel *vdm);
+    void setModel(const QVariant &variant, QObject *parent, QQmlEngine *engine);
+    void invalidateModel();
 
     bool isValid() const;
     bool supportsRecycling() const { return accessors->supportsRecycling(); }
