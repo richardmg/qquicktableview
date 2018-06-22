@@ -1307,8 +1307,10 @@ void QQmlDelegateModel::_q_itemsInserted(int index, int count)
     const QList<QQmlDelegateModelItem *> cache = d->m_cache;
     for (int i = 0, c = cache.count();  i < c; ++i) {
         QQmlDelegateModelItem *item = cache.at(i);
-        if (item->modelIndex() >= index)
-            item->setModelIndex(item->modelIndex() + count);
+        if (item->modelIndex() >= index) {
+            int newIndex = item->modelIndex() + count;
+            item->setModelIndex(newIndex, newIndex, 0);
+        }
     }
 
     QVector<Compositor::Insert> inserts;
@@ -1449,10 +1451,12 @@ void QQmlDelegateModel::_q_itemsRemoved(int index, int count)
         if (!d->m_cache.contains(item))
             continue;
 
-        if (item->modelIndex() >= index + count)
-            item->setModelIndex(item->modelIndex() - count);
-        else  if (item->modelIndex() >= index)
-            item->setModelIndex(-1);
+        if (item->modelIndex() >= index + count) {
+            int newIndex = item->modelIndex() - count;
+            item->setModelIndex(newIndex, newIndex, 0);
+        } else if (item->modelIndex() >= index) {
+            item->setModelIndex(-1, -1, -1);
+        }
     }
 
     QVector<Compositor::Remove> removes;
@@ -1497,10 +1501,13 @@ void QQmlDelegateModel::_q_itemsMoved(int from, int to, int count)
     const QList<QQmlDelegateModelItem *> cache = d->m_cache;
     for (int i = 0, c = cache.count();  i < c; ++i) {
         QQmlDelegateModelItem *item = cache.at(i);
-        if (item->modelIndex() >= from && item->modelIndex() < from + count)
-            item->setModelIndex(item->modelIndex() - from + to);
-        else if (item->modelIndex() >= minimum && item->modelIndex() < maximum)
-            item->setModelIndex(item->modelIndex() + difference);
+        if (item->modelIndex() >= from && item->modelIndex() < from + count) {
+            int newIndex = item->modelIndex() - from + to;
+            item->setModelIndex(newIndex, newIndex, 0);
+        } else if (item->modelIndex() >= minimum && item->modelIndex() < maximum) {
+            int newIndex = item->modelIndex() + difference;
+            item->setModelIndex(newIndex, newIndex, 0);
+        }
     }
 
     QVector<Compositor::Remove> removes;
@@ -1557,7 +1564,7 @@ void QQmlDelegateModel::_q_modelReset()
         for (int i = 0, c = cache.count();  i < c; ++i) {
             QQmlDelegateModelItem *item = cache.at(i);
             if (item->modelIndex() != -1)
-                item->setModelIndex(-1);
+                item->setModelIndex(-1, -1, -1);
         }
 
         QVector<Compositor::Remove> removes;
@@ -1947,8 +1954,7 @@ void QV4::Heap::QQmlDelegateModelItemObject::destroy()
 }
 
 
-QQmlDelegateModelItem::QQmlDelegateModelItem(
-        QQmlDelegateModelItemMetaType *metaType, int modelIndex)
+QQmlDelegateModelItem::QQmlDelegateModelItem(QQmlDelegateModelItemMetaType *metaType, int modelIndex, int row, int column)
     : v4(metaType->v4Engine)
     , metaType(metaType)
     , contextData(nullptr)
@@ -1959,8 +1965,8 @@ QQmlDelegateModelItem::QQmlDelegateModelItem(
     , scriptRef(0)
     , groups(0)
     , index(modelIndex)
-    , row(QQmlDelegateModelPrivate::get(metaType->model)->m_adaptorModel.rowAt(modelIndex))
-    , column(QQmlDelegateModelPrivate::get(metaType->model)->m_adaptorModel.columnAt(modelIndex))
+    , row(row)
+    , column(column)
 {
     metaType->addref();
 }
@@ -1995,18 +2001,17 @@ void QQmlDelegateModelItem::Dispose()
     delete this;
 }
 
-void QQmlDelegateModelItem::setModelIndex(int idx)
+void QQmlDelegateModelItem::setModelIndex(int idx, int newRow, int newColumn)
 {
     if (idx == index)
         return;
 
     const int prevRow = row;
     const int prevColumn = column;
-    const QQmlAdaptorModel &adaptorModel = QQmlDelegateModelPrivate::get(metaType->model)->m_adaptorModel;
 
     index = idx;
-    row = adaptorModel.rowAt(idx);
-    column = adaptorModel.columnAt(idx);
+    row = newRow;
+    column = newColumn;
 
     Q_EMIT modelIndexChanged();
 
