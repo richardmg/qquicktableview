@@ -52,8 +52,8 @@ Window {
 
     TestTableModel {
         id: tableModel
-        rowCount: 5
-        columnCount: 5
+        rowCount: 15
+        columnCount: 15
     }
 
     Rectangle {
@@ -69,7 +69,7 @@ Window {
 
             model: tableModel
             delegate: tableViewDelegate
-            cacheBuffer: 500
+            cacheBuffer: 0
             columnSpacing: 1
             rowSpacing: 1
         }
