@@ -105,6 +105,8 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
 QQuickTableViewPrivate::~QQuickTableViewPrivate()
 {
     clear();
+    if (tableModel)
+        delete tableModel;
 }
 
 QString QQuickTableViewPrivate::tableLayoutToString() const
@@ -636,8 +638,8 @@ void QQuickTableViewPrivate::calculateTableSize()
     Q_Q(QQuickTableView);
     QSize prevTableSize = tableSize;
 
-    if (delegateModel)
-        tableSize = QSize(delegateModel->columns(), delegateModel->rows());
+    if (tableModel)
+        tableSize = QSize(tableModel->columns(), tableModel->rows());
     else if (model)
         tableSize = QSize(1, model->count());
     else
@@ -1167,11 +1169,13 @@ void QQuickTableViewPrivate::updatePolish()
 void QQuickTableViewPrivate::createWrapperModel()
 {
     Q_Q(QQuickTableView);
-
-    delegateModel = new QQmlDelegateModel(qmlContext(q), q);
-    if (q->isComponentComplete())
-        delegateModel->componentComplete();
-    model = delegateModel;
+    // When the assigned model is not an instance model, we create a wrapper
+    // model (QQmlTableInstanceModel) that keeps a pointer to both the
+    // assigned model and the assigned delegate. This model will give us a
+    // common interface to any kind of model (js arrays, QAIM, number etc), and
+    // help us create delegate instances.
+    tableModel = new QQmlTableInstanceModel(qmlContext(q));
+    model = tableModel;
 }
 
 void QQuickTableViewPrivate::itemCreatedCallback(int modelIndex, QObject*)
@@ -1381,15 +1385,15 @@ void QQuickTableView::setModel(const QVariant &newModel)
     const auto instanceModel = qobject_cast<QQmlInstanceModel *>(qvariant_cast<QObject*>(effectiveModelVariant));
 
     if (instanceModel) {
-        if (d->delegateModel)
-            delete d->delegateModel;
+        if (d->tableModel) {
+            delete d->tableModel;
+            d->tableModel = nullptr;
+        }
         d->model = instanceModel;
-        d->delegateModel = qmlobject_cast<QQmlDelegateModel *>(instanceModel);
     } else {
-        if (!d->delegateModel)
+        if (!d->tableModel)
             d->createWrapperModel();
-        QQmlDelegateModelPrivate::get(d->delegateModel)->m_useFirstColumnOnly = false;
-        d->delegateModel->setModel(effectiveModelVariant);
+        d->tableModel->setModel(effectiveModelVariant);
     }
 
     Q_ASSERT(d->model);
@@ -1405,8 +1409,8 @@ void QQuickTableView::setModel(const QVariant &newModel)
 QQmlComponent *QQuickTableView::delegate() const
 {
     Q_D(const QQuickTableView);
-    if (d->delegateModel)
-        return d->delegateModel->delegate();
+    if (d->tableModel)
+        return d->tableModel->delegate();
 
     return nullptr;
 }
@@ -1417,10 +1421,10 @@ void QQuickTableView::setDelegate(QQmlComponent *newDelegate)
     if (newDelegate == delegate())
         return;
 
-    if (!d->delegateModel)
+    if (!d->tableModel)
         d->createWrapperModel();
 
-    d->delegateModel->setDelegate(newDelegate);
+    d->tableModel->setDelegate(newDelegate);
     d->invalidateTable();
 
     emit delegateChanged();
@@ -1457,9 +1461,6 @@ void QQuickTableView::componentComplete()
 
     if (!d->model)
         setModel(QVariant());
-
-    if (d->delegateModel)
-        d->delegateModel->componentComplete();
 
     QQuickFlickable::componentComplete();
 }

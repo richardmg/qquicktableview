@@ -40,7 +40,7 @@
 #include "qquicktableview_p.h"
 
 #include <QtCore/qtimer.h>
-#include <QtQml/private/qqmldelegatemodel_p.h>
+#include <QtQml/private/qqmltableinstancemodel_p.h>
 #include <QtQml/private/qqmlincubator_p.h>
 #include <QtQml/private/qqmlchangeset_p.h>
 #include <QtQml/qqmlinfo.h>
@@ -183,12 +183,12 @@ public:
 public:
     QHash<int, FxTableItem *> loadedItems;
 
-    // model, delegateModel and modelVariant all points to the same model. modelVariant
-    // is the model assigned by the user. And delegateModel is the wrapper model we create
+    // model, tableModel and modelVariant all point to the same model. modelVariant
+    // is the model assigned by the user. And tableModel is the wrapper model we create
     // around it. But if the model is an instance model directly, we cannot wrap it, so
     // we need a pointer for that case as well.
     QQmlInstanceModel* model = nullptr;
-    QPointer<QQmlDelegateModel> delegateModel = nullptr;
+    QPointer<QQmlTableInstanceModel> tableModel = nullptr;
     QVariant modelVariant;
 
     // loadedTable describes the table cells that are currently loaded (from top left
