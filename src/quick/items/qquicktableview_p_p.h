@@ -181,7 +181,7 @@ public:
     void updatePolish() override;
 
 public:
-    QList<FxTableItem *> loadedItems;
+    QHash<int, FxTableItem *> loadedItems;
 
     // model, delegateModel and modelVariant all points to the same model. modelVariant
     // is the model assigned by the user. And delegateModel is the wrapper model we create
