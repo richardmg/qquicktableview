@@ -40,6 +40,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QAbstractTableModel>
+#include <QtDebug>
 
 class TestTableModel : public QAbstractTableModel
 {
@@ -48,16 +49,43 @@ class TestTableModel : public QAbstractTableModel
     Q_PROPERTY(int columnCount READ columnCount WRITE setColumnCount NOTIFY columnCountChanged)
 
 public:
-    TestTableModel(QObject *parent = nullptr) : QAbstractTableModel(parent) { }
+    TestTableModel(QObject *parent = nullptr) : QAbstractTableModel(parent)
+    {
+    }
+
+    void createStrings()
+    {
+        stringList.clear();
+        for (int c = 0; c < columnCount(); ++c) {
+            for (int r = 0; r < rowCount(); ++r) {
+                stringList.append(QString("%1, %2").arg(c).arg(r));
+            }
+        }
+    }
 
     int rowCount(const QModelIndex & = QModelIndex()) const override { return m_rows; }
-    void setRowCount(int count) { beginResetModel(); m_rows = count; emit rowCountChanged(); endResetModel(); }
+    void setRowCount(int count)
+    {
+        beginResetModel();
+        m_rows = count;
+        createStrings();
+        emit rowCountChanged();
+        endResetModel();
+    }
 
     int columnCount(const QModelIndex & = QModelIndex()) const override { return m_cols; }
-    void setColumnCount(int count) { beginResetModel(); m_cols = count; emit columnCountChanged(); endResetModel(); }
+    void setColumnCount(int count)
+    {
+        beginResetModel();
+        m_cols = count;
+        createStrings();
+        emit columnCountChanged();
+        endResetModel();
+    }
 
     QVariant headerData(int section, Qt::Orientation orientation, int role) const
     {
+        Q_UNUSED(section);
         Q_UNUSED(orientation);
         Q_UNUSED(role);
         return QStringLiteral("Column header");
@@ -67,12 +95,20 @@ public:
     {
         if (!index.isValid() || role != Qt::DisplayRole)
             return QVariant();
-        return QString("[%1-%2]").arg(index.column()).arg(index.row());
+        return stringList.at(index.row() + (index.column() * rowCount()));
+    }
+
+    bool setData(const QModelIndex &index, const QVariant &value,
+                 int role = Qt::EditRole) override
+    {
+        stringList[index.row() + (index.column() * rowCount())] = value.toString();
+        emit dataChanged(index, index, {role});
+        return true;
     }
 
     QHash<int, QByteArray> roleNames() const override
     {
-        return { {Qt::DisplayRole, "display"} };
+        return { {Qt::DisplayRole, "value"} };
     }
 
 signals:
@@ -82,6 +118,8 @@ signals:
 private:
     int m_rows = 0;
     int m_cols = 0;
+
+    QStringList stringList;
 };
 
 int main(int argc, char *argv[])

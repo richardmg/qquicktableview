@@ -75,12 +75,18 @@ Window {
         Component {
             id: tableViewDelegate
             Rectangle {
-                implicitWidth: column % 3 ? 80 : 50
-                implicitHeight: row % 3 ? 80 : 50
+                implicitWidth: 100
+                implicitHeight: 50
 
                 Text {
-                    anchors.centerIn: parent
-                    text: modelData
+                    anchors.fill: parent
+                    text: model.value
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            model.value = "clicked"
+                        }
+                    }
                 }
             }
         }
