@@ -66,7 +66,6 @@ QT_BEGIN_NAMESPACE
 
 Q_DECLARE_LOGGING_CATEGORY(lcTableViewDelegateLifecycle)
 
-static const int kDefaultCacheBuffer = 300;
 static const qreal kDefaultRowHeight = 50;
 static const qreal kDefaultColumnWidth = 50;
 
@@ -216,10 +215,6 @@ public:
     QSizeF cellSpacing = QSizeF(0, 0);
     QMarginsF tableMargins;
 
-    int cacheBuffer = kDefaultCacheBuffer;
-    QTimer cacheBufferDelayTimer;
-    bool hasBufferedItems = false;
-
     QQmlTableInstanceModel::ReusableFlag reusableFlag = QQmlTableInstanceModel::Reusable;
 
     bool blockItemCreatedCallback = false;
@@ -310,10 +305,6 @@ public:
     bool moveToNextRebuildState();
     void beginRebuildTable();
     void layoutAfterLoadingInitialTable();
-
-    void loadBuffer();
-    void unloadBuffer();
-    QRectF bufferRect();
 
     void invalidateTable();
     void invalidateColumnRowPositions();
