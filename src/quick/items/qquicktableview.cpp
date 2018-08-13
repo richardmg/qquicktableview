@@ -51,6 +51,131 @@
 #include <QtQuick/private/qquickflickable_p_p.h>
 #include <QtQuick/private/qquickitemviewfxitem_p_p.h>
 
+/*!
+    \qmltype TableView
+    \instantiates QQuickTableView
+    \inqmlmodule QtQuick
+    \ingroup qtquick-views
+    \inherits Flickable
+    \brief Provides a table view of items provided by a model.
+
+    A TableView displays data from models created from built-in QML types like ListModel
+    and XmlListModel, or custom model classes defined in C++ that inherit from
+    QAbstractItemModel or QAbstractListModel.
+
+    A TableView has a \l model, which defines the data to be displayed, and
+    a \l delegate, which defines how the data should be displayed. Table views are
+    inherently flickable because TableView inherits from \l Flickable.
+*/
+
+/*!
+    \qmlproperty int QtQuick::TableView::rows
+*/
+
+/*!
+    \qmlproperty int QtQuick::TableView::columns
+*/
+
+/*!
+    \qmlproperty real QtQuick::TableView::rowSpacing
+*/
+
+/*!
+    \qmlproperty real QtQuick::TableView::columnSpacing
+*/
+
+/*!
+    \qmlproperty real QtQuick::TableView::topMargin
+*/
+
+/*!
+    \qmlproperty real QtQuick::TableView::bottomMargin
+*/
+
+/*!
+    \qmlproperty real QtQuick::TableView::leftMargin
+*/
+
+/*!
+    \qmlproperty real QtQuick::TableView::rightMargin
+*/
+
+/*!
+    \qmlproperty var QtQuick::TableView::rowHeightProvider
+*/
+
+/*!
+    \qmlproperty var QtQuick::TableView::columnWidthProvider
+*/
+
+/*!
+    \qmlproperty model QtQuick::TableView::model
+    This property holds the model providing data for the table.
+
+    The model provides the set of data that is used to create the items
+    in the view. Models can be created directly in QML using \l ListModel, \l XmlListModel
+    or \l VisualItemModel, or provided by C++ model classes. If a C++ model class is
+    used, it must be a subclass of \l QAbstractItemModel or a simple list.
+
+    \sa {qml-data-models}{Data Models}
+*/
+
+/*!
+    \qmlproperty Component QtQuick::TableView::delegate
+
+    The delegate provides a template defining each item instantiated by the view.
+    The index is exposed as an accessible \c index property. The same are \c row and \c column.
+    Properties of the model are also available depending upon the type of \l {qml-data-models}{Data Model}.
+
+    The number of objects and bindings in the delegate has a direct effect on the
+    flicking performance of the view.  If at all possible, place functionality
+    that is not needed for the normal display of the delegate in a \l Loader which
+    can load additional components when needed.
+
+    A delegate should specify its size using \l implicitWidth and \l implicitHeight. The TableView
+    will lay out the items based on that information. Setting an explicit \l width or \l height
+    will be ignored and overwritten by TableView. It is recommended that the delegate's size be
+    whole number to avoid sub-pixel alignment of items.For more information about specifying row
+    heights and column width, read ADD_SECTION.
+
+    \note Delegates are instantiated as needed and may be destroyed at any time. They might even
+    be reused if \l reuseItems is set to \c true.
+    They are parented to TableView's \l {Flickable::contentItem}{contentItem}, not to the view itself.
+    State should \e never be stored in a delegate.
+*/
+
+/*!
+    \qmlproperty bool QtQuick::TableView::reuseItems
+*/
+
+/*!
+    \qmlproperty real QtQuick::TableView::contentWidth
+*/
+
+/*!
+    \qmlproperty real QtQuick::TableView::contentHeight
+*/
+
+/*!
+    \qmlmethod real QtQuick::TableView::forceLayout
+*/
+
+/*!
+    \qmlattachedproperty TableView QtQuick::TableView::view
+    This attached property holds the view that manages this delegate instance.
+
+    It is attached to each instance of the delegate and also to the header, the footer,
+    the section and the highlight delegates.
+*/
+
+/*!
+    \qmlattachedsignal QtQuick::TableView::pooled
+*/
+
+/*!
+    \qmlattachedsignal QtQuick::TableView::reused
+*/
+
 QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcTableViewDelegateLifecycle, "qt.quick.tableview.lifecycle")
