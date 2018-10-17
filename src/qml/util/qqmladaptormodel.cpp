@@ -995,6 +995,27 @@ int QQmlAdaptorModel::indexAt(int row, int column) const
     return column * rowCount() + row;
 }
 
+void QQmlAdaptorModel::useImportVersion(int minorVersion)
+{
+    // Resolve the associated meta-object revision based on the import
+    // version. This revision will decide which context properties
+    // (row, column, index) that ends up available in the delegate.
+    const QHashedString uri(QStringLiteral("QtQuick"));
+    QQmlType qmlTypeModelItem = QQmlMetaType::qmlType(&QQmlDelegateModelItem::staticMetaObject, uri, 2, minorVersion);
+    modelItemRevision = qmlTypeModelItem.metaObjectRevision();
+}
+
+void QQmlAdaptorModel::registerInternalModelClasses()
+{
+    // Register internal model classes. Since they are used by the Quick
+    // item views, we need to register them as a part of "QtQuick" (even
+    // if "QtQml.Models" might have been more natural).
+    const char *uri = "QtQuick";
+    const QString errorMsg = QQmlDelegateModelItem::tr("Cannot create instance of an internal model class");
+    qmlRegisterUncreatableType<QQmlDelegateModelItem, 0>(uri, 2, 1, "DelegateModelItem", errorMsg);
+    qmlRegisterUncreatableType<QQmlDelegateModelItem, 1>(uri, 2, 12, "DelegateModelItem", errorMsg);
+}
+
 void QQmlAdaptorModel::objectDestroyed(QObject *)
 {
     setModel(QVariant(), nullptr, nullptr);

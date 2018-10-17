@@ -122,6 +122,10 @@
 #include "handlers/qquickpointhandler_p.h"
 #include "handlers/qquicktaphandler_p.h"
 
+#if QT_CONFIG(quick_tableview) || QT_CONFIG(quick_listview) || QT_CONFIG(quick_gridview)
+#include <QtQml/private/qqmladaptormodel_p.h>
+#endif
+
 QT_BEGIN_NAMESPACE
 Q_DECLARE_LOGGING_CATEGORY(lcTransient)
 QT_END_NAMESPACE
@@ -469,6 +473,10 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
     qmlRegisterType<QQuickText, 12>(uri, 2, 12, "Text");
 #if QT_CONFIG(quick_tableview)
     qmlRegisterType<QQuickTableView>(uri, 2, 12, "TableView");
+#endif
+
+#if QT_CONFIG(quick_tableview) || QT_CONFIG(quick_listview) || QT_CONFIG(quick_gridview)
+    QQmlAdaptorModel::registerInternalModelClasses();
 #endif
 }
 
