@@ -1636,6 +1636,12 @@ void QQuickTableViewPrivate::syncModel()
         tableModel->setModel(effectiveModelVariant);
     }
 
+    // Some properties (row and column) are protected by a revision in the model item context
+    // object. So forward the same import version to the model as used for importing the view.
+    const auto cppMetaObject = QQmlData::get(q_func())->propertyCache->firstCppMetaObject();
+    const auto qmlType = QQmlMetaType::qmlType(cppMetaObject);
+    model->setImportVersion(qmlType.minorVersion());
+
     connectToModel();
 }
 
