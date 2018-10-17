@@ -65,6 +65,7 @@ void QQmlModelsModule::defineModule()
 
     const QString errorMsg = QQmlDelegateModelItem::tr("Cannot create instance of an internal model class");
     qmlRegisterUncreatableType<QQmlDelegateModelItem, 0>(uri, 2, 1, "DelegateModelItem", errorMsg);
+    qmlRegisterUncreatableType<QQmlDelegateModelItem, 1>(uri, 2, 12, "DelegateModelItem", errorMsg);
 #endif
     qmlRegisterType<QQmlObjectModel>(uri, 2, 1, "ObjectModel");
     qmlRegisterType<QQmlObjectModel,3>(uri, 2, 3, "ObjectModel");
