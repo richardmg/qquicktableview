@@ -369,6 +369,15 @@ ReturnedValue QObjectWrapper::getQmlProperty(QV4::ExecutionEngine *engine, QQmlC
         return QV4::QObjectMethod::create(global, object, index);
     }
 
+    bool breakhere = (QString::fromUtf8(object->metaObject()->className()) == QLatin1String("QQmlDMListAccessorData"))
+            && (name->toQString() == QLatin1String("row"));
+    breakhere |= (QString::fromUtf8(object->metaObject()->className()) == QLatin1String("QQmlDMAbstractItemModelData"))
+            && (name->toQString() == QLatin1String("row"));
+
+    if (breakhere) {
+        qDebug() << "qmlData before:" << object << QQmlData::get(object, false);
+    }
+
     QQmlData *ddata = QQmlData::get(object, false);
     QQmlPropertyData local;
     QQmlPropertyData *result = findProperty(engine, object, qmlContext, name, revisionMode, &local);
