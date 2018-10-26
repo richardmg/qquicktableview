@@ -43,6 +43,7 @@ public:
 private slots:
     void properties();
     void propertiesDerived();
+    void revisionedProperties();
     void methods();
     void methodsDerived();
     void signalHandlers();
@@ -80,11 +81,13 @@ class DerivedObject : public BaseObject
     Q_OBJECT
     Q_PROPERTY(int propertyC READ propertyC NOTIFY propertyCChanged)
     Q_PROPERTY(QString propertyD READ propertyD NOTIFY propertyDChanged)
+    Q_PROPERTY(int propertyE READ propertyE NOTIFY propertyEChanged REVISION 1)
 public:
     DerivedObject(QObject *parent = nullptr) : BaseObject(parent) {}
 
     int propertyC() const { return 0; }
     QString propertyD() const { return QString(); }
+    int propertyE() const { return 0; }
 
 public Q_SLOTS:
     void slotB() {}
@@ -92,6 +95,7 @@ public Q_SLOTS:
 Q_SIGNALS:
     void propertyCChanged();
     void propertyDChanged();
+    Q_REVISION(1) void propertyEChanged();
     void signalB();
 };
 
@@ -143,6 +147,23 @@ void tst_qqmlpropertycache::propertiesDerived()
 
     QVERIFY((data = cacheProperty(cache, "propertyD")));
     QCOMPARE(data->coreIndex(), metaObject->indexOfProperty("propertyD"));
+}
+
+void tst_qqmlpropertycache::revisionedProperties()
+{
+    // Check that if you create a QQmlPropertyCache from a QMetaObject together
+    // with an import version, the cache will then, and only then, report a property
+    // with a matching revision as available.
+    DerivedObject object;
+    const QMetaObject *metaObject = object.metaObject();
+
+    QQmlRefPointer<QQmlPropertyCache> cacheWithoutVersion(new QQmlPropertyCache(metaObject));
+    QQmlRefPointer<QQmlPropertyCache> cacheWithVersion(new QQmlPropertyCache(metaObject, 1));
+    QQmlPropertyData *data;
+
+    QVERIFY((data = cacheProperty(cacheWithoutVersion, "propertyE")));
+    QCOMPARE(cacheWithoutVersion->isAllowedInRevision(data), false);
+    QCOMPARE(cacheWithVersion->isAllowedInRevision(data), true);
 }
 
 void tst_qqmlpropertycache::methods()
