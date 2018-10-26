@@ -447,6 +447,7 @@ public:
 
     inline QQmlPropertyData *overrideData(QQmlPropertyData *) const;
     inline bool isAllowedInRevision(QQmlPropertyData *) const;
+    void setAllowedRevision(int revision);
 
     static QQmlPropertyData *property(QJSEngine *, QObject *, const QStringRef &,
                                               QQmlContextData *, QQmlPropertyData &);
@@ -488,6 +489,7 @@ public:
     static bool addToHash(QCryptographicHash &hash, const QMetaObject &mo);
 
     QByteArray checksum(bool *ok);
+
 private:
     friend class QQmlEnginePrivate;
     friend class QQmlCompiler;

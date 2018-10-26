@@ -1493,6 +1493,18 @@ QList<QByteArray> QQmlPropertyCache::signalParameterNames(int index) const
     return QList<QByteArray>();
 }
 
+void QQmlPropertyCache::setAllowedRevision(int revision)
+{
+    // Explicitly set the allowed revision for the leaf QMetaObject to be
+    // 'revision'. This is mostly useful for constructing QQmlPropertyCaches
+    // for QObjects that was not created from QML (and hence have no associated
+    // import version). For such objects, the allowed revision for each recorded
+    // QMetaObject would be zero, which basically means that any revisioned property
+    // would be excluded. Instead, this function lets you set a revision explicit.
+    for (int metaObjectOffset = 0; metaObjectOffset < allowedRevisionCache.size(); ++metaObjectOffset)
+        allowedRevisionCache[metaObjectOffset] = revision;
+}
+
 // Returns true if \a from is assignable to a property of type \a to
 bool QQmlMetaObject::canConvert(const QQmlMetaObject &from, const QQmlMetaObject &to)
 {

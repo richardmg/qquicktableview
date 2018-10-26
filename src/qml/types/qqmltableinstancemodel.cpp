@@ -147,6 +147,13 @@ QQmlDelegateModelItem *QQmlTableInstanceModel::resolveModelItem(int index)
     modelItem = m_adaptorModel.createItem(m_metaType, index);
     if (modelItem) {
         modelItem->delegate = delegate;
+
+        // Since modelItem was not created from QML code, it has no associated
+        // import version. So we need to set the allowed revision explicit.
+        QQmlData *ddata = QQmlData::get(modelItem, true);
+        QQmlContext *context = delegate->creationContext();
+        ddata->ensurePropertyCache(context->engine(), modelItem)->setAllowedRevision(12);
+
         m_modelItems.insert(index, modelItem);
         return modelItem;
     }
