@@ -375,7 +375,9 @@ ReturnedValue QObjectWrapper::getQmlProperty(QV4::ExecutionEngine *engine, QQmlC
 
     if (result) {
         if (revisionMode == QV4::QObjectWrapper::CheckRevision && result->hasRevision()) {
-            if (ddata && ddata->propertyCache && !ddata->propertyCache->isAllowedInRevision(result)) {
+            // If the property is guarded by a revision, we should we should only report it as found if the
+            // object has ddata, otherwise we cannot verify if the revision is accepted.
+            if (!ddata || (ddata->propertyCache && !ddata->propertyCache->isAllowedInRevision(result))) {
                 if (hasProperty)
                     *hasProperty = false;
                 return QV4::Encode::undefined();
