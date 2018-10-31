@@ -121,19 +121,10 @@ class VDMModelDelegateDataType
 public:
     VDMModelDelegateDataType(QQmlAdaptorModel *model)
         : model(model)
-        , metaObject(nullptr)
-        , propertyCache(nullptr)
         , propertyOffset(0)
         , signalOffset(0)
         , hasModelData(false)
     {
-    }
-
-    ~VDMModelDelegateDataType()
-    {
-        if (propertyCache)
-            propertyCache->release();
-        free(metaObject);
     }
 
     bool notify(
@@ -255,15 +246,13 @@ public:
     QList<QByteArray> watchedRoles;
     QHash<QByteArray, int> roleNames;
     QQmlAdaptorModel *model;
-    QMetaObject *metaObject;
-    QQmlPropertyCache *propertyCache;
     int propertyOffset;
     int signalOffset;
     bool hasModelData;
 };
 
 QQmlDMCachedModelData::QQmlDMCachedModelData(QQmlDelegateModelItemMetaType *metaType, VDMModelDelegateDataType *dataType, int index, int row, int column)
-    : QQmlDelegateModelItem(metaType, index, row, column)
+    : QQmlDelegateModelItem(metaType, dataType, index, row, column)
     , type(dataType)
 {
     if (index == -1)
@@ -272,10 +261,6 @@ QQmlDMCachedModelData::QQmlDMCachedModelData(QQmlDelegateModelItemMetaType *meta
     QObjectPrivate::get(this)->metaObject = type;
 
     type->addref();
-
-    QQmlData *qmldata = QQmlData::get(this, true);
-    qmldata->propertyCache = dataType->propertyCache;
-    qmldata->propertyCache->addref();
 }
 
 int QQmlDMCachedModelData::metaCall(QMetaObject::Call call, int id, void **arguments)
@@ -538,9 +523,9 @@ public:
             addProperty(&builder, 1, propertyName, propertyType);
         }
 
-        metaObject = builder.toMetaObject();
+        metaObject.reset(builder.toMetaObject());
         *static_cast<QMetaObject *>(this) = *metaObject;
-        propertyCache = new QQmlPropertyCache(metaObject);
+        propertyCache = new QQmlPropertyCache(metaObject.data(), model.minorVersion);
     }
 };
 
@@ -553,8 +538,8 @@ class QQmlDMListAccessorData : public QQmlDelegateModelItem
     Q_OBJECT
     Q_PROPERTY(QVariant modelData READ modelData WRITE setModelData NOTIFY modelDataChanged)
 public:
-    QQmlDMListAccessorData(QQmlDelegateModelItemMetaType *metaType, int index, int row, int column, const QVariant &value)
-        : QQmlDelegateModelItem(metaType, index, row, column)
+    QQmlDMListAccessorData(QQmlDelegateModelItemMetaType *metaType, QQmlAdaptorModel::Accessors *accessor, int index, int row, int column, const QVariant &value)
+        : QQmlDelegateModelItem(metaType, accessor, index, row, column)
         , cachedData(value)
     {
     }
@@ -662,8 +647,13 @@ public:
             QQmlDelegateModelItemMetaType *metaType,
             int index, int row, int column) const override
     {
+        VDMListDelegateDataType *dataType = const_cast<VDMListDelegateDataType *>(this);
+        if (!propertyCache)
+            dataType->propertyCache = new QQmlPropertyCache(&QQmlDMListAccessorData::staticMetaObject, model.minorVersion);
+
         return new QQmlDMListAccessorData(
                 metaType,
+                dataType,
                 index, row, column,
                 index >= 0 && index < model.list.count() ? model.list.at(index) : QVariant());
     }
@@ -721,15 +711,13 @@ Q_SIGNALS:
 class VDMObjectDelegateDataType : public QQmlRefCount, public QQmlAdaptorModel::Accessors
 {
 public:
-    QMetaObject *metaObject;
     int propertyOffset;
     int signalOffset;
     bool shared;
     QMetaObjectBuilder builder;
 
     VDMObjectDelegateDataType()
-        : metaObject(nullptr)
-        , propertyOffset(0)
+        : propertyOffset(0)
         , signalOffset(0)
         , shared(true)
     {
@@ -738,21 +726,15 @@ public:
     VDMObjectDelegateDataType(const VDMObjectDelegateDataType &type)
         : QQmlRefCount()
         , QQmlAdaptorModel::Accessors()
-        , metaObject(nullptr)
         , propertyOffset(type.propertyOffset)
         , signalOffset(type.signalOffset)
         , shared(false)
-        , builder(type.metaObject, QMetaObjectBuilder::Properties
+        , builder(type.metaObject.data(), QMetaObjectBuilder::Properties
                 | QMetaObjectBuilder::Signals
                 | QMetaObjectBuilder::SuperClass
                 | QMetaObjectBuilder::ClassName)
     {
         builder.setFlags(QMetaObjectBuilder::DynamicMetaObject);
-    }
-
-    ~VDMObjectDelegateDataType()
-    {
-        free(metaObject);
     }
 
     int rowCount(const QQmlAdaptorModel &model) const override
@@ -785,11 +767,12 @@ public:
                 : nullptr;
     }
 
-    void initializeMetaType(QQmlAdaptorModel &)
+    void initializeMetaType(QQmlAdaptorModel &model)
     {
         setModelDataType<QQmlDMObjectData>(&builder, this);
 
-        metaObject = builder.toMetaObject();
+        metaObject.reset(builder.toMetaObject());
+        propertyCache = new QQmlPropertyCache(metaObject.data(), model.minorVersion);
     }
 
     void cleanup(QQmlAdaptorModel &) const override
@@ -888,9 +871,7 @@ public:
             propertyBuilder.setConstant(property.isConstant());
         }
 
-        if (m_type->metaObject)
-            free(m_type->metaObject);
-        m_type->metaObject = m_type->builder.toMetaObject();
+        m_type->metaObject.reset(m_type->builder.toMetaObject());
         *static_cast<QMetaObject *>(this) = *m_type->metaObject;
 
         notifierId = previousMethodCount;
@@ -913,7 +894,7 @@ QQmlDMObjectData::QQmlDMObjectData(QQmlDelegateModelItemMetaType *metaType,
         VDMObjectDelegateDataType *dataType,
         int index, int row, int column,
         QObject *object)
-    : QQmlDelegateModelItem(metaType, index, row, column)
+    : QQmlDelegateModelItem(metaType, dataType, index, row, column)
     , object(object)
 {
     new QQmlDMObjectDataMetaObject(this, dataType);
@@ -924,7 +905,6 @@ QQmlDMObjectData::QQmlDMObjectData(QQmlDelegateModelItemMetaType *metaType,
 //-----------------------------------------------------------------
 
 static const QQmlAdaptorModel::Accessors qt_vdm_null_accessors;
-static const VDMListDelegateDataType qt_vdm_list_accessors;
 
 QQmlAdaptorModel::Accessors::~Accessors()
 {
@@ -958,7 +938,7 @@ void QQmlAdaptorModel::setModel(const QVariant &variant, QObject *parent, QQmlEn
     } else if (list.type() != QQmlListAccessor::Invalid
             && list.type() != QQmlListAccessor::Instance) { // Null QObject
         setObject(nullptr, parent);
-        accessors = &qt_vdm_list_accessors;
+        accessors = new VDMListDelegateDataType;
     } else {
         setObject(nullptr, parent);
         accessors = &qt_vdm_null_accessors;
