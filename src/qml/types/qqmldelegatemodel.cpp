@@ -2021,7 +2021,7 @@ void QV4::Heap::QQmlDelegateModelItemObject::destroy()
 }
 
 
-QQmlDelegateModelItem::QQmlDelegateModelItem(QQmlDelegateModelItemMetaType *metaType, int modelIndex, int row, int column)
+QQmlDelegateModelItem::QQmlDelegateModelItem(QQmlDelegateModelItemMetaType *metaType, QQmlAdaptorModel::Accessors *accessor, int modelIndex, int row, int column)
     : v4(metaType->v4Engine)
     , metaType(metaType)
     , contextData(nullptr)
@@ -2038,6 +2038,15 @@ QQmlDelegateModelItem::QQmlDelegateModelItem(QQmlDelegateModelItemMetaType *meta
     , column(column)
 {
     metaType->addref();
+
+    if (accessor->propertyCache) {
+        // Add some comments....
+        QQmlData *qmldata = QQmlData::get(this, true);
+        if (qmldata->propertyCache)
+            qmldata->propertyCache->release();
+        qmldata->propertyCache = accessor->propertyCache.data();
+        qmldata->propertyCache->addref();
+    }
 }
 
 QQmlDelegateModelItem::~QQmlDelegateModelItem()
