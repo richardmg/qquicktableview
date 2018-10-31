@@ -120,6 +120,8 @@ public:
 
     int indexOf(QObject *object, QObject *objectContext) const override;
 
+    void setImportVersion(int minorVersion) override;
+
     QString filterGroup() const;
     void setFilterGroup(const QString &group);
     void resetFilterGroup();

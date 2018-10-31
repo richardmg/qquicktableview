@@ -1160,6 +1160,11 @@ int QQmlDelegateModel::indexOf(QObject *item, QObject *) const
     return -1;
 }
 
+void QQmlDelegateModel::setImportVersion(int minorVersion)
+{
+    d_func()->m_adaptorModel.minorVersion = minorVersion;
+}
+
 void QQmlDelegateModel::setWatchedRoles(const QList<QByteArray> &roles)
 {
     Q_D(QQmlDelegateModel);
@@ -2023,7 +2028,7 @@ void QV4::Heap::QQmlDelegateModelItemObject::destroy()
 }
 
 
-QQmlDelegateModelItem::QQmlDelegateModelItem(QQmlDelegateModelItemMetaType *metaType, int modelIndex, int row, int column)
+QQmlDelegateModelItem::QQmlDelegateModelItem(QQmlDelegateModelItemMetaType *metaType, QQmlAdaptorModel::Accessors *accessor, int modelIndex, int row, int column)
     : v4(metaType->v4Engine)
     , metaType(metaType)
     , contextData(nullptr)
@@ -2040,6 +2045,12 @@ QQmlDelegateModelItem::QQmlDelegateModelItem(QQmlDelegateModelItemMetaType *meta
     , column(column)
 {
     metaType->addref();
+
+    Q_ASSERT(accessor->propertyCache);
+    QQmlData *qmldata = QQmlData::get(this, true);
+    Q_ASSERT(!qmldata->propertyCache);
+    qmldata->propertyCache = accessor->propertyCache.data();
+    qmldata->propertyCache->addref();
 }
 
 QQmlDelegateModelItem::~QQmlDelegateModelItem()

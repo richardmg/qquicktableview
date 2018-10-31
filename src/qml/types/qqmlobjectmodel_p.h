@@ -85,6 +85,7 @@ public:
 
     virtual int indexOf(QObject *object, QObject *objectContext) const = 0;
     virtual const QAbstractItemModel *abstractItemModel() const { return nullptr; }
+    virtual void setImportVersion(int minorVersion) { Q_UNUSED(minorVersion); }
 
 Q_SIGNALS:
     void countChanged();
