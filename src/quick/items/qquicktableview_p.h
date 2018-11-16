@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
 **
 ** Copyright (C) 2018 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
@@ -111,6 +111,11 @@ public:
     void setContentHeight(qreal height);
 
     Q_INVOKABLE void forceLayout();
+
+    Q_INVOKABLE QQuickItem *itemAtPos(qreal x, qreal y) const;
+    Q_INVOKABLE QQuickItem *itemAtCell(int x, int y) const;
+    Q_INVOKABLE QPoint cellAtPos(qreal x, qreal y) const;
+    Q_INVOKABLE QPoint cellAtItem(QQuickItem *item) const;
 
     static QQuickTableViewAttached *qmlAttachedProperties(QObject *);
 

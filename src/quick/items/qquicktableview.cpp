@@ -689,6 +689,25 @@ FxTableItem *QQuickTableViewPrivate::createFxTableItem(const QPoint &cell, QQmlI
     return fxTableItem;
 }
 
+FxTableItem *QQuickTableViewPrivate::loadedFxItemAtPos(const QPointF &pos) const
+{
+    for (FxTableItem *fxItem : qAsConst(loadedItems).values()) {
+        const QRectF geometry = fxItem->geometry();
+        if (geometry.contains(pos))
+            return fxItem;
+    }
+    return nullptr;
+}
+
+FxTableItem *QQuickTableViewPrivate::loadedFxItemForItem(QQuickItem *item) const
+{
+    for (FxTableItem *fxItem : qAsConst(loadedItems).values()) {
+        if (fxItem->item == item)
+            return fxItem;
+    }
+    return nullptr;
+}
+
 FxTableItem *QQuickTableViewPrivate::loadFxTableItem(const QPoint &cell, QQmlIncubator::IncubationMode incubationMode)
 {
 #ifdef QT_DEBUG
@@ -1937,6 +1956,37 @@ void QQuickTableView::forceLayout()
     }
 
     d->updatePolish();
+}
+
+QQuickItem *QQuickTableView::itemAtPos(qreal x, qreal y) const
+{
+    Q_D(const QQuickTableView);
+    const FxTableItem *fxItem = d->loadedFxItemAtPos(QPointF(x, y));
+    return fxItem ? fxItem->item : nullptr;
+}
+
+QQuickItem *QQuickTableView::itemAtCell(int x, int y) const
+{
+    Q_D(const QQuickTableView);
+    const QPoint cell(x, y);
+    if (!d->loadedTable.contains(cell))
+        return nullptr;
+    return d->loadedTableItem(cell)->item;
+}
+
+QPoint QQuickTableView::cellAtPos(qreal x, qreal y) const
+{
+    // TODO: include spacing?
+    Q_D(const QQuickTableView);
+    const FxTableItem *fxItem = d->loadedFxItemAtPos(QPointF(x, y));
+    return fxItem ? fxItem->cell : QPoint(-1, -1);
+}
+
+QPoint QQuickTableView::cellAtItem(QQuickItem *item) const
+{
+    Q_D(const QQuickTableView);
+    const FxTableItem *fxItem = d->loadedFxItemForItem(item);
+    return fxItem ? fxItem->cell : QPoint(-1, -1);
 }
 
 QQuickTableViewAttached *QQuickTableView::qmlAttachedProperties(QObject *obj)
