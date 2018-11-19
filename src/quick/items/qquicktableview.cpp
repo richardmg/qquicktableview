@@ -689,10 +689,12 @@ FxTableItem *QQuickTableViewPrivate::createFxTableItem(const QPoint &cell, QQmlI
     return fxTableItem;
 }
 
-FxTableItem *QQuickTableViewPrivate::loadedFxItemAtPos(const QPointF &pos) const
+FxTableItem *QQuickTableViewPrivate::loadedFxItemAtPos(const QPointF &pos, bool includeSpacing) const
 {
     for (FxTableItem *fxItem : qAsConst(loadedItems).values()) {
-        const QRectF geometry = fxItem->geometry();
+        QRectF geometry = fxItem->geometry();
+        if (includeSpacing)
+            geometry.adjust(0, 0, cellSpacing.width(), cellSpacing.height());
         if (geometry.contains(pos))
             return fxItem;
     }
@@ -1958,10 +1960,10 @@ void QQuickTableView::forceLayout()
     d->updatePolish();
 }
 
-QQuickItem *QQuickTableView::itemAtPos(qreal x, qreal y) const
+QQuickItem *QQuickTableView::itemAtPos(qreal x, qreal y, bool includeSpacing) const
 {
     Q_D(const QQuickTableView);
-    const FxTableItem *fxItem = d->loadedFxItemAtPos(QPointF(x, y));
+    const FxTableItem *fxItem = d->loadedFxItemAtPos(QPointF(x, y), includeSpacing);
     return fxItem ? fxItem->item : nullptr;
 }
 
@@ -1974,11 +1976,10 @@ QQuickItem *QQuickTableView::itemAtCell(int x, int y) const
     return d->loadedTableItem(cell)->item;
 }
 
-QPoint QQuickTableView::cellAtPos(qreal x, qreal y) const
+QPoint QQuickTableView::cellAtPos(qreal x, qreal y, bool includeSpacing) const
 {
-    // TODO: include spacing?
     Q_D(const QQuickTableView);
-    const FxTableItem *fxItem = d->loadedFxItemAtPos(QPointF(x, y));
+    const FxTableItem *fxItem = d->loadedFxItemAtPos(QPointF(x, y), includeSpacing);
     return fxItem ? fxItem->cell : QPoint(-1, -1);
 }
 

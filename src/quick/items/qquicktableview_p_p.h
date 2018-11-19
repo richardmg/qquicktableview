@@ -309,7 +309,7 @@ public:
 
     FxTableItem *loadedTableItem(const QPoint &cell) const;
     FxTableItem *itemNextTo(const FxTableItem *fxTableItem, const QPoint &direction) const;
-    FxTableItem *loadedFxItemAtPos(const QPointF &pos) const;
+    FxTableItem *loadedFxItemAtPos(const QPointF &pos, bool includeSpacing) const;
     FxTableItem *loadedFxItemForItem(QQuickItem *item) const;
     FxTableItem *createFxTableItem(const QPoint &cell, QQmlIncubator::IncubationMode incubationMode);
     FxTableItem *loadFxTableItem(const QPoint &cell, QQmlIncubator::IncubationMode incubationMode);

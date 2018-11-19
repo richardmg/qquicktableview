@@ -112,9 +112,9 @@ public:
 
     Q_INVOKABLE void forceLayout();
 
-    Q_INVOKABLE QQuickItem *itemAtPos(qreal x, qreal y) const;
+    Q_INVOKABLE QQuickItem *itemAtPos(qreal x, qreal y, bool includeSpacing = false) const;
     Q_INVOKABLE QQuickItem *itemAtCell(int x, int y) const;
-    Q_INVOKABLE QPoint cellAtPos(qreal x, qreal y) const;
+    Q_INVOKABLE QPoint cellAtPos(qreal x, qreal y, bool includeSpacing = false) const;
     Q_INVOKABLE QPoint cellAtItem(QQuickItem *item) const;
 
     static QQuickTableViewAttached *qmlAttachedProperties(QObject *);
