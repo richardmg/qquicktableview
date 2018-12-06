@@ -80,6 +80,8 @@ QQmlTableInstanceModel::QQmlTableInstanceModel(QQmlContext *qmlContext, QObject 
     , m_qmlContext(qmlContext)
     , m_metaType(new QQmlDelegateModelItemMetaType(m_qmlContext->engine()->handle(), nullptr, QStringList()))
 {
+    Q_ASSERT(parent);
+    m_adaptorModel.forwardImportVersionFromView(parent);
 }
 
 QQmlTableInstanceModel::~QQmlTableInstanceModel()

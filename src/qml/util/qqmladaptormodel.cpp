@@ -40,6 +40,7 @@
 #include "qqmladaptormodel_p.h"
 
 #include <private/qqmldelegatemodel_p_p.h>
+#include <private/qqmlmodelsmodule_p.h>
 #include <private/qmetaobjectbuilder_p.h>
 #include <private/qqmlproperty_p.h>
 #include <private/qv8engine_p.h>
@@ -988,6 +989,24 @@ int QQmlAdaptorModel::columnAt(int index) const
 int QQmlAdaptorModel::indexAt(int row, int column) const
 {
     return column * rowCount() + row;
+}
+
+void QQmlAdaptorModel::forwardImportVersionFromView(QObject *view)
+{
+    // Resolve the import version of the view. We take this version to also be
+    // the logical import version of the model items, which are used as context
+    // objects for the delegates. We then resolve the model items associated meta-object
+    // revision from this version. This revision will decide which context properties
+    // (row, column, index) that ends up available in the delegate.
+    const auto data = QQmlData::get(view);
+    if (data && data->propertyCache) {
+        const QHashedString uri = QString::fromUtf8(QQmlModelsModule::uri);
+        const auto cppMetaObject = data->propertyCache->firstCppMetaObject();
+        const auto qmlTypeView = QQmlMetaType::qmlType(cppMetaObject);
+        const int minorVersion = qmlTypeView.minorVersion();
+        QQmlType qmlTypeModelItem = QQmlMetaType::qmlType(&QQmlDelegateModelItem::staticMetaObject, uri, 2, minorVersion);
+        modelItemRevision = qmlTypeModelItem.metaObjectRevision();
+    }
 }
 
 void QQmlAdaptorModel::objectDestroyed(QObject *)
