@@ -44,16 +44,17 @@
 #endif
 #if QT_CONFIG(qml_delegate_model)
 #include <private/qqmldelegatemodel_p.h>
+#include <private/qqmldelegatemodel_p_p.h>
 #include <private/qqmldelegatecomponent_p.h>
 #endif
 #include <private/qqmlobjectmodel_p.h>
 
 QT_BEGIN_NAMESPACE
 
+const char *QQmlModelsModule::uri = "QtQml.Models";
+
 void QQmlModelsModule::defineModule()
 {
-    const char uri[] = "QtQml.Models";
-
 #if QT_CONFIG(qml_list_model)
     qmlRegisterType<QQmlListElement>(uri, 2, 1, "ListElement");
     qmlRegisterCustomType<QQmlListModel>(uri, 2, 1, "ListModel", new QQmlListModelParser);
@@ -61,6 +62,9 @@ void QQmlModelsModule::defineModule()
 #if QT_CONFIG(qml_delegate_model)
     qmlRegisterType<QQmlDelegateModel>(uri, 2, 1, "DelegateModel");
     qmlRegisterType<QQmlDelegateModelGroup>(uri, 2, 1, "DelegateModelGroup");
+
+    const QString errorMsg = QQmlDelegateModelItem::tr("Cannot create instance of an internal model class");
+    qmlRegisterUncreatableType<QQmlDelegateModelItem, 0>(uri, 2, 0, "DelegateModelItem", errorMsg);
 #endif
     qmlRegisterType<QQmlObjectModel>(uri, 2, 1, "ObjectModel");
     qmlRegisterType<QQmlObjectModel,3>(uri, 2, 3, "ObjectModel");

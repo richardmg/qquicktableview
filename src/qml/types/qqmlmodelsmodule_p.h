@@ -60,6 +60,8 @@ class Q_QML_PRIVATE_EXPORT QQmlModelsModule
 public:
     static void defineModule();
     static void defineLabsModule();
+
+    static const char *uri;
 };
 
 QT_END_NAMESPACE

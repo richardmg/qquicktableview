@@ -441,6 +441,11 @@ QQmlIncubator::Status QQmlTableInstanceModel::incubationStatus(int index) {
     return QQmlIncubator::Ready;
 }
 
+void QQmlTableInstanceModel::setImportVersion(int minorVersion)
+{
+    m_adaptorModel.setImportVersion(minorVersion);
+}
+
 void QQmlTableInstanceModel::deleteIncubationTaskLater(QQmlIncubator *incubationTask)
 {
     // We often need to post-delete incubation tasks, since we cannot

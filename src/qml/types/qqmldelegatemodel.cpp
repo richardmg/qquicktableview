@@ -1158,6 +1158,11 @@ int QQmlDelegateModel::indexOf(QObject *item, QObject *) const
     return -1;
 }
 
+void QQmlDelegateModel::setImportVersion(int minorVersion)
+{
+    d_func()->m_adaptorModel.setImportVersion(minorVersion);
+}
+
 void QQmlDelegateModel::setWatchedRoles(const QList<QByteArray> &roles)
 {
     Q_D(QQmlDelegateModel);

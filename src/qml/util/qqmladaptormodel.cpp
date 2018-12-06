@@ -40,6 +40,7 @@
 #include "qqmladaptormodel_p.h"
 
 #include <private/qqmldelegatemodel_p_p.h>
+#include <private/qqmlmodelsmodule_p.h>
 #include <private/qmetaobjectbuilder_p.h>
 #include <private/qqmlproperty_p.h>
 #include <private/qv8engine_p.h>
@@ -988,6 +989,16 @@ int QQmlAdaptorModel::columnAt(int index) const
 int QQmlAdaptorModel::indexAt(int row, int column) const
 {
     return column * rowCount() + row;
+}
+
+void QQmlAdaptorModel::setImportVersion(int minorVersion)
+{
+    // Resolve the meta-object revision that corresponds to the given
+    // import version. This will determine which model properties that
+    // ends up availble in the delegate (index, row, column, etc).
+    const QHashedString uri = QString::fromUtf8(QQmlModelsModule::uri);
+    QQmlType qmlType = QQmlMetaType::qmlType(&QQmlDelegateModelItem::staticMetaObject, uri, 2, minorVersion);
+    modelItemRevision = qmlType.metaObjectRevision();
 }
 
 void QQmlAdaptorModel::objectDestroyed(QObject *)

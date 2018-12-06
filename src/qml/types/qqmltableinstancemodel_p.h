@@ -124,6 +124,8 @@ public:
     void setWatchedRoles(const QList<QByteArray> &) override { Q_UNREACHABLE(); }
     int indexOf(QObject *, QObject *) const override { Q_UNREACHABLE(); return 0; }
 
+    void setImportVersion(int minorVersion) override;
+
 Q_SIGNALS:
     void itemPooled(int index, QObject *object);
     void itemReused(int index, QObject *object);
