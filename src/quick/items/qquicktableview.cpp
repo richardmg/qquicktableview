@@ -419,9 +419,6 @@ QQuickTableViewPrivate::QQuickTableViewPrivate()
 
 QQuickTableViewPrivate::~QQuickTableViewPrivate()
 {
-    releaseLoadedItems(QQmlTableInstanceModel::NotReusable);
-    if (tableModel)
-        delete tableModel;
 }
 
 QString QQuickTableViewPrivate::tableLayoutToString() const
@@ -1523,7 +1520,7 @@ void QQuickTableViewPrivate::createWrapperModel()
     // assigned model and the assigned delegate. This model will give us a
     // common interface to any kind of model (js arrays, QAIM, number etc), and
     // help us create delegate instances.
-    tableModel = new QQmlTableInstanceModel(qmlContext(q));
+    tableModel = new QQmlTableInstanceModel(qmlContext(q), q);
     model = tableModel;
 }
 
@@ -1772,6 +1769,11 @@ QQuickTableView::QQuickTableView(QQuickItem *parent)
     : QQuickFlickable(*(new QQuickTableViewPrivate), parent)
 {
     setFlag(QQuickItem::ItemIsFocusScope);
+}
+
+QQuickTableView::~QQuickTableView()
+{
+    d_func()->releaseLoadedItems(QQmlTableInstanceModel::NotReusable);
 }
 
 int QQuickTableView::rows() const
