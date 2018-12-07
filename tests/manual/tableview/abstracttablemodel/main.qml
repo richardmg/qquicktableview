@@ -53,8 +53,8 @@ Window {
 
     TestTableModel {
         id: tableModel
-        rowCount: 200
-        columnCount: 5000
+        rowCount: 100
+        columnCount: 100
     }
 
     Rectangle {
@@ -91,6 +91,25 @@ Window {
             text: "x:" + selectedX + ", y:" + selectedY
         }
 
+//        /*
+        ListView {
+            model: tableModel
+            anchors.top: menu.bottom
+            anchors.bottom: parent.bottom
+            width: 100
+            spacing: 1
+            clip: true
+            delegate: Rectangle {
+                width: 100
+                height: 50
+                color: "lightgray"
+                Text {
+                    text: column + ", " + row
+                }
+            }
+        }
+//        */
+/*
         TableView {
             id: tableView
             anchors.left: parent.left
@@ -130,7 +149,7 @@ Window {
                 }
             }
         }
+//*/
 
     }
-
 }
