@@ -1843,6 +1843,7 @@ void QQuickTableViewPrivate::syncWithPendingChanges()
     syncRebuildOptions();
     syncModel();
     syncDelegate();
+    syncMasterView();
 }
 
 void QQuickTableViewPrivate::syncRebuildOptions()
@@ -1901,6 +1902,21 @@ void QQuickTableViewPrivate::syncModel()
     }
 
     connectToModel();
+}
+
+void QQuickTableViewPrivate::syncMasterView()
+{
+    Q_Q(QQuickTableView);
+
+    if (assignedMasterView != masterView) {
+        if (masterView)
+            masterView->d_func()->slaveViews.removeOne(q);
+        if (assignedMasterView) {
+            assignedMasterView->d_func()->slaveViews.append(q);
+        }
+
+        masterView = assignedMasterView;
+    }
 }
 
 void QQuickTableViewPrivate::connectToModel()
@@ -2193,6 +2209,23 @@ void QQuickTableView::setContentHeight(qreal height)
     Q_D(QQuickTableView);
     d->explicitContentHeight = height;
     QQuickFlickable::setContentHeight(height);
+}
+
+QQuickTableView *QQuickTableView::masterView() const
+{
+   return d_func()->assignedMasterView;
+}
+
+void QQuickTableView::setMasterView(QQuickTableView *view)
+{
+    Q_D(QQuickTableView);
+    if (d->assignedMasterView == view)
+        return;
+
+    d->assignedMasterView = view;
+    d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::ViewportOnly);
+
+    emit masterViewChanged();
 }
 
 void QQuickTableView::forceLayout()
