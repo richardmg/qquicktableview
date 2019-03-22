@@ -1840,9 +1840,14 @@ void QQuickTableViewPrivate::syncWithPendingChanges()
     // such assignments into effect until we're in a state that allows it.
     Q_Q(QQuickTableView);
     viewportRect = QRectF(q->contentX(), q->contentY(), q->width(), q->height());
+
+    // Sync rebuild options first, in case we schedule a rebuild from one of the
+    // other sync calls above. If so, we need to start a new rebuild from the top.
     syncRebuildOptions();
+
     syncModel();
     syncDelegate();
+    syncMasterView();
 }
 
 void QQuickTableViewPrivate::syncRebuildOptions()
@@ -1901,6 +1906,38 @@ void QQuickTableViewPrivate::syncModel()
     }
 
     connectToModel();
+}
+
+void QQuickTableViewPrivate::syncMasterView()
+{
+    Q_Q(QQuickTableView);
+
+    if (assignedMasterView != masterView) {
+        if (masterView)
+            masterView->d_func()->slaveViews.removeOne(q);
+
+        if (assignedMasterView) {
+            QQuickTableView *view = assignedMasterView;
+
+            while (view) {
+                if (view == q) {
+                    if (!layoutWarningIssued) {
+                        layoutWarningIssued = true;
+                        qmlWarning(q) << "TableView: recursive masterView connection detected!";
+                    }
+                    masterView = nullptr;
+                    return;
+                }
+                view = view->d_func()->masterView;
+            }
+
+            assignedMasterView->d_func()->slaveViews.append(q);
+            scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+            q->polish();
+        }
+
+        masterView = assignedMasterView;
+    }
 }
 
 void QQuickTableViewPrivate::connectToModel()
@@ -2193,6 +2230,23 @@ void QQuickTableView::setContentHeight(qreal height)
     Q_D(QQuickTableView);
     d->explicitContentHeight = height;
     QQuickFlickable::setContentHeight(height);
+}
+
+QQuickTableView *QQuickTableView::masterView() const
+{
+   return d_func()->assignedMasterView;
+}
+
+void QQuickTableView::setMasterView(QQuickTableView *view)
+{
+    Q_D(QQuickTableView);
+    if (d->assignedMasterView == view)
+        return;
+
+    d->assignedMasterView = view;
+    d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::ViewportOnly);
+
+    emit masterViewChanged();
 }
 
 void QQuickTableView::forceLayout()
