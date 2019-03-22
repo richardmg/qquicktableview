@@ -41,6 +41,7 @@ import QtQuick 2.12
 import QtQuick.Window 2.3
 import QtQml.Models 2.2
 import TestTableModel 0.1
+import QtQuick.Controls 2.5
 
 Window {
     id: window
@@ -54,7 +55,7 @@ Window {
     TestTableModel {
         id: tableModel
         rowCount: 200
-        columnCount: 5000
+        columnCount: 200
     }
 
     Rectangle {
@@ -92,18 +93,46 @@ Window {
         }
 
         TableView {
-            id: tableView
+            id: headerView
+            objectName: "headerview"
             anchors.left: parent.left
-            anchors.right: parent.right
             anchors.top: menu.bottom
-            anchors.bottom: parent.bottom
+            height: 100
+            width: 200
             anchors.margins: 2
             clip: true
 
-            model: tableModel
+            model: TestTableModel {
+                rowCount: 200
+                columnCount: 10
+            }
             delegate: tableViewDelegate
-            columnSpacing: 1
-            rowSpacing: 1
+            columnSpacing: 10
+            rowSpacing: 10
+
+            masterView: tableView
+        }
+
+        TableView {
+            id: tableView
+            objectName: "tableview"
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: headerView.bottom
+            anchors.bottom: parent.bottom
+            width: 200
+            anchors.margins: 2
+            clip: true
+            columnWidthProvider: function(c) { return 100 + c; }
+            ScrollBar.horizontal: ScrollBar {}
+
+            model: TestTableModel {
+                rowCount: 200
+                columnCount: 200
+            }
+            delegate: tableViewDelegate
+            columnSpacing: 10
+            rowSpacing: 10
         }
 
         Component {
