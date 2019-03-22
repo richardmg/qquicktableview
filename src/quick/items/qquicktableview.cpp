@@ -1846,9 +1846,14 @@ void QQuickTableViewPrivate::syncWithPendingChanges()
     // such assignments into effect until we're in a state that allows it.
     Q_Q(QQuickTableView);
     viewportRect = QRectF(q->contentX(), q->contentY(), q->width(), q->height());
+
+    // Sync rebuild options first, in case we schedule a rebuild from one of the
+    // other sync calls above. If so, we need to start a new rebuild from the top.
     syncRebuildOptions();
+
     syncModel();
     syncDelegate();
+    syncSyncView();
 }
 
 void QQuickTableViewPrivate::syncRebuildOptions()
@@ -1911,6 +1916,38 @@ void QQuickTableViewPrivate::syncModel()
     }
 
     connectToModel();
+}
+
+void QQuickTableViewPrivate::syncSyncView()
+{
+    Q_Q(QQuickTableView);
+
+    if (assignedSyncView != syncView) {
+        if (syncView)
+            syncView->d_func()->syncChildren.removeOne(q);
+
+        if (assignedSyncView) {
+            QQuickTableView *view = assignedSyncView;
+
+            while (view) {
+                if (view == q) {
+                    if (!layoutWarningIssued) {
+                        layoutWarningIssued = true;
+                        qmlWarning(q) << "TableView: recursive syncView connection detected!";
+                    }
+                    syncView = nullptr;
+                    return;
+                }
+                view = view->d_func()->syncView;
+            }
+
+            assignedSyncView->d_func()->syncChildren.append(q);
+            scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+            q->polish();
+        }
+
+        syncView = assignedSyncView;
+    }
 }
 
 void QQuickTableViewPrivate::connectToModel()
@@ -2203,6 +2240,23 @@ void QQuickTableView::setContentHeight(qreal height)
     Q_D(QQuickTableView);
     d->explicitContentHeight = height;
     QQuickFlickable::setContentHeight(height);
+}
+
+QQuickTableView *QQuickTableView::syncView() const
+{
+   return d_func()->assignedSyncView;
+}
+
+void QQuickTableView::setSyncView(QQuickTableView *view)
+{
+    Q_D(QQuickTableView);
+    if (d->assignedSyncView == view)
+        return;
+
+    d->assignedSyncView = view;
+    d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::ViewportOnly);
+
+    emit syncViewChanged();
 }
 
 void QQuickTableView::forceLayout()

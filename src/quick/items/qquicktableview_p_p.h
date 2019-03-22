@@ -271,6 +271,10 @@ public:
 
     QSizeF averageEdgeSize;
 
+    QPointer<QQuickTableView> assignedSyncView;
+    QPointer<QQuickTableView> syncView;
+    QList<QPointer<QQuickTableView> > syncChildren;
+
     const static QPoint kLeft;
     const static QPoint kRight;
     const static QPoint kUp;
@@ -370,6 +374,7 @@ public:
     inline void syncDelegate();
     inline void syncModel();
     inline void syncRebuildOptions();
+    inline void syncSyncView();
 
     void connectToModel();
     void disconnectFromModel();
