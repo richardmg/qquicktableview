@@ -79,6 +79,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickTableView : public QQuickFlickable
     Q_PROPERTY(bool reuseItems READ reuseItems WRITE setReuseItems NOTIFY reuseItemsChanged)
     Q_PROPERTY(qreal contentWidth READ contentWidth WRITE setContentWidth NOTIFY contentWidthChanged)
     Q_PROPERTY(qreal contentHeight READ contentHeight WRITE setContentHeight NOTIFY contentHeightChanged)
+    Q_PROPERTY(QQuickTableView *masterView READ masterView WRITE setMasterView NOTIFY masterViewChanged)
 
 public:
     QQuickTableView(QQuickItem *parent = nullptr);
@@ -110,6 +111,9 @@ public:
     void setContentWidth(qreal width);
     void setContentHeight(qreal height);
 
+    QQuickTableView *masterView() const;
+    void setMasterView(QQuickTableView *view);
+
     Q_INVOKABLE void forceLayout();
 
     static QQuickTableViewAttached *qmlAttachedProperties(QObject *);
@@ -124,6 +128,7 @@ Q_SIGNALS:
     void modelChanged();
     void delegateChanged();
     void reuseItemsChanged();
+    void masterViewChanged();
 
 protected:
     void geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry) override;

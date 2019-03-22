@@ -1843,6 +1843,7 @@ void QQuickTableViewPrivate::syncWithPendingChanges()
     syncRebuildOptions();
     syncModel();
     syncDelegate();
+    syncMasterView();
 }
 
 void QQuickTableViewPrivate::syncRebuildOptions()
@@ -1901,6 +1902,14 @@ void QQuickTableViewPrivate::syncModel()
     }
 
     connectToModel();
+}
+
+void QQuickTableViewPrivate::syncMasterView()
+{
+    if (masterView == assignedMasterView)
+        return;
+
+    masterView = assignedMasterView;
 }
 
 void QQuickTableViewPrivate::connectToModel()
@@ -2193,6 +2202,30 @@ void QQuickTableView::setContentHeight(qreal height)
     Q_D(QQuickTableView);
     d->explicitContentHeight = height;
     QQuickFlickable::setContentHeight(height);
+}
+
+QQuickTableView *QQuickTableView::masterView() const
+{
+   return d_func()->assignedMasterView;
+}
+
+void QQuickTableView::setMasterView(QQuickTableView *view)
+{
+    Q_D(QQuickTableView);
+    if (d->assignedMasterView == view)
+        return;
+
+    if (d->assignedMasterView)
+        d->assignedMasterView->d_func()->slaveViews.removeOne(this);
+    if (view) {
+        // NB: THIS ONE ACTUALL NEEDS TO GO THROUGH THE ASSIGNED STAGE TOO (sigh)
+        view->d_func()->slaveViews.append(this);
+    }
+
+    d->assignedMasterView = view;
+    d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::All);
+
+    emit masterViewChanged();
 }
 
 void QQuickTableView::forceLayout()
