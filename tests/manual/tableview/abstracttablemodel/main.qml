@@ -41,6 +41,7 @@ import QtQuick 2.12
 import QtQuick.Window 2.3
 import QtQml.Models 2.2
 import TestTableModel 0.1
+import QtQuick.Controls 2.5
 
 Window {
     id: window
@@ -54,7 +55,7 @@ Window {
     TestTableModel {
         id: tableModel
         rowCount: 200
-        columnCount: 5000
+        columnCount: 200
     }
 
     Rectangle {
@@ -67,21 +68,38 @@ Window {
             x: 2
             y: 2
             spacing: 1
+//            Button {
+//                text: "Add row"
+//                onClicked: tableModel.insertRows(selectedY, 1)
+//            }
+//            Button {
+//                text: "Remove row"
+//                onClicked: tableModel.removeRows(selectedY, 1)
+//            }
+//            Button {
+//                text: "Add column"
+//                onClicked: tableModel.insertColumns(selectedX, 1)
+//            }
+//            Button {
+//                text: "Remove column"
+//                onClicked: tableModel.removeColumns(selectedX, 1)
+//            }
             Button {
-                text: "Add row"
-                onClicked: tableModel.insertRows(selectedY, 1)
+                text: "headerview jmp"
+                onClicked: headerView.contentX += 1000
             }
             Button {
-                text: "Remove row"
-                onClicked: tableModel.removeRows(selectedY, 1)
+                text: "tableview jmp"
+                onClicked: tableView.contentX += 1000
             }
             Button {
-                text: "Add column"
-                onClicked: tableModel.insertColumns(selectedX, 1)
+                text: "toggle"
+                onClicked: headerView.masterView = headerView.masterView ? null : tableView
+//                onClicked: headerView.syncDirection = Qt.Horizontal
             }
             Button {
-                text: "Remove column"
-                onClicked: tableModel.removeColumns(selectedX, 1)
+                text: "inc space"
+                onClicked: tableView.columnSpacing += 1
             }
         }
         Text {
@@ -92,19 +110,66 @@ Window {
         }
 
         TableView {
-            id: tableView
+            id: headerView
+            objectName: "headerview"
             anchors.left: parent.left
-            anchors.right: parent.right
             anchors.top: menu.bottom
-            anchors.bottom: parent.bottom
+            height: 100
+            width: 400
             anchors.margins: 2
             clip: true
 
-            model: tableModel
-            delegate: tableViewDelegate
+            model: TestTableModel {
+                rowCount: 200
+                columnCount: 200
+            }
+
+            delegate: Rectangle {
+                implicitHeight: 50
+                implicitWidth: 20
+                border.width: 1
+                Text { text: column }
+            }
+
             columnSpacing: 1
             rowSpacing: 1
+
+            masterView: tableView
+//            syncDirection: Qt.Horizontal | Qt.Vertical
         }
+
+        TableView {
+            id: tableView
+            objectName: "tableview"
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: headerView.bottom
+            anchors.bottom: parent.bottom
+            width: 200
+            anchors.margins: 2
+            clip: true
+            columnWidthProvider: function(c) { return 100 + c; }
+            ScrollBar.horizontal: ScrollBar {}
+//            contentWidth: 3000
+//            contentHeight: 3000
+
+            model: TestTableModel {
+                rowCount: 200
+                columnCount: 200
+            }
+            delegate: tableViewDelegate
+            columnSpacing: 10
+            rowSpacing: 10
+//            contentWidth: 61193
+//            onContentWidthChanged: print(contentWidth)
+        }
+
+//        Component.onCompleted: {
+//            tableView.contentX = 500
+//            tableView.forceLayout()
+//            headerView.masterView = null
+//            tableView.contentX = 900
+//        }
 
         Component {
             id: tableViewDelegate
