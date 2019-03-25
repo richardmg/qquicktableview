@@ -276,6 +276,7 @@ public:
     QPointer<QQuickTableView> masterView;
     QPointer<QQuickTableView> viewBeingFlicked;
     QList<QPointer<QQuickTableView> > slaveViews;
+    Qt::Orientations masterViewSyncOptions = Qt::Horizontal | Qt::Vertical;
 
     const static QPoint kLeft;
     const static QPoint kRight;
@@ -392,6 +393,8 @@ public:
     void modelResetCallback();
 
     void syncViewportPosInOtherViews();
+    inline bool syncsWithMasterViewHorizontally() const { return masterView && (masterViewSyncOptions & Qt::Horizontal); }
+    inline bool syncsWithMasterViewVertically() const { return masterView && (masterViewSyncOptions & Qt::Vertical); }
 
     void _q_componentFinalized();
     void registerCallbackWhenBindingsAreEvaluated();
@@ -416,6 +419,8 @@ public:
 
     QPoint cell;
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(QQuickTableViewPrivate::RebuildOptions)
 
 QT_END_NAMESPACE
 
