@@ -1055,6 +1055,12 @@ qreal QQuickTableViewPrivate::getColumnLayoutWidth(int column)
     if (explicitColumnWidth >= 0)
         return explicitColumnWidth;
 
+    if (syncWithMasterViewHorizontally) {
+        // When linked to a master view, we sync the column width with it
+        if (masterView->d_func()->loadedColumns.contains(column))
+            return masterView->d_func()->getColumnLayoutWidth(column);
+    }
+
     // Iterate over the currently visible items in the column. The downside
     // of doing that, is that the column width will then only be based on the implicit
     // width of the currently loaded items (which can be different depending on which
@@ -1084,6 +1090,12 @@ qreal QQuickTableViewPrivate::getRowLayoutHeight(int row)
     if (explicitRowHeight >= 0)
         return explicitRowHeight;
 
+    if (syncWithMasterViewVertically) {
+        // When linked to a master view, we always sync the row height
+        if (masterView->d_func()->loadedRows.contains(row))
+            return masterView->d_func()->getRowLayoutHeight(row);
+    }
+
     // Iterate over the currently visible items in the row. The downside
     // of doing that, is that the row height will then only be based on the implicit
     // height of the currently loaded items (which can be different depending on which
@@ -1112,6 +1124,9 @@ qreal QQuickTableViewPrivate::getColumnWidth(int column)
 
     if (cachedColumnWidth.startIndex == column)
         return cachedColumnWidth.size;
+
+    if (syncWithMasterViewHorizontally)
+        return masterView->d_func()->getColumnWidth(column);
 
     if (columnWidthProvider.isUndefined())
         return noExplicitColumnWidth;
@@ -1146,6 +1161,9 @@ qreal QQuickTableViewPrivate::getRowHeight(int row)
 
     if (cachedRowHeight.startIndex == row)
         return cachedRowHeight.size;
+
+    if (syncWithMasterViewVertically)
+        return masterView->d_func()->getRowHeight(row);
 
     if (rowHeightProvider.isUndefined())
         return noExplicitRowHeight;
