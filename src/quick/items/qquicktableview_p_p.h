@@ -276,6 +276,7 @@ public:
 
     QPointer<QQuickTableView> assignedMasterView;
     QPointer<QQuickTableView> masterView;
+    QPointer<QQuickTableView> viewBeingFlicked;
     QList<QPointer<QQuickTableView> > slaveViews;
     Qt::Orientations assignedMasterViewSyncDirection = Qt::Horizontal | Qt::Vertical;
 
@@ -396,6 +397,8 @@ public:
     void columnsRemovedCallback(const QModelIndex &parent, int begin, int end);
     void layoutChangedCallback(const QList<QPersistentModelIndex> &parents, QAbstractItemModel::LayoutChangeHint hint);
     void modelResetCallback();
+
+    void handleViewportMovedRecursively();
 
     void _q_componentFinalized();
     void registerCallbackWhenBindingsAreEvaluated();
