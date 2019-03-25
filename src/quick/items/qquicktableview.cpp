@@ -1917,6 +1917,9 @@ void QQuickTableViewPrivate::syncMasterView()
 
         masterView = assignedMasterView;
     }
+
+    syncWithMasterViewHorizontally = masterView && assignedMasterViewSyncDirection & Qt::Horizontal;
+    syncWithMasterViewVertically = masterView && assignedMasterViewSyncDirection & Qt::Vertical;
 }
 
 void QQuickTableViewPrivate::connectToModel()
@@ -2214,6 +2217,24 @@ void QQuickTableView::setContentHeight(qreal height)
 QQuickTableView *QQuickTableView::masterView() const
 {
    return d_func()->assignedMasterView;
+}
+
+Qt::Orientations QQuickTableView::syncDirection() const
+{
+   return d_func()->assignedMasterViewSyncDirection;
+}
+
+void QQuickTableView::setSyncDirection(Qt::Orientations direction)
+{
+    Q_D(QQuickTableView);
+    if (d->assignedMasterViewSyncDirection == direction)
+        return;
+
+    d->assignedMasterViewSyncDirection = direction;
+    if (d->assignedMasterView)
+        d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::ViewportOnly);
+
+    emit syncDirectionChanged();
 }
 
 void QQuickTableView::setMasterView(QQuickTableView *view)
