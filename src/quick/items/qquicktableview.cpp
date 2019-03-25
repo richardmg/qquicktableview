@@ -2041,6 +2041,35 @@ void QQuickTableViewPrivate::modelResetCallback()
     scheduleRebuildTable(RebuildOption::All);
 }
 
+void QQuickTableViewPrivate::syncViewportPosInOtherViews()
+{
+    Q_Q(QQuickTableView);
+
+    const qreal contentX = q->contentX();
+    const qreal contentY = q->contentY();
+
+    if (!viewBeingFlicked && masterView) {
+        // The user is moving/flicking/setting viewport pos on this view.
+        // In that case, we also move our master view so that it stays in sync.
+        masterView->d_func()->viewBeingFlicked = q;
+        masterView->setContentX(contentX);
+        masterView->setContentY(contentY);
+        masterView->d_func()->viewBeingFlicked = nullptr;
+    }
+
+    // Update other views that has us assigned as master view
+    for (auto slaveView : qAsConst(slaveViews)) {
+        if (slaveView == viewBeingFlicked) {
+            // Don't recursively set the pos on the view that called us
+            continue;
+        }
+        slaveView->d_func()->viewBeingFlicked = q;
+        slaveView->setContentX(contentX);
+        slaveView->setContentY(contentY);
+        slaveView->d_func()->viewBeingFlicked = nullptr;
+    }
+}
+
 QQuickTableView::QQuickTableView(QQuickItem *parent)
     : QQuickFlickable(*(new QQuickTableViewPrivate), parent)
 {
@@ -2256,6 +2285,8 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
 {
     Q_D(QQuickTableView);
     QQuickFlickable::viewportMoved(orientation);
+
+    d->syncViewportPosInOtherViews();
 
     QQuickTableViewPrivate::RebuildOptions options = QQuickTableViewPrivate::RebuildOption::None;
 

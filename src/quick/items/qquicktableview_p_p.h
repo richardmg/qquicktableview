@@ -274,6 +274,7 @@ public:
 
     QPointer<QQuickTableView> assignedMasterView;
     QPointer<QQuickTableView> masterView;
+    QPointer<QQuickTableView> viewBeingFlicked;
     QList<QPointer<QQuickTableView> > slaveViews;
 
     const static QPoint kLeft;
@@ -389,6 +390,8 @@ public:
     void columnsRemovedCallback(const QModelIndex &parent, int begin, int end);
     void layoutChangedCallback(const QList<QPersistentModelIndex> &parents, QAbstractItemModel::LayoutChangeHint hint);
     void modelResetCallback();
+
+    void syncViewportPosInOtherViews();
 
     void _q_componentFinalized();
     void registerCallbackWhenBindingsAreEvaluated();
