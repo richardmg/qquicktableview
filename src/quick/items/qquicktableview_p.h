@@ -80,6 +80,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickTableView : public QQuickFlickable
     Q_PROPERTY(qreal contentWidth READ contentWidth WRITE setContentWidth NOTIFY contentWidthChanged)
     Q_PROPERTY(qreal contentHeight READ contentHeight WRITE setContentHeight NOTIFY contentHeightChanged)
     Q_PROPERTY(QQuickTableView *masterView READ masterView WRITE setMasterView NOTIFY masterViewChanged)
+    Q_PROPERTY(Qt::Orientations syncDirection READ syncDirection WRITE setSyncDirection NOTIFY syncDirectionChanged)
 
 public:
     QQuickTableView(QQuickItem *parent = nullptr);
@@ -114,6 +115,9 @@ public:
     QQuickTableView *masterView() const;
     void setMasterView(QQuickTableView *view);
 
+    Qt::Orientations syncDirection() const;
+    void setSyncDirection(Qt::Orientations direction);
+
     Q_INVOKABLE void forceLayout();
 
     static QQuickTableViewAttached *qmlAttachedProperties(QObject *);
@@ -129,6 +133,7 @@ Q_SIGNALS:
     void delegateChanged();
     void reuseItemsChanged();
     void masterViewChanged();
+    void syncDirectionChanged();
 
 protected:
     void geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry) override;
