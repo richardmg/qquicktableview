@@ -1948,6 +1948,9 @@ void QQuickTableViewPrivate::syncSyncView()
 
         syncView = assignedSyncView;
     }
+
+    syncHorizontally = syncView && assignedSyncDirection & Qt::Horizontal;
+    syncVertically = syncView && assignedSyncDirection & Qt::Vertical;
 }
 
 void QQuickTableViewPrivate::connectToModel()
@@ -2257,6 +2260,24 @@ void QQuickTableView::setSyncView(QQuickTableView *view)
     d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::ViewportOnly);
 
     emit syncViewChanged();
+}
+
+Qt::Orientations QQuickTableView::syncDirection() const
+{
+   return d_func()->assignedSyncDirection;
+}
+
+void QQuickTableView::setSyncDirection(Qt::Orientations direction)
+{
+    Q_D(QQuickTableView);
+    if (d->assignedSyncDirection == direction)
+        return;
+
+    d->assignedSyncDirection = direction;
+    if (d->assignedSyncView)
+        d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::ViewportOnly);
+
+    emit syncDirectionChanged();
 }
 
 void QQuickTableView::forceLayout()

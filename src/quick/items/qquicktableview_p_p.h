@@ -249,6 +249,8 @@ public:
     bool blockItemCreatedCallback = false;
     bool layoutWarningIssued = false;
     bool polishing = false;
+    bool syncVertically = false;
+    bool syncHorizontally = false;
 
     QJSValue rowHeightProvider;
     QJSValue columnWidthProvider;
@@ -274,6 +276,7 @@ public:
     QPointer<QQuickTableView> assignedSyncView;
     QPointer<QQuickTableView> syncView;
     QList<QPointer<QQuickTableView> > syncChildren;
+    Qt::Orientations assignedSyncDirection = Qt::Horizontal | Qt::Vertical;
 
     const static QPoint kLeft;
     const static QPoint kRight;
