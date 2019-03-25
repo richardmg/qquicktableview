@@ -1905,10 +1905,9 @@ void QQuickTableViewPrivate::syncModel()
 
 void QQuickTableViewPrivate::syncMasterView()
 {
-    if (masterView == assignedMasterView)
-        return;
-
     masterView = assignedMasterView;
+    syncWithMasterViewHorizontally = masterView && assignedMasterViewSyncDirection & Qt::Horizontal;
+    syncWithMasterViewVertically = masterView && assignedMasterViewSyncDirection & Qt::Vertical;
 }
 
 void QQuickTableViewPrivate::connectToModel()
@@ -2052,8 +2051,10 @@ void QQuickTableViewPrivate::syncViewportPosInOtherViews()
         // In that case, we also move our master view so that it stays in sync
         // (unless the move came from it in the first place).
         masterView->d_func()->viewBeingFlicked = q;
-        masterView->setContentX(contentX);
-        masterView->setContentY(contentY);
+        if (syncWithMasterViewHorizontally)
+            masterView->setContentX(contentX);
+        if (syncWithMasterViewVertically)
+            masterView->setContentY(contentY);
         masterView->d_func()->viewBeingFlicked = nullptr;
 
     }
@@ -2064,8 +2065,10 @@ void QQuickTableViewPrivate::syncViewportPosInOtherViews()
         if (slaveView == viewBeingFlicked)
             continue;
         slaveView->d_func()->viewBeingFlicked = q;
-        slaveView->setContentX(contentX);
-        slaveView->setContentY(contentY);
+        if (slaveView->d_func()->syncWithMasterViewHorizontally)
+            slaveView->setContentX(contentX);
+        if (slaveView->d_func()->syncWithMasterViewVertically)
+            slaveView->setContentY(contentY);
         slaveView->d_func()->viewBeingFlicked = nullptr;
     }
 }
@@ -2236,6 +2239,24 @@ void QQuickTableView::setContentHeight(qreal height)
 QQuickTableView *QQuickTableView::masterView() const
 {
    return d_func()->assignedMasterView;
+}
+
+Qt::Orientations QQuickTableView::syncDirection() const
+{
+   return d_func()->assignedMasterViewSyncDirection;
+}
+
+void QQuickTableView::setSyncDirection(Qt::Orientations direction)
+{
+    Q_D(QQuickTableView);
+    if (d->assignedMasterViewSyncDirection == direction)
+        return;
+
+    d->assignedMasterViewSyncDirection = direction;
+    if (d->assignedMasterView)
+        d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::ViewportOnly);
+
+    emit syncDirectionChanged();
 }
 
 void QQuickTableView::setMasterView(QQuickTableView *view)
