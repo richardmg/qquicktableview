@@ -250,6 +250,8 @@ public:
     bool layoutWarningIssued = false;
     bool polishing = false;
     bool rebuildScheduled = true;
+    bool syncWithMasterViewVertically = false;
+    bool syncWithMasterViewHorizontally = false;
 
     QJSValue rowHeightProvider;
     QJSValue columnWidthProvider;
@@ -275,6 +277,7 @@ public:
     QPointer<QQuickTableView> assignedMasterView;
     QPointer<QQuickTableView> masterView;
     QList<QPointer<QQuickTableView> > slaveViews;
+    Qt::Orientations assignedMasterViewSyncDirection = Qt::Horizontal | Qt::Vertical;
 
     const static QPoint kLeft;
     const static QPoint kRight;
