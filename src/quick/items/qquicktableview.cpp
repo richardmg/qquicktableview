@@ -603,6 +603,11 @@ void QQuickTableViewPrivate::updateContentWidth()
 {
     Q_Q(QQuickTableView);
 
+    if (syncHorizontally) {
+        q->QQuickFlickable::setContentWidth(syncView->contentWidth());
+        return;
+    }
+
     if (explicitContentWidth.isValid()) {
         // Don't calculate contentWidth when it
         // was set explicitly by the application.
@@ -621,6 +626,11 @@ void QQuickTableViewPrivate::updateContentWidth()
 void QQuickTableViewPrivate::updateContentHeight()
 {
     Q_Q(QQuickTableView);
+
+    if (syncVertically) {
+        q->QQuickFlickable::setContentHeight(syncView->contentHeight());
+        return;
+    }
 
     if (explicitContentHeight.isValid()) {
         // Don't calculate contentHeight when it
@@ -1045,6 +1055,11 @@ qreal QQuickTableViewPrivate::getColumnLayoutWidth(int column)
     if (explicitColumnWidth >= 0)
         return explicitColumnWidth;
 
+    if (syncHorizontally) {
+        if (syncView->d_func()->loadedColumns.contains(column))
+            return syncView->d_func()->getColumnLayoutWidth(column);
+    }
+
     // Iterate over the currently visible items in the column. The downside
     // of doing that, is that the column width will then only be based on the implicit
     // width of the currently loaded items (which can be different depending on which
@@ -1074,6 +1089,11 @@ qreal QQuickTableViewPrivate::getRowLayoutHeight(int row)
     if (explicitRowHeight >= 0)
         return explicitRowHeight;
 
+    if (syncVertically) {
+        if (syncView->d_func()->loadedRows.contains(row))
+            return syncView->d_func()->getRowLayoutHeight(row);
+    }
+
     // Iterate over the currently visible items in the row. The downside
     // of doing that, is that the row height will then only be based on the implicit
     // height of the currently loaded items (which can be different depending on which
@@ -1102,6 +1122,9 @@ qreal QQuickTableViewPrivate::getColumnWidth(int column)
 
     if (cachedColumnWidth.startIndex == column)
         return cachedColumnWidth.size;
+
+    if (syncHorizontally)
+        return syncView->d_func()->getColumnWidth(column);
 
     if (columnWidthProvider.isUndefined())
         return noExplicitColumnWidth;
@@ -1136,6 +1159,9 @@ qreal QQuickTableViewPrivate::getRowHeight(int row)
 
     if (cachedRowHeight.startIndex == row)
         return cachedRowHeight.size;
+
+    if (syncVertically)
+        return syncView->d_func()->getRowHeight(row);
 
     if (rowHeightProvider.isUndefined())
         return noExplicitRowHeight;
@@ -1951,6 +1977,11 @@ void QQuickTableViewPrivate::syncSyncView()
 
     syncHorizontally = syncView && assignedSyncDirection & Qt::Horizontal;
     syncVertically = syncView && assignedSyncDirection & Qt::Vertical;
+
+    if (syncHorizontally)
+        q->setColumnSpacing(syncView->columnSpacing());
+    if (syncVertically)
+        q->setRowSpacing(syncView->rowSpacing());
 }
 
 void QQuickTableViewPrivate::connectToModel()
