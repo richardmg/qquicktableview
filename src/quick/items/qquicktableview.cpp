@@ -603,6 +603,11 @@ void QQuickTableViewPrivate::updateContentWidth()
 {
     Q_Q(QQuickTableView);
 
+    if (syncHorizontally) {
+        q->QQuickFlickable::setContentWidth(syncView->contentWidth());
+        return;
+    }
+
     if (explicitContentWidth.isValid()) {
         // Don't calculate contentWidth when it
         // was set explicitly by the application.
@@ -621,6 +626,11 @@ void QQuickTableViewPrivate::updateContentWidth()
 void QQuickTableViewPrivate::updateContentHeight()
 {
     Q_Q(QQuickTableView);
+
+    if (syncVertically) {
+        q->QQuickFlickable::setContentHeight(syncView->contentHeight());
+        return;
+    }
 
     if (explicitContentHeight.isValid()) {
         // Don't calculate contentHeight when it
