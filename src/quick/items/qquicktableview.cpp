@@ -1488,6 +1488,19 @@ void QQuickTableViewPrivate::processRebuildTable()
             return;
     }
 
+    if (rebuildState == RebuildState::RebuildSlaveViews) {
+        for (auto slaveView : qAsConst(slaveViews)) {
+            qCDebug(lcTableViewDelegateLifecycle()) << "rebuild slave view:" << slaveView;
+            slaveView->d_func()->scheduleRebuildTable(rebuildOptions);
+            if (slaveView->d_func()->polishing)
+                slaveView->polish();
+            else
+                slaveView->d_func()->updatePolish();
+        }
+        if (!moveToNextRebuildState())
+            return;
+    }
+
     Q_TABLEVIEW_ASSERT(rebuildState == RebuildState::Done, int(rebuildState));
     qCDebug(lcTableViewDelegateLifecycle()) << "rebuild complete:" << q;
 }
@@ -1732,15 +1745,22 @@ void QQuickTableViewPrivate::drainReusePoolAfterLoadRequest()
     tableModel->drainReusableItemsPool(maxTime);
 }
 
-void QQuickTableViewPrivate::scheduleRebuildTable(RebuildOptions options) {
+void QQuickTableViewPrivate::scheduleRebuildTable(RebuildOptions options)
+{
     if (!q_func()->isComponentComplete()) {
         // We'll rebuild the table once complete anyway
         return;
     }
 
-    rebuildScheduled = true;
     scheduledRebuildOptions |= options;
-    q_func()->polish();
+    if (!rebuildScheduled())
+        q_func()->polish();
+    localRebuildScheduled = true;
+}
+
+bool QQuickTableViewPrivate::rebuildScheduled() const
+{
+    return localRebuildScheduled || (masterView && masterView->d_func()->rebuildScheduled());
 }
 
 void QQuickTableViewPrivate::updateLayout()
@@ -1799,7 +1819,7 @@ void QQuickTableViewPrivate::updatePolish()
 
 void QQuickTableViewPrivate::fixup(QQuickFlickablePrivate::AxisData &data, qreal minExtent, qreal maxExtent)
 {
-    if (rebuildScheduled || rebuildState != RebuildState::Done)
+    if (rebuildScheduled() || rebuildState != RebuildState::Done)
         return;
 
     QQuickFlickablePrivate::fixup(data, minExtent, maxExtent);
@@ -1892,13 +1912,13 @@ void QQuickTableViewPrivate::syncWithPendingChanges()
 
 void QQuickTableViewPrivate::syncRebuildOptions()
 {
-    if (!rebuildScheduled)
+    if (!localRebuildScheduled)
         return;
 
     rebuildState = RebuildState::Begin;
     rebuildOptions = scheduledRebuildOptions;
     scheduledRebuildOptions = RebuildOption::None;
-    rebuildScheduled = false;
+    localRebuildScheduled = false;
 
     if (loadedItems.isEmpty()) {
         // If we have no items from before, we cannot just rebuild the viewport, but need
@@ -2382,7 +2402,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
         d->scheduleRebuildTable(options);
     }
 
-    if (d->rebuildScheduled) {
+    if (d_func()->rebuildScheduled()) {
         // No reason to do anything, since we're about to rebuild the whole table anyway.
         // Besides, calling updatePolish, which will start the rebuild, can easily cause
         // binding loops to happen since we usually end up modifying the geometry of the

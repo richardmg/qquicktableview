@@ -183,6 +183,7 @@ public:
         PreloadColumns,
         PreloadRows,
         MovePreloadedItemsToPool,
+        RebuildSlaveViews,
         Done
     };
 
@@ -249,7 +250,7 @@ public:
     bool layoutInvalid = false;
     bool layoutWarningIssued = false;
     bool polishing = false;
-    bool rebuildScheduled = true;
+    bool localRebuildScheduled = true;
     bool syncWithMasterViewVertically = false;
     bool syncWithMasterViewHorizontally = false;
 
@@ -365,6 +366,7 @@ public:
     void layoutAfterLoadingInitialTable();
 
     void scheduleRebuildTable(QQuickTableViewPrivate::RebuildOptions options);
+    bool rebuildScheduled() const;
     void updateLayout();
 
     int resolveImportVersion();
