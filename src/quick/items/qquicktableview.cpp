@@ -41,7 +41,6 @@
 #include "qquicktableview_p_p.h"
 
 #include <QtCore/qtimer.h>
-#include <QtCore/qdir.h>
 #include <QtQml/private/qqmldelegatemodel_p.h>
 #include <QtQml/private/qqmldelegatemodel_p_p.h>
 #include <QtQml/private/qqmlincubator_p.h>
@@ -2124,6 +2123,70 @@ void QQuickTableViewPrivate::modelResetCallback()
     scheduleRebuildTable(RebuildOption::All);
 }
 
+void QQuickTableViewPrivate::handleViewportMovedRecursively()
+{
+    Q_Q(QQuickTableView);
+
+    const qreal contentX = q->contentX();
+    const qreal contentY = q->contentY();
+
+    // First check if this view needs to rebuild
+    RebuildOptions options = RebuildOption::None;
+
+    // Check the viewport moved more than one page vertically
+    if (!viewportRect.intersects(QRectF(viewportRect.x(), contentY, 1, q->height())))
+        options |= RebuildOption::CalculateNewTopLeftRow;
+    // Check the viewport moved more than one page horizontally
+    if (!viewportRect.intersects(QRectF(contentX, viewportRect.y(), q->width(), 1)))
+        options |= RebuildOption::CalculateNewTopLeftColumn;
+
+    if (options) {
+        // When the viewport has moved more than one page vertically or horizontally, we switch
+        // strategy from refilling edges around the current table to instead rebuild the table
+        // from scratch inside the new viewport. This will greatly improve performance when flicking
+        // a long distance in one go, which can easily happen when dragging on scrollbars.
+        options |= RebuildOption::ViewportOnly;
+        scheduleRebuildTable(options);
+    }
+
+    // Move the slave views that has this view assigned as master view as
+    // well, except for the one that called us in the first place (if any).
+    for (auto slaveView : qAsConst(slaveViews)) {
+        if (slaveView == viewBeingFlicked)
+            continue;
+        auto sd = slaveView->d_func();
+        sd->viewBeingFlicked = q;
+        if (sd->syncWithMasterViewHorizontally)
+            slaveView->setContentX(contentX);
+        if (sd->syncWithMasterViewVertically)
+            slaveView->setContentY(contentY);
+        sd->viewBeingFlicked = nullptr;
+    }
+
+    // Finally, move the master view. At this point all slave views from the top
+    // have been moved to the new viewport pos, so when the master view calls
+    // updatePolish(), it will end up calling updateTable() on all the views.
+    if (masterView) {
+        if (masterView != viewBeingFlicked) {
+            auto md = masterView->d_func();
+            md->viewBeingFlicked = q;
+            if (syncWithMasterViewHorizontally)
+                masterView->setContentX(contentX);
+            if (syncWithMasterViewVertically)
+                masterView->setContentY(contentY);
+            md->viewBeingFlicked = nullptr;
+        }
+        // No need to polish from this slave view, as the
+        // master view took care of it recursively.
+        return;
+    }
+
+    auto rootView = rootMasterView();
+    const bool updated = rootView->d_func()->updateTableRecursive();
+    if (!updated)
+        rootView->polish();
+}
+
 QQuickTableView::QQuickTableView(QQuickItem *parent)
     : QQuickFlickable(*(new QQuickTableViewPrivate), parent)
 {
@@ -2352,46 +2415,8 @@ void QQuickTableView::geometryChanged(const QRectF &newGeometry, const QRectF &o
 
 void QQuickTableView::viewportMoved(Qt::Orientations orientation)
 {
-    Q_D(QQuickTableView);
     QQuickFlickable::viewportMoved(orientation);
-
-    QQuickTableViewPrivate::RebuildOptions options = QQuickTableViewPrivate::RebuildOption::None;
-
-    // Check the viewport moved more than one page vertically
-    if (!d->viewportRect.intersects(QRectF(d->viewportRect.x(), contentY(), 1, height())))
-        options |= QQuickTableViewPrivate::RebuildOption::CalculateNewTopLeftRow;
-    // Check the viewport moved more than one page horizontally
-    if (!d->viewportRect.intersects(QRectF(contentX(), d->viewportRect.y(), width(), 1)))
-        options |= QQuickTableViewPrivate::RebuildOption::CalculateNewTopLeftColumn;
-
-    if (options) {
-        // When the viewport has moved more than one page vertically or horizontally, we switch
-        // strategy from refilling edges around the current table to instead rebuild the table
-        // from scratch inside the new viewport. This will greatly improve performance when flicking
-        // a long distance in one go, which can easily happen when dragging on scrollbars.
-        options |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
-        d->scheduleRebuildTable(options);
-    }
-
-    if (d->rebuildScheduled) {
-        // No reason to do anything, since we're about to rebuild the whole table anyway.
-        // Besides, calling updatePolish, which will start the rebuild, can easily cause
-        // binding loops to happen since we usually end up modifying the geometry of the
-        // viewport (contentItem) as well.
-        return;
-    }
-
-    // Calling polish() will schedule a polish event. But while the user is flicking, several
-    // mouse events will be handled before we get an updatePolish() call. And the updatePolish()
-    // call will only see the last mouse position. This results in a stuttering flick experience
-    // (especially on windows). We improve on this by calling updatePolish() directly. But this
-    // has the pitfall that we open up for recursive callbacks. E.g while inside updatePolish(), we
-    // load/unload items, and emit signals. The application can listen to those signals and set a
-    // new contentX/Y on the flickable. So we need to guard for this, to avoid unexpected behavior.
-    if (d->polishing)
-        polish();
-    else
-        d->updatePolish();
+    d_func()->handleViewportMovedRecursively();
 }
 
 void QQuickTableViewPrivate::_q_componentFinalized()
