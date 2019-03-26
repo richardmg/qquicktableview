@@ -41,7 +41,6 @@
 #include "qquicktableview_p_p.h"
 
 #include <QtCore/qtimer.h>
-#include <QtCore/qdir.h>
 #include <QtQml/private/qqmldelegatemodel_p.h>
 #include <QtQml/private/qqmldelegatemodel_p_p.h>
 #include <QtQml/private/qqmlincubator_p.h>
@@ -2048,21 +2047,22 @@ void QQuickTableViewPrivate::syncViewportPosInOtherViews()
     const qreal contentX = q->contentX();
     const qreal contentY = q->contentY();
 
-    if (!viewBeingFlicked && masterView) {
+    if (masterView && masterView != viewBeingFlicked) {
         // The user is moving/flicking/setting viewport pos on this view.
-        // In that case, we also move our master view so that it stays in sync.
+        // In that case, we also move our master view so that it stays in sync
+        // (unless the move came from it in the first place).
         masterView->d_func()->viewBeingFlicked = q;
         masterView->setContentX(contentX);
         masterView->setContentY(contentY);
         masterView->d_func()->viewBeingFlicked = nullptr;
+
     }
 
-    // Update other views that has us assigned as master view
+    // Update other views that has this view assigned as master view
     for (auto slaveView : qAsConst(slaveViews)) {
-        if (slaveView == viewBeingFlicked) {
-            // Don't recursively set the pos on the view that called us
+        // Ensure that we don't recursively change the pos on the view that called us
+        if (slaveView == viewBeingFlicked)
             continue;
-        }
         slaveView->d_func()->viewBeingFlicked = q;
         slaveView->setContentX(contentX);
         slaveView->setContentY(contentY);
