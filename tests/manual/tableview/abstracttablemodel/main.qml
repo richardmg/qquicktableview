@@ -68,21 +68,29 @@ Window {
             x: 2
             y: 2
             spacing: 1
+//            Button {
+//                text: "Add row"
+//                onClicked: tableModel.insertRows(selectedY, 1)
+//            }
+//            Button {
+//                text: "Remove row"
+//                onClicked: tableModel.removeRows(selectedY, 1)
+//            }
+//            Button {
+//                text: "Add column"
+//                onClicked: tableModel.insertColumns(selectedX, 1)
+//            }
+//            Button {
+//                text: "Remove column"
+//                onClicked: tableModel.removeColumns(selectedX, 1)
+//            }
             Button {
-                text: "Add row"
-                onClicked: tableModel.insertRows(selectedY, 1)
+                text: "headerview jmp"
+                onClicked: headerView.contentX += 1000
             }
             Button {
-                text: "Remove row"
-                onClicked: tableModel.removeRows(selectedY, 1)
-            }
-            Button {
-                text: "Add column"
-                onClicked: tableModel.insertColumns(selectedX, 1)
-            }
-            Button {
-                text: "Remove column"
-                onClicked: tableModel.removeColumns(selectedX, 1)
+                text: "tableview jmp"
+                onClicked: tableView.contentX += 1000
             }
         }
         Text {
@@ -98,7 +106,7 @@ Window {
             anchors.left: parent.left
             anchors.top: menu.bottom
             height: 100
-            width: 200
+            width: 400
             anchors.margins: 2
             clip: true
 
@@ -111,6 +119,7 @@ Window {
             rowSpacing: 10
 
             masterView: tableView
+            onContentXChanged: print(contentX)
         }
 
         TableView {
@@ -133,6 +142,16 @@ Window {
             delegate: tableViewDelegate
             columnSpacing: 10
             rowSpacing: 10
+//            contentWidth: 61193
+//            onContentWidthChanged: print(contentWidth)
+        }
+
+        Component.onCompleted: {
+            tableView.contentX = 1200
+            tableView.forceLayout()
+            tableView.contentX = 900
+
+
         }
 
         Component {
