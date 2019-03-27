@@ -363,7 +363,6 @@ public:
 
     void processRebuildTable();
     bool moveToNextRebuildState();
-    QPoint calculateNewTopLeft();
     void calculateTopLeft(QPoint &topLeft, QPointF &topLeftPos);
     void beginRebuildTable();
     void layoutAfterLoadingInitialTable();
