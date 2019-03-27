@@ -1517,49 +1517,8 @@ bool QQuickTableViewPrivate::moveToNextRebuildState()
     return true;
 }
 
-QPoint QQuickTableViewPrivate::calculateNewTopLeft()
-{
-    const int firstVisibleLeft = nextVisibleEdgeIndex(Qt::RightEdge, 0);
-    const int firstVisibleTop = nextVisibleEdgeIndex(Qt::BottomEdge, 0);
-
-    return QPoint(firstVisibleLeft, firstVisibleTop);
-}
-
 void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeft, QPointF &topLeftPos)
 {
-    if (tableSize.isEmpty()) {
-        releaseLoadedItems(QQmlTableInstanceModel::NotReusable);
-        topLeft = QPoint(kEdgeIndexAtEnd, kEdgeIndexAtEnd);
-        return;
-    }
-
-    if (rebuildOptions & RebuildOption::All) {
-        qCDebug(lcTableViewDelegateLifecycle()) << "RebuildOption::All";
-        releaseLoadedItems(QQmlTableInstanceModel::NotReusable);
-        topLeft = calculateNewTopLeft();
-    } else if (rebuildOptions & RebuildOption::ViewportOnly) {
-        qCDebug(lcTableViewDelegateLifecycle()) << "RebuildOption::ViewportOnly";
-        releaseLoadedItems(reusableFlag);
-
-        if (rebuildOptions & RebuildOption::CalculateNewTopLeftRow) {
-            const int newRow = int(viewportRect.y() / (averageEdgeSize.height() + cellSpacing.height()));
-            topLeft.ry() = qBound(0, newRow, tableSize.height() - 1);
-            topLeftPos.ry() = topLeft.y() * (averageEdgeSize.height() + cellSpacing.height());
-        } else {
-            topLeft.ry() = qBound(0, topRow(), tableSize.height() - 1);
-            topLeftPos.ry() = loadedTableOuterRect.topLeft().y();
-        }
-        if (rebuildOptions & RebuildOption::CalculateNewTopLeftColumn) {
-            const int newColumn = int(viewportRect.x() / (averageEdgeSize.width() + cellSpacing.width()));
-            topLeft.rx() = qBound(0, newColumn, tableSize.width() - 1);
-            topLeftPos.rx() = topLeft.x() * (averageEdgeSize.width() + cellSpacing.width());
-        } else {
-            topLeft.rx() = qBound(0, leftColumn(), tableSize.width() - 1);
-            topLeftPos.rx() = loadedTableOuterRect.topLeft().x();
-        }
-    } else {
-        Q_TABLEVIEW_UNREACHABLE(rebuildOptions);
-    }
 }
 
 void QQuickTableViewPrivate::beginRebuildTable()
