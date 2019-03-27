@@ -1427,7 +1427,22 @@ void QQuickTableViewPrivate::processLoadRequest()
 
 void QQuickTableViewPrivate::processRebuildTable()
 {
-    moveToNextRebuildState();
+    Q_Q(QQuickTableView);
+
+    if (rebuildState == RebuildState::Begin) {
+        if (Q_UNLIKELY(lcTableViewDelegateLifecycle().isDebugEnabled())) {
+            qCDebug(lcTableViewDelegateLifecycle()) << "begin rebuild:" << q;
+            if (rebuildOptions & RebuildOption::All)
+                qCDebug(lcTableViewDelegateLifecycle()) << "RebuildOption::All, options:" << rebuildOptions;
+            else if (rebuildOptions & RebuildOption::ViewportOnly)
+                qCDebug(lcTableViewDelegateLifecycle()) << "RebuildOption::ViewportOnly, options:" << rebuildOptions;
+            else if (rebuildOptions & RebuildOption::LayoutOnly)
+                qCDebug(lcTableViewDelegateLifecycle()) << "RebuildOption::LayoutOnly, options:" << rebuildOptions;
+            else
+                Q_TABLEVIEW_UNREACHABLE(rebuildOptions);
+        }
+        moveToNextRebuildState();
+    }
 
     if (rebuildState == RebuildState::LoadInitalTable) {
         beginRebuildTable();
@@ -1437,12 +1452,11 @@ void QQuickTableViewPrivate::processRebuildTable()
 
     if (rebuildState == RebuildState::VerifyTable) {
         if (loadedItems.isEmpty()) {
-            qCDebug(lcTableViewDelegateLifecycle()) << "no items loaded, meaning empty model, all rows or columns hidden, or no delegate";
+            qCDebug(lcTableViewDelegateLifecycle()) << "no items loaded!";
             rebuildState = RebuildState::Done;
+        } else if (!moveToNextRebuildState()) {
             return;
         }
-        if (!moveToNextRebuildState())
-            return;
     }
 
     if (rebuildState == RebuildState::LayoutTable) {
@@ -1482,6 +1496,7 @@ void QQuickTableViewPrivate::processRebuildTable()
     }
 
     Q_TABLEVIEW_ASSERT(rebuildState == RebuildState::Done, int(rebuildState));
+    qCDebug(lcTableViewDelegateLifecycle()) << "rebuild complete:" << q;
 }
 
 bool QQuickTableViewPrivate::moveToNextRebuildState()
