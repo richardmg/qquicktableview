@@ -715,7 +715,7 @@ void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
 
 void QQuickTableViewPrivate::forceLayout()
 {
-    columnRowPositionsInvalid = true;
+    layoutInvalid = true;
     clearEdgeSizeCache();
     RebuildOptions rebuildOptions = RebuildOption::None;
 
@@ -1219,7 +1219,7 @@ void QQuickTableViewPrivate::relayoutTable()
 void QQuickTableViewPrivate::relayoutTableItems()
 {
     qCDebug(lcTableViewDelegateLifecycle);
-    columnRowPositionsInvalid = false;
+    layoutInvalid = false;
 
     qreal nextColumnX = loadedTableOuterRect.x();
     qreal nextRowY = loadedTableOuterRect.y();
@@ -1561,7 +1561,7 @@ void QQuickTableViewPrivate::beginRebuildTable()
     loadedRows.clear();
     loadedTableOuterRect = QRect();
     loadedTableInnerRect = QRect();
-    columnRowPositionsInvalid = false;
+    layoutInvalid = false;
     clearEdgeSizeCache();
 
     if (topLeft.x() == kEdgeIndexAtEnd || topLeft.y() == kEdgeIndexAtEnd) {
@@ -1743,9 +1743,20 @@ void QQuickTableViewPrivate::scheduleRebuildTable(RebuildOptions options) {
     q_func()->polish();
 }
 
-void QQuickTableViewPrivate::invalidateColumnRowPositions() {
-    columnRowPositionsInvalid = true;
-    q_func()->polish();
+void QQuickTableViewPrivate::updateLayout()
+{
+    relayoutTable();
+    updateAverageEdgeSize();
+    updateContentWidth();
+    updateContentHeight();
+
+    for (auto slaveView : qAsConst(slaveViews)) {
+        slaveView->d_func()->layoutInvalid = true;
+        if (slaveView->d_func()->polishing)
+            slaveView->polish();
+        else
+            slaveView->d_func()->updatePolish();
+    }
 }
 
 void QQuickTableViewPrivate::updatePolish()
@@ -1780,12 +1791,8 @@ void QQuickTableViewPrivate::updatePolish()
     if (loadedItems.isEmpty())
         return;
 
-    if (columnRowPositionsInvalid) {
-        relayoutTable();
-        updateAverageEdgeSize();
-        updateContentWidth();
-        updateContentHeight();
-    }
+    if (layoutInvalid)
+        updateLayout();
 
     loadAndUnloadVisibleEdges();
 }
@@ -1943,9 +1950,15 @@ void QQuickTableViewPrivate::syncModel()
 
 void QQuickTableViewPrivate::syncMasterView()
 {
+    Q_Q(QQuickTableView);
     masterView = assignedMasterView;
     syncWithMasterViewHorizontally = masterView && assignedMasterViewSyncDirection & Qt::Horizontal;
     syncWithMasterViewVertically = masterView && assignedMasterViewSyncDirection & Qt::Vertical;
+
+    if (syncWithMasterViewHorizontally)
+        q->setColumnSpacing(masterView->columnSpacing());
+    if (syncWithMasterViewVertically)
+        q->setRowSpacing(masterView->rowSpacing());
 }
 
 void QQuickTableViewPrivate::connectToModel()
@@ -2151,7 +2164,9 @@ void QQuickTableView::setRowSpacing(qreal spacing)
         return;
 
     d->cellSpacing.setHeight(spacing);
-    d->invalidateColumnRowPositions();
+    d->layoutInvalid = true;
+    polish();
+
     emit rowSpacingChanged();
 }
 
@@ -2169,7 +2184,9 @@ void QQuickTableView::setColumnSpacing(qreal spacing)
         return;
 
     d->cellSpacing.setWidth(spacing);
-    d->invalidateColumnRowPositions();
+    d->layoutInvalid = true;
+    polish();
+
     emit columnSpacingChanged();
 }
 
