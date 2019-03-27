@@ -1524,9 +1524,6 @@ bool QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
         return false;
     }
 
-    const bool syncWithMasterViewHorizontally = false;
-    const bool syncWithMasterViewVertically = false;
-
     if (syncWithMasterViewHorizontally || syncWithMasterViewVertically) {
         // Get master view top left, and use that as our own top left (if possible)
         const auto masterPrivate = masterView->d_func();
