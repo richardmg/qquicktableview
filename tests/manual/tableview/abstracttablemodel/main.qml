@@ -147,9 +147,10 @@ Window {
         }
 
         Component.onCompleted: {
-            tableView.contentX = 1200
+            tableView.contentX = 900//1200
             tableView.forceLayout()
-            tableView.contentX = 900
+            headerView.masterView = null
+//            tableView.contentX = 900
 
 
         }

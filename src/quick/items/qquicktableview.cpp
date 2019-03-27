@@ -1438,6 +1438,7 @@ void QQuickTableViewPrivate::processRebuildTable()
             else
                 Q_TABLEVIEW_UNREACHABLE(rebuildOptions);
         }
+
         beginRebuildTable();
         if (!moveToNextRebuildState())
             return;
@@ -1617,46 +1618,42 @@ bool QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
     // should be the new top-left given the geometry of the viewport.
 
     if (!hSync) {
-        if (rebuildOptions & RebuildOption::All) {
+        if (rebuildOptions & RebuildOption::CalculateNewTopLeftColumn) {
+            // Guesstimate new top left
+            const int newColumn = int(viewportRect.x() / (averageEdgeSize.width() + cellSpacing.width()));
+            topLeftCell.rx() = qBound(0, newColumn, tableSize.width() - 1);
+            topLeftPos.rx() = topLeftCell.x() * (averageEdgeSize.width() + cellSpacing.width());
+        } else if (loadedColumns.isEmpty()) {
             // Find the first visible column from the beginning
             topLeftCell.rx() = nextVisibleEdgeIndex(Qt::RightEdge, 0);
             if (topLeftCell.x() == kEdgeIndexAtEnd) {
                 // No visible column found
                 return false;
             }
-        } else if (rebuildOptions & RebuildOption::ViewportOnly) {
-            if (rebuildOptions & RebuildOption::CalculateNewTopLeftColumn) {
-                // Guesstimate new top left
-                const int newColumn = int(viewportRect.x() / (averageEdgeSize.width() + cellSpacing.width()));
-                topLeftCell.rx() = qBound(0, newColumn, tableSize.width() - 1);
-                topLeftPos.rx() = topLeftCell.x() * (averageEdgeSize.width() + cellSpacing.width());
-            } else {
-                // Keep the current top left, unless it's outside model
-                topLeftCell.rx() = qBound(0, leftColumn(), tableSize.width() - 1);
-                topLeftPos.rx() = loadedTableOuterRect.topLeft().x();
-            }
+        } else {
+            // Keep the current top left, unless it's outside model
+            topLeftCell.rx() = qBound(0, leftColumn(), tableSize.width() - 1);
+            topLeftPos.rx() = loadedTableOuterRect.topLeft().x();
         }
     }
 
     if (!vSync) {
-        if (rebuildOptions & RebuildOption::All) {
+        if (rebuildOptions & RebuildOption::CalculateNewTopLeftRow) {
+            // Guesstimate new top left
+            const int newRow = int(viewportRect.y() / (averageEdgeSize.height() + cellSpacing.height()));
+            topLeftCell.ry() = qBound(0, newRow, tableSize.height() - 1);
+            topLeftPos.ry() = topLeftCell.y() * (averageEdgeSize.height() + cellSpacing.height());
+        } else if (loadedRows.isEmpty()) {
             // Find the first visible row from the beginning
             topLeftCell.ry() = nextVisibleEdgeIndex(Qt::BottomEdge, 0);
             if (topLeftCell.y() == kEdgeIndexAtEnd) {
                 // No visible row found
                 return false;
             }
-        } else if (rebuildOptions & RebuildOption::ViewportOnly) {
-            if (rebuildOptions & RebuildOption::CalculateNewTopLeftRow) {
-                // Guesstimate new top left
-                const int newRow = int(viewportRect.y() / (averageEdgeSize.height() + cellSpacing.height()));
-                topLeftCell.ry() = qBound(0, newRow, tableSize.height() - 1);
-                topLeftPos.ry() = topLeftCell.y() * (averageEdgeSize.height() + cellSpacing.height());
-            } else {
-                // Keep the current top left, unless it's outside model
-                topLeftCell.ry() = qBound(0, topRow(), tableSize.height() - 1);
-                topLeftPos.ry() = loadedTableOuterRect.topLeft().y();
-            }
+        } else {
+            // Keep the current top left, unless it's outside model
+            topLeftCell.ry() = qBound(0, topRow(), tableSize.height() - 1);
+            topLeftPos.ry() = loadedTableOuterRect.topLeft().y();
         }
     }
 
