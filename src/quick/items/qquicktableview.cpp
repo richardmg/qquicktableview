@@ -1521,6 +1521,14 @@ void QQuickTableViewPrivate::beginRebuildTable()
 {
     calculateTableSize();
 
+    if (rebuildOptions & RebuildOption::All) {
+        q_func()->setContentX(0);
+        q_func()->setContentY(0);
+        // Ignore if we detect that we need to rebuild after moving
+        // the content view, since we now anyway rebuild everything.
+        localRebuildScheduled = false;
+    }
+
     QPoint topLeftCell;
     QPointF topLeftPos;
     const bool topLeftFound = calculateTopLeft(topLeftCell, topLeftPos);
