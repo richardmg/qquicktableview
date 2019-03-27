@@ -1493,17 +1493,113 @@ bool QQuickTableViewPrivate::moveToNextRebuildState()
     return true;
 }
 
-void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeft, QPointF &topLeftPos)
+bool QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topLeftPos)
 {
+    if (tableSize.isEmpty()) {
+        // There is no cell that can be top left
+        return false;
+    }
+
+    if (syncWithMasterViewHorizontally || syncWithMasterViewVertically) {
+        const auto master_d = masterView->d_func();
+
+        if (master_d->loadedItems.isEmpty()) {
+            // Master view contains no loaded items. This probably means
+            // that it has not been rebuilt yet. Which also means that
+            // we cannot rebuild anything before this happens.
+            return false;
+        }
+
+        // Get master view top left, and use that as our own top left (if possible)
+        const QPoint masterTopLeftCell(master_d->leftColumn(), master_d->topRow());
+        const auto masterTopLeftFxItem = master_d->loadedTableItem(masterTopLeftCell);
+        const QPointF masterTopLeftPos = masterTopLeftFxItem->geometry().topLeft();
+
+        if (syncWithMasterViewHorizontally) {
+            topLeftCell.rx() = masterTopLeftCell.x();
+            if (topLeftCell.x() >= tableSize.width()) {
+                // Top left is outside our own model.
+                return false;
+            }
+            topLeftPos.rx() = masterTopLeftPos.x();
+        }
+
+        if (syncWithMasterViewVertically) {
+            topLeftCell.ry() = masterTopLeftCell.y();
+            if (topLeftCell.y() >= tableSize.height()) {
+                // Top left is outside our own model.
+                return false;
+            }
+            topLeftPos.ry() = masterTopLeftPos.y();
+        }
+
+        if (syncWithMasterViewHorizontally && syncWithMasterViewVertically) {
+            // We have a valid top left, so we're done
+            return true;
+        }
+    }
+
+    // Since we're not sync-ing both horizontal and vertical, calculate the missing
+    // dimention(s) ourself. If we rebuild all, we find the first visible top-left
+    // item starting from cell(0, 0). Otherwise, guesstimate which row or column that
+    // should be the new top-left given the geometry of the viewport.
+
+    if (!syncWithMasterViewHorizontally) {
+        if (rebuildOptions & RebuildOption::All) {
+            // Find the first visible column from the beginning
+            topLeftCell.rx() = nextVisibleEdgeIndex(Qt::RightEdge, 0);
+            if (topLeftCell.x() == kEdgeIndexAtEnd) {
+                // No visible column found
+                return false;
+            }
+        } else if (rebuildOptions & RebuildOption::CalculateNewTopLeftColumn) {
+            // Guesstimate new top left
+            const int newColumn = int(viewportRect.x() / (averageEdgeSize.width() + cellSpacing.width()));
+            topLeftCell.rx() = qBound(0, newColumn, tableSize.width() - 1);
+            topLeftPos.rx() = topLeftCell.x() * (averageEdgeSize.width() + cellSpacing.width());
+        } else {
+            // Keep the current top left, unless it's outside model
+            topLeftCell.rx() = qBound(0, leftColumn(), tableSize.width() - 1);
+            topLeftPos.rx() = loadedTableOuterRect.topLeft().x();
+        }
+    }
+
+    if (!syncWithMasterViewVertically) {
+        if (rebuildOptions & RebuildOption::All) {
+            // Find the first visible row from the beginning
+            topLeftCell.ry() = nextVisibleEdgeIndex(Qt::BottomEdge, 0);
+            if (topLeftCell.y() == kEdgeIndexAtEnd) {
+                // No visible row found
+                return false;
+            }
+        } else if (rebuildOptions & RebuildOption::CalculateNewTopLeftRow) {
+            // Guesstimate new top left
+            const int newRow = int(viewportRect.y() / (averageEdgeSize.height() + cellSpacing.height()));
+            topLeftCell.ry() = qBound(0, newRow, tableSize.height() - 1);
+            topLeftPos.ry() = topLeftCell.y() * (averageEdgeSize.height() + cellSpacing.height());
+        } else {
+            // Keep the current top left, unless it's outside model
+            topLeftCell.ry() = qBound(0, topRow(), tableSize.height() - 1);
+            topLeftPos.ry() = loadedTableOuterRect.topLeft().y();
+        }
+    }
+
+    return true;
 }
 
 void QQuickTableViewPrivate::beginRebuildTable()
 {
     calculateTableSize();
 
-    QPoint topLeft;
+    QPoint topLeftCell;
     QPointF topLeftPos;
-    calculateTopLeft(topLeft, topLeftPos);
+    const bool validTopLeft = calculateTopLeft(topLeftCell, topLeftPos);
+    qCDebug(lcTableViewDelegateLifecycle()) << "new topLeft cell:" << topLeftCell << "pos:" << topLeftPos;
+
+    if (rebuildOptions & RebuildOption::All)
+        releaseLoadedItems(QQmlTableInstanceModel::NotReusable);
+    else if (rebuildOptions & RebuildOption::ViewportOnly)
+        releaseLoadedItems(reusableFlag);
 
     loadedColumns.clear();
     loadedRows.clear();
@@ -1512,12 +1608,27 @@ void QQuickTableViewPrivate::beginRebuildTable()
     layoutInvalid = false;
     clearEdgeSizeCache();
 
-    if (topLeft.x() == kEdgeIndexAtEnd || topLeft.y() == kEdgeIndexAtEnd) {
-        // No visible columns or rows, so nothing to load
+    if (!model) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "no model found, leaving table empty";
         return;
     }
 
-    loadInitialTopLeftItem(topLeft, topLeftPos);
+    if (model->count() == 0) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "empty model found, leaving table empty";
+        return;
+    }
+
+    if (tableModel && !tableModel->delegate()) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "no delegate found, leaving table empty";
+        return;
+    }
+
+    if (!validTopLeft) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "top-left cell could not be resolved, leaving table empty";
+        return;
+    }
+
+    loadInitialTopLeftItem(topLeftCell, topLeftPos);
     loadAndUnloadVisibleEdges();
 }
 
@@ -1540,9 +1651,6 @@ void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
 void QQuickTableViewPrivate::loadInitialTopLeftItem(const QPoint &cell, const QPointF &pos)
 {
     Q_TABLEVIEW_ASSERT(loadedItems.isEmpty(), "");
-
-    if (tableModel && !tableModel->delegate())
-        return;
 
     // Load top-left item. After loaded, loadItemsInsideRect() will take
     // care of filling out the rest of the table.
@@ -1889,9 +1997,8 @@ void QQuickTableViewPrivate::syncRebuildOptions()
     scheduledRebuildOptions = RebuildOption::None;
 
     if (loadedItems.isEmpty()) {
-        // If we have no items from before, we cannot just rebuild the viewport, but need
-        // to rebuild everything, since we have no top-left loaded item to start from.
-        rebuildOptions.setFlag(RebuildOption::All);
+        rebuildOptions.setFlag(RebuildOption::CalculateNewTopLeftRow);
+        rebuildOptions.setFlag(RebuildOption::CalculateNewTopLeftColumn);
     }
 }
 
