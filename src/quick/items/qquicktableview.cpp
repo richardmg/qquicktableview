@@ -1610,6 +1610,16 @@ void QQuickTableViewPrivate::beginRebuildTable()
 {
     calculateTableSize();
 
+    if (syncWithMasterViewHorizontally)
+        q_func()->setContentX(masterView->contentX());
+    else if (rebuildOptions & RebuildOption::All)
+        q_func()->setContentX(0);
+
+    if (syncWithMasterViewVertically)
+        q_func()->setContentY(masterView->contentY());
+    else if (rebuildOptions & RebuildOption::All)
+        q_func()->setContentY(0);
+
     QPoint topLeftCell;
     QPointF topLeftPos;
     const bool validTopLeft = calculateTopLeft(topLeftCell, topLeftPos);
