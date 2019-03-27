@@ -2419,7 +2419,7 @@ void QQuickTableView::setMasterView(QQuickTableView *view)
     }
 
     d->assignedMasterView = view;
-    d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::All);
+    d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::ViewportOnly);
 
     emit masterViewChanged();
 }
