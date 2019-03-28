@@ -626,7 +626,7 @@ void QQuickTableViewPrivate::updateContentHeight()
 {
     Q_Q(QQuickTableView);
 
-    if (syncWithMasterViewHorizontally) {
+    if (syncWithMasterViewVertically) {
         q->QQuickFlickable::setContentHeight(masterView->contentHeight());
         return;
     }
