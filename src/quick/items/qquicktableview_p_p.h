@@ -231,6 +231,7 @@ public:
     QMap<int, int> loadedRows;
     QRectF loadedTableOuterRect;
     QRectF loadedTableInnerRect;
+    QRectF topLeftRect;
 
     QRectF viewportRect = QRectF(0, 0, -1, -1);
 

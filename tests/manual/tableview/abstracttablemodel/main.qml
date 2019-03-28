@@ -127,8 +127,8 @@ Window {
             columnSpacing: 1
             rowSpacing: 1
 
-            masterView: tableView
-            syncDirection: Qt.Horizontal | Qt.Vertical
+//            masterView: tableView
+//            syncDirection: Qt.Horizontal | Qt.Vertical
         }
 
         TableView {

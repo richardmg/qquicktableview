@@ -707,7 +707,8 @@ void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
 {
     const QPoint topLeft = QPoint(leftColumn(), topRow());
     const QPoint bottomRight = QPoint(rightColumn(), bottomRow());
-    QRectF topLeftRect = loadedTableItem(topLeft)->geometry();
+    topLeftRect = loadedTableItem(topLeft)->geometry();
+    qDebug() << topLeftRect;
     QRectF bottomRightRect = loadedTableItem(bottomRight)->geometry();
     loadedTableOuterRect = QRectF(topLeftRect.topLeft(), bottomRightRect.bottomRight());
     loadedTableInnerRect = QRectF(topLeftRect.bottomRight(), bottomRightRect.topLeft());
@@ -933,28 +934,12 @@ bool QQuickTableViewPrivate::canLoadTableEdge(Qt::Edge tableEdge, const QRectF f
         return loadedTableOuterRect.bottom() < fillRect.bottom() - cellSpacing.height();
     }
 
+    Q_TABLEVIEW_UNREACHABLE(tableEdge);
     return false;
 }
 
 bool QQuickTableViewPrivate::canUnloadTableEdge(Qt::Edge tableEdge, const QRectF fillRect) const
 {
-    if (!masterView) {
-        // Note: if there is only one row or column left, we cannot unload, since
-        // they are needed as anchor point for further layouting. The exception is
-        // if we have a master view, since then the master view will keep track
-        // of row / column positions.
-        switch (tableEdge) {
-        case Qt::LeftEdge:
-        case Qt::RightEdge:
-            if (loadedColumns.count() <= 1)
-                return false;
-        case Qt::TopEdge:
-        case Qt::BottomEdge:
-            if (loadedRows.count() <= 1)
-                return false;
-        }
-    }
-
     switch (tableEdge) {
     case Qt::LeftEdge:
         return loadedTableInnerRect.left() <= fillRect.left();
@@ -1716,7 +1701,10 @@ void QQuickTableViewPrivate::unloadEdge(Qt::Edge edge)
     if (!loadedItems.isEmpty()) {
         syncLoadedTableRectFromLoadedTable();
         updateAverageEdgeSize();
-        updateContentHeight();
+        if (edge == Qt::LeftEdge || edge == Qt::RightEdge)
+            updateContentWidth();
+        else
+            updateContentHeight();
     }
 
     qCDebug(lcTableViewDelegateLifecycle) << tableLayoutToString();
@@ -2480,17 +2468,25 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
         d->scheduleRebuildTable(options);
     }
 
-    if (d->masterView && d->loadedItems.isEmpty()) {
-        // We have unloaded all items from before since the table was flicked
-        // out of the viewport. So we need to check if they have now been
-        // flicked back in. If so, we need to rebuild the table.
-        const auto masterPrivate = d->masterView->d_func();
-        const int masterLeftColumn = masterPrivate->leftColumn();
-        const int masterTopRow = masterPrivate->topRow();
-        if (masterLeftColumn < columns() || masterTopRow < rows()) {
+    if (d->loadedItems.isEmpty()) {
+        QRectF newViewportRect = QRectF(contentX(), contentY(), width(), height());
+        if (newViewportRect.intersects(d->topLeftRect)) {
             options |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
             d->scheduleRebuildTable(options);
         }
+
+//        QPointF topLeftRect;
+//    if (d->masterView))
+        // We have unloaded all items from before since the table was flicked
+        // out of the viewport. So we need to check if they have now been
+        // flicked back in. If so, we need to rebuild the table.
+//        const auto masterPrivate = d->masterView->d_func();
+//        const int masterLeftColumn = masterPrivate->leftColumn();
+//        const int masterTopRow = masterPrivate->topRow();
+//        if (masterLeftColumn < columns() || masterTopRow < rows()) {
+//            options |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+//            d->scheduleRebuildTable(options);
+//        }
     }
 
     if (d_func()->rebuildScheduled()) {
