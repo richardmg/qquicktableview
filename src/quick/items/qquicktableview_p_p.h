@@ -396,7 +396,7 @@ public:
     void layoutChangedCallback(const QList<QPersistentModelIndex> &parents, QAbstractItemModel::LayoutChangeHint hint);
     void modelResetCallback();
 
-    void syncViewportPosInOtherViews();
+    void handleViewportMovedRecursively();
 
     void _q_componentFinalized();
     void registerCallbackWhenBindingsAreEvaluated();
