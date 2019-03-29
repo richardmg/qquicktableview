@@ -1738,7 +1738,51 @@ void QQuickTableViewPrivate::invalidateColumnRowPositions() {
     q_func()->polish();
 }
 
+QQuickTableView *QQuickTableViewPrivate::rootMasterView() const
+{
+    QQuickTableView *root = const_cast<QQuickTableView *>(q_func());
+    while (QQuickTableView *master = root->d_func()->masterView)
+        root = master;
+    return root;
+}
+
 void QQuickTableViewPrivate::updatePolish()
+{
+    // We always start updating from the top of the master-slave tree, since
+    // the layout of a slave will depend on the layout of the master. E.g when
+    // a new column is flicked in, the master should load and layout the column
+    // first, before any slaves gets a chance to do the same.
+    Q_TABLEVIEW_ASSERT(!polishing, "recursive updatePolish() calls are not allowed!");
+    rootMasterView()->d_func()->updateTableRecursive();
+}
+
+bool QQuickTableViewPrivate::updateTableRecursive()
+{
+    if (polishing) {
+        // We're already updating the Table in this view, so
+        // we cannot continue. Signal this back by returning false.
+        // The caller can then choose to call "polish()" instead, to
+        // do the update later.
+        return false;
+    }
+
+    const bool thisLayoutInvalid = columnRowPositionsInvalid;
+    const RebuildOptions thisRebuildOptions = scheduledRebuildOptions;
+
+    updateTable();
+
+    for (auto slaveView : qAsConst(slaveViews)) {
+        auto slave_d = slaveView->d_func();
+        if (thisLayoutInvalid)
+            slave_d->columnRowPositionsInvalid = true;
+        if (thisRebuildOptions)
+            slave_d->scheduledRebuildOptions |= thisRebuildOptions;
+        slave_d->updateTableRecursive();
+    }
+    return true;
+}
+
+void QQuickTableViewPrivate::updateTable()
 {
     // Whenever something changes, e.g viewport moves, spacing is set to a
     // new value, model changes etc, this function will end up being called. Here
