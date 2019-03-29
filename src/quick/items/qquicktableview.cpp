@@ -2058,9 +2058,18 @@ void QQuickTableViewPrivate::syncModel()
 void QQuickTableViewPrivate::syncMasterView()
 {
     Q_Q(QQuickTableView);
-    masterView = assignedMasterView;
-    syncWithMasterViewHorizontally = masterView && assignedMasterViewSyncDirection & Qt::Horizontal;
-    syncWithMasterViewVertically = masterView && assignedMasterViewSyncDirection & Qt::Vertical;
+
+    if (assignedMasterView != masterView) {
+        if (masterView)
+            masterView->d_func()->slaveViews.removeOne(q);
+        if (assignedMasterView) {
+            assignedMasterView->d_func()->slaveViews.append(q);
+        }
+
+        masterView = assignedMasterView;
+        syncWithMasterViewHorizontally = masterView && assignedMasterViewSyncDirection & Qt::Horizontal;
+        syncWithMasterViewVertically = masterView && assignedMasterViewSyncDirection & Qt::Vertical;
+    }
 
     if (syncWithMasterViewHorizontally)
         q->setColumnSpacing(masterView->columnSpacing());
@@ -2471,13 +2480,6 @@ void QQuickTableView::setMasterView(QQuickTableView *view)
     Q_D(QQuickTableView);
     if (d->assignedMasterView == view)
         return;
-
-    if (d->assignedMasterView)
-        d->assignedMasterView->d_func()->slaveViews.removeOne(this);
-    if (view) {
-        // NB: THIS ONE ACTUALL NEEDS TO GO THROUGH THE ASSIGNED STAGE TOO (sigh)
-        view->d_func()->slaveViews.append(this);
-    }
 
     d->assignedMasterView = view;
     d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::ViewportOnly);
