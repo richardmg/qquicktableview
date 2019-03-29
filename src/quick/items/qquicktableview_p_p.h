@@ -313,6 +313,7 @@ public:
     inline int leftColumn() const { return loadedColumns.firstKey(); }
     inline int rightColumn() const { return loadedColumns.lastKey(); }
 
+    void updateTable();
     void relayoutTable();
     void relayoutTableItems();
 
