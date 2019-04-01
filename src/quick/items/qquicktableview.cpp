@@ -2283,17 +2283,10 @@ void QQuickTableViewPrivate::handleViewportMovedRecursively()
         return;
     }
 
-    // Calling polish() will schedule a polish event. But while the user is flicking, several
-    // mouse events will be handled before we get an updatePolish() call. And the updatePolish()
-    // call will only see the last mouse position. This results in a stuttering flick experience
-    // (especially on windows). We improve on this by calling updatePolish() directly. But this
-    // has the pitfall that we open up for recursive callbacks. E.g while inside updatePolish(), we
-    // load/unload items, and emit signals. The application can listen to those signals and set a
-    // new contentX/Y on the flickable. So we need to guard for this, to avoid unexpected behavior.
-    if (polishing)
-        q->polish();
-    else
-        updatePolish();
+    auto rootView = rootMasterView();
+    const bool updated = rootView->d_func()->updateTableRecursive();
+    if (!updated)
+        rootView->polish();
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
