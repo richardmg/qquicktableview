@@ -1848,20 +1848,35 @@ void QQuickTableViewPrivate::updateLayout()
     }
 }
 
+QQuickTableView *QQuickTableViewPrivate::rootMasterView() const
+{
+    QQuickTableView *root = const_cast<QQuickTableView *>(q_func());
+    while (QQuickTableView *master = root->d_func()->masterView)
+        root = master;
+    return root;
+}
+
 void QQuickTableViewPrivate::updatePolish()
 {
-    if (!masterView) {
-        updateTable();
-    } else {
-        // When we have a master view, we always start polishing from the top of the
-        // masterView-slaveViews tree, to ensure that a master view finishes loading
-        // rows and columns and lays them out before a slave will do the same. This
-        // because a slave depends on the resolved layout information from its master view.
-        const auto md = masterView->d_func();
-        if (md->polishing || md->polishScheduled)
-            return;
-        md->updateTable();
+    // We always start updating from the top of the master-slave tree, since
+    // the layout of a slave will depend on the layout of the master. E.g when
+    // a new column is flicked in, the master should load and layout the column
+    // first, before any slaves gets a chance to do the same.
+    rootMasterView()->d_func()->updateTableRecursive();
+}
+
+bool QQuickTableViewPrivate::updateTableRecursive()
+{
+    updateTable();
+
+    for (auto slaveView : qAsConst(slaveViews)) {
+        if (slaveView->d_func()->polishing) {
+            slaveView->polish();
+            return false;
+        }
+        slaveView->d_func()->updateTableRecursive();
     }
+    return true;
 }
 
 void QQuickTableViewPrivate::updateTable()
@@ -1900,9 +1915,6 @@ void QQuickTableViewPrivate::updateTable()
         updateLayout();
 
     loadAndUnloadVisibleEdges();
-
-    for (auto slaveView : qAsConst(slaveViews))
-        slaveView->d_func()->updateTable();
 }
 
 void QQuickTableViewPrivate::fixup(QQuickFlickablePrivate::AxisData &data, qreal minExtent, qreal maxExtent)
@@ -2282,7 +2294,7 @@ void QQuickTableViewPrivate::handleViewportMovedRecursively()
     if (polishing)
         q->polish();
     else
-        updateTable();
+        updatePolish();
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
