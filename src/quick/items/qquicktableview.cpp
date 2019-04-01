@@ -763,13 +763,12 @@ void QQuickTableViewPrivate::forceLayout()
 
     scheduleRebuildTable(rebuildOptions);
 
-    if (polishing) {
+    auto rootView = rootMasterView();
+    const bool updated = rootView->d_func()->updateTableRecursive();
+    if (!updated) {
         qWarning() << "TableView::forceLayout(): Cannot do an immediate re-layout during an ongoing layout!";
-        q_func()->polish();
-        return;
+        rootView->polish();
     }
-
-    updatePolish();
 }
 
 void QQuickTableViewPrivate::syncLoadedTableFromLoadRequest()
