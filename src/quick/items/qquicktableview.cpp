@@ -1487,19 +1487,6 @@ void QQuickTableViewPrivate::processRebuildTable()
             return;
     }
 
-    if (rebuildState == RebuildState::RebuildSlaveViews) {
-        for (auto slaveView : qAsConst(slaveViews)) {
-            qCDebug(lcTableViewDelegateLifecycle()) << "rebuild slave view:" << slaveView;
-            slaveView->d_func()->scheduleRebuildTable(rebuildOptions);
-            if (slaveView->d_func()->polishing)
-                slaveView->polish();
-            else
-                slaveView->d_func()->updatePolish();
-        }
-        if (!moveToNextRebuildState())
-            return;
-    }
-
     Q_TABLEVIEW_ASSERT(rebuildState == RebuildState::Done, int(rebuildState));
     qCDebug(lcTableViewDelegateLifecycle()) << "rebuild complete:" << q;
 }
@@ -1813,7 +1800,7 @@ void QQuickTableViewPrivate::drainReusePoolAfterLoadRequest()
     tableModel->drainReusableItemsPool(maxTime);
 }
 
-void QQuickTableViewPrivate::scheduleRebuildTable(RebuildOptions options)
+void QQuickTableViewPrivate::scheduleRebuildTable(RebuildOptions options, bool doPolish)
 {
     if (!q_func()->isComponentComplete()) {
         // We'll rebuild the table once complete anyway
@@ -1821,7 +1808,7 @@ void QQuickTableViewPrivate::scheduleRebuildTable(RebuildOptions options)
     }
 
     scheduledRebuildOptions |= options;
-    if (!rebuildScheduled())
+    if (doPolish && !rebuildScheduled())
         q_func()->polish();
     localRebuildScheduled = true;
 }
@@ -1866,15 +1853,24 @@ void QQuickTableViewPrivate::updatePolish()
 
 bool QQuickTableViewPrivate::updateTableRecursive()
 {
+    if (polishing)
+        return false;
+
+    const RebuildOptions options = scheduledRebuildOptions;
+
     updateTable();
 
     for (auto slaveView : qAsConst(slaveViews)) {
-        if (slaveView->d_func()->polishing) {
-            slaveView->polish();
-            return false;
+        auto priv = slaveView->d_func();
+        if (options) {
+            // Rebuild slave view if we had to rebuild master view.
+            // This to ensure that columns and rows stay in sync.
+            priv->scheduledRebuildOptions |= options;
+            priv->localRebuildScheduled = true;
         }
         slaveView->d_func()->updateTableRecursive();
     }
+
     return true;
 }
 
@@ -1884,6 +1880,9 @@ void QQuickTableViewPrivate::updateTable()
     // new value, model changes etc, this function will end up being called. Here
     // we check what needs to be done, and load/unload cells accordingly.
 
+    if (polishing) {
+        qDebug() << "assert!";
+    }
     Q_TABLEVIEW_ASSERT(!polishing, "recursive updatePolish() calls are not allowed!");
     QBoolBlocker polishGuard(polishing, true);
 

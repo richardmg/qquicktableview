@@ -183,7 +183,6 @@ public:
         PreloadColumns,
         PreloadRows,
         MovePreloadedItemsToPool,
-        RebuildSlaveViews,
         Done
     };
 
@@ -368,7 +367,7 @@ public:
     void beginRebuildTable();
     void layoutAfterLoadingInitialTable();
 
-    void scheduleRebuildTable(QQuickTableViewPrivate::RebuildOptions options);
+    void scheduleRebuildTable(QQuickTableViewPrivate::RebuildOptions options, bool doPolish = true);
     bool rebuildScheduled() const;
     void updateLayout();
 
