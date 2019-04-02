@@ -252,6 +252,7 @@ public:
     bool syncVertically = false;
     bool syncHorizontally = false;
     bool inSetViewportPos = false;
+    bool inUpdateContentSize = false;
 
     QJSValue rowHeightProvider;
     QJSValue columnWidthProvider;
