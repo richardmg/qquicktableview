@@ -2198,21 +2198,16 @@ void QQuickTableViewPrivate::modelResetCallback()
     scheduleRebuildTable(RebuildOption::All);
 }
 
-void QQuickTableViewPrivate::handleViewportMovedRecursively()
+void QQuickTableViewPrivate::scheduleRebuildIfViewportHasMovedMoreThanAPage()
 {
     Q_Q(QQuickTableView);
-
-    const qreal contentX = q->contentX();
-    const qreal contentY = q->contentY();
-
-    // First check if this view needs to rebuild
     RebuildOptions options = RebuildOption::None;
 
     // Check the viewport moved more than one page vertically
-    if (!viewportRect.intersects(QRectF(viewportRect.x(), contentY, 1, q->height())))
+    if (!viewportRect.intersects(QRectF(viewportRect.x(), q->contentY(), 1, q->height())))
         options |= RebuildOption::CalculateNewTopLeftRow;
     // Check the viewport moved more than one page horizontally
-    if (!viewportRect.intersects(QRectF(contentX, viewportRect.y(), q->width(), 1)))
+    if (!viewportRect.intersects(QRectF(q->contentX(), viewportRect.y(), q->width(), 1)))
         options |= RebuildOption::CalculateNewTopLeftColumn;
 
     if (options) {
@@ -2223,6 +2218,14 @@ void QQuickTableViewPrivate::handleViewportMovedRecursively()
         options |= RebuildOption::ViewportOnly;
         scheduleRebuildTable(options);
     }
+}
+
+void QQuickTableViewPrivate::syncViewportPosRecursively()
+{
+    Q_Q(QQuickTableView);
+
+    const qreal contentX = q->contentX();
+    const qreal contentY = q->contentY();
 
     // Move the slave views that has this view assigned as master view as
     // well, except for the one that called us in the first place (if any).
@@ -2248,14 +2251,6 @@ void QQuickTableViewPrivate::handleViewportMovedRecursively()
         if (syncWithMasterViewVertically)
             masterView->setContentY(contentY);
         md->viewBeingFlicked = nullptr;
-    }
-
-    if (!masterView) {
-        // This view is the root master view.
-        // We therefore start the update from the top.
-        const bool updated = updateTableRecursive();
-        if (!updated)
-            rootView->polish();
     }
 }
 
@@ -2487,8 +2482,22 @@ void QQuickTableView::geometryChanged(const QRectF &newGeometry, const QRectF &o
 
 void QQuickTableView::viewportMoved(Qt::Orientations orientation)
 {
+    Q_D(QQuickTableView);
     QQuickFlickable::viewportMoved(orientation);
-    d_func()->handleViewportMovedRecursively();
+
+    d->scheduleRebuildIfViewportHasMovedMoreThanAPage();
+    d->syncViewportPosRecursively();
+
+    if (!d->masterView) {
+        // This view is the root master view. All slave views
+        // should have been moved by now, so we can start the update.
+        const bool updated = d->updateTableRecursive();
+        if (!updated) {
+            // One, or more, of the views are already in an
+            // update, so we need to wait a cycle.
+            polish();
+        }
+    }
 }
 
 void QQuickTableViewPrivate::_q_componentFinalized()
