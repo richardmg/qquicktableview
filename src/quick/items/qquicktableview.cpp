@@ -1977,6 +1977,11 @@ void QQuickTableViewPrivate::syncSyncView()
 
     syncHorizontally = syncView && assignedSyncDirection & Qt::Horizontal;
     syncVertically = syncView && assignedSyncDirection & Qt::Vertical;
+
+    if (syncHorizontally)
+        q->setColumnSpacing(syncView->columnSpacing());
+    if (syncVertically)
+        q->setRowSpacing(syncView->rowSpacing());
 }
 
 void QQuickTableViewPrivate::connectToModel()
