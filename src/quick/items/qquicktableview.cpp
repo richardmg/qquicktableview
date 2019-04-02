@@ -2220,25 +2220,20 @@ void QQuickTableViewPrivate::scheduleRebuildIfViewportMovedMoreThanAPage()
     }
 }
 
-void QQuickTableViewPrivate::setViewportPosRecursively(qreal newContentX, qreal newContentY)
+void QQuickTableViewPrivate::setViewportPosRecursively(qreal masterContentX, qreal masterContentY, QQuickTableView *viewBeingFlicked)
 {
     Q_Q(QQuickTableView);
-    auto view = rootMasterView()->d_func()->viewBeingFlicked;
 
-    for (auto slaveView : qAsConst(slaveViews)) {
-        auto sd = slaveView->d_func();
-        qreal localContentX = sd->syncWithMasterViewHorizontally ? newContentX : q->contentX();
-        qreal localContentY = sd->syncWithMasterViewVertically ? newContentY : q->contentY();
-
-        if (slaveView != view) {
-            if (sd->syncWithMasterViewHorizontally)
-                slaveView->setContentX(localContentX);
-            if (sd->syncWithMasterViewVertically)
-                slaveView->setContentY(localContentY);
-        }
-
-        sd->setViewportPosRecursively(localContentX, localContentY);
+    if (q != viewBeingFlicked) {
+        QBoolBlocker recursionGuard(inSetViewportPosRecursively, true);
+        if (!masterView || syncWithMasterViewHorizontally)
+            q->setContentX(masterContentX);
+        if (!masterView || syncWithMasterViewVertically)
+            q->setContentY(masterContentY);
     }
+
+    for (auto slaveView : qAsConst(slaveViews))
+        slaveView->d_func()->setViewportPosRecursively(q->contentX(), q->contentY(), viewBeingFlicked);
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
@@ -2474,20 +2469,14 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
 
     d->scheduleRebuildIfViewportMovedMoreThanAPage();
 
-    auto rootView = d->rootMasterView();
-    auto rootView_d = rootView->d_func();
-    if (rootView_d->viewBeingFlicked)
+    if (d->inSetViewportPosRecursively)
         return;
 
     // This view is the first to receive a viewportMoved call.
-    // Forward the new viewport position to all connected views.
-    rootView_d->viewBeingFlicked = this;
-    if (rootView != this) {
-        rootView->setContentX(contentX());
-        rootView->setContentY(contentY());
-    }
-    rootView_d->setViewportPosRecursively(contentX(), contentY());
-    rootView_d->viewBeingFlicked = nullptr;
+    // Move all connected views from the root so they stay in sync.
+    auto rootView = d->rootMasterView();
+    auto rootView_d = rootView->d_func();
+    rootView_d->setViewportPosRecursively(contentX(), contentY(), this);
 
     // Load and unload rows and columns in all connected views
     // according to the new viewport geometry. If any of the views
@@ -2496,7 +2485,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
     if (!updated) {
         // One, or more, of the views are already in an
         // update, so we need to wait a cycle.
-        polish();
+        rootView->polish();
     }
 }
 
