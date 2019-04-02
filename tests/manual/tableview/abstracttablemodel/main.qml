@@ -121,13 +121,14 @@ Window {
 
             model: TestTableModel {
                 rowCount: 200
-                columnCount: 3
+                columnCount: 200
             }
 
             delegate: Rectangle {
                 implicitHeight: 50
                 implicitWidth: 20
                 border.width: 1
+                Text { text: column }
             }
 
             columnSpacing: 1
@@ -147,8 +148,10 @@ Window {
             width: 200
             anchors.margins: 2
             clip: true
-//            columnWidthProvider: function(c) { return 100 + c; }
+            columnWidthProvider: function(c) { return 100 + c; }
             ScrollBar.horizontal: ScrollBar {}
+//            contentWidth: 3000
+//            contentHeight: 3000
 
             model: TestTableModel {
                 rowCount: 200
