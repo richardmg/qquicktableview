@@ -604,6 +604,7 @@ void QQuickTableViewPrivate::updateContentWidth()
     Q_Q(QQuickTableView);
 
     if (syncHorizontally) {
+        QBoolBlocker fixupGuard(inUpdateContentSize, true);
         q->QQuickFlickable::setContentWidth(syncView->contentWidth());
         return;
     }
@@ -620,6 +621,8 @@ void QQuickTableViewPrivate::updateContentWidth()
     const qreal remainingSpacing = columnsRemaining * cellSpacing.width();
     const qreal estimatedRemainingWidth = remainingColumnWidths + remainingSpacing;
     const qreal estimatedWidth = loadedTableOuterRect.right() + estimatedRemainingWidth;
+
+    QBoolBlocker fixupGuard(inUpdateContentSize, true);
     q->QQuickFlickable::setContentWidth(estimatedWidth);
 }
 
@@ -628,6 +631,7 @@ void QQuickTableViewPrivate::updateContentHeight()
     Q_Q(QQuickTableView);
 
     if (syncVertically) {
+        QBoolBlocker fixupGuard(inUpdateContentSize, true);
         q->QQuickFlickable::setContentHeight(syncView->contentHeight());
         return;
     }
@@ -644,6 +648,8 @@ void QQuickTableViewPrivate::updateContentHeight()
     const qreal remainingSpacing = rowsRemaining * cellSpacing.height();
     const qreal estimatedRemainingHeight = remainingRowHeights + remainingSpacing;
     const qreal estimatedHeight = loadedTableOuterRect.bottom() + estimatedRemainingHeight;
+
+    QBoolBlocker fixupGuard(inUpdateContentSize, true);
     q->QQuickFlickable::setContentHeight(estimatedHeight);
 }
 
@@ -1908,8 +1914,17 @@ void QQuickTableViewPrivate::updateTable()
 
 void QQuickTableViewPrivate::fixup(QQuickFlickablePrivate::AxisData &data, qreal minExtent, qreal maxExtent)
 {
-    if (scheduledRebuildOptions || rebuildState != RebuildState::Done)
+    if (inUpdateContentSize) {
+        // We update the content size dynamically as we load and unload edges.
+        // Unfortunately, this also triggers a call to this function. The base
+        // implementation will do things like start a momentum animation or move
+        // the content view somewhere else, which causes glitches. This can
+        // especially happen if flicking on one our our slave views, which triggers
+        // an update to our content size. In that case, the base implementation don't
+        // know that the view is being indirectly dragged, and will therefore do strange
+        // things as it tries to 'fixup'. So we use a guard to prevent this from happening.
         return;
+    }
 
     QQuickFlickablePrivate::fixup(data, minExtent, maxExtent);
 }
