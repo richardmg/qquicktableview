@@ -1917,10 +1917,18 @@ void QQuickTableViewPrivate::updateTable()
 
 void QQuickTableViewPrivate::fixup(QQuickFlickablePrivate::AxisData &data, qreal minExtent, qreal maxExtent)
 {
-    if (rebuildScheduled() || rebuildState != RebuildState::Done)
-        return;
-
-    QQuickFlickablePrivate::fixup(data, minExtent, maxExtent);
+    if (q_func()->isMoving()) {
+        // The base implementation of fixup will start a momentum animation
+        // to ease out the flicking. But only do this if the fixup call was
+        // done as a result of the user flicking on this view. Fixup is also
+        // called for other reasons, e.g if the content view is resized.
+        // Especially, if the user flicked on the master view (if any), we
+        // sometimes get a call to fixup _while_ the user is flicking, since it
+        // can end up changing our content view size while we're not being
+        // flicked (from Flickables point of view). And this will make the base
+        // implementation of fixup move the content view in unwanted ways.
+        QQuickFlickablePrivate::fixup(data, minExtent, maxExtent);
+    }
 }
 
 int QQuickTableViewPrivate::resolveImportVersion()
