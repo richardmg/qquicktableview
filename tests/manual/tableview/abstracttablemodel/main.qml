@@ -135,7 +135,7 @@ Window {
             rowSpacing: 1
 
             masterView: tableView
-//            syncDirection: Qt.Horizontal | Qt.Vertical
+            syncDirection: Qt.Horizontal// | Qt.Vertical
         }
 
         TableView {
@@ -150,8 +150,6 @@ Window {
             clip: true
             columnWidthProvider: function(c) { return 100 + c; }
             ScrollBar.horizontal: ScrollBar {}
-//            contentWidth: 3000
-//            contentHeight: 3000
 
             model: TestTableModel {
                 rowCount: 200
@@ -160,8 +158,8 @@ Window {
             delegate: tableViewDelegate
             columnSpacing: 10
             rowSpacing: 10
-//            contentWidth: 61193
-//            onContentWidthChanged: print(contentWidth)
+//            contentWidth: 5000
+//            contentHeight: 5000
         }
 
 //        Component.onCompleted: {

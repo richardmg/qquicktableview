@@ -252,6 +252,7 @@ public:
     bool rebuildScheduled = true;
     bool syncWithMasterViewVertically = false;
     bool syncWithMasterViewHorizontally = false;
+    bool inSetViewportPosRecursively = false;
 
     QJSValue rowHeightProvider;
     QJSValue columnWidthProvider;
@@ -276,7 +277,6 @@ public:
 
     QPointer<QQuickTableView> assignedMasterView;
     QPointer<QQuickTableView> masterView;
-    QPointer<QQuickTableView> viewBeingFlicked;
     QList<QPointer<QQuickTableView> > slaveViews;
     Qt::Orientations assignedMasterViewSyncDirection = Qt::Horizontal | Qt::Vertical;
 
@@ -397,8 +397,8 @@ public:
     void layoutChangedCallback(const QList<QPersistentModelIndex> &parents, QAbstractItemModel::LayoutChangeHint hint);
     void modelResetCallback();
 
-    void setViewportPosRecursively(qreal newContentX, qreal newContentY);
     void scheduleRebuildIfViewportMovedMoreThanAPage();
+    void setViewportPosRecursively(qreal contentX, qreal contentY, bool syncX, bool syncY);
 
     void _q_componentFinalized();
     void registerCallbackWhenBindingsAreEvaluated();
