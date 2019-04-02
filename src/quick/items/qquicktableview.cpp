@@ -2222,18 +2222,22 @@ void QQuickTableViewPrivate::scheduleRebuildIfViewportMovedMoreThanAPage()
 
 void QQuickTableViewPrivate::setViewportPosRecursively(qreal newContentX, qreal newContentY)
 {
+    Q_Q(QQuickTableView);
     auto view = rootMasterView()->d_func()->viewBeingFlicked;
 
     for (auto slaveView : qAsConst(slaveViews)) {
         auto sd = slaveView->d_func();
+        qreal localContentX = sd->syncWithMasterViewHorizontally ? newContentX : q->contentX();
+        qreal localContentY = sd->syncWithMasterViewVertically ? newContentY : q->contentY();
+
         if (slaveView != view) {
             if (sd->syncWithMasterViewHorizontally)
-                slaveView->setContentX(newContentX);
+                slaveView->setContentX(localContentX);
             if (sd->syncWithMasterViewVertically)
-                slaveView->setContentY(newContentY);
+                slaveView->setContentY(localContentY);
         }
 
-        sd->setViewportPosRecursively(newContentX, newContentY);
+        sd->setViewportPosRecursively(localContentX, localContentY);
     }
 }
 
