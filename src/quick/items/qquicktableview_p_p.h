@@ -397,8 +397,8 @@ public:
     void layoutChangedCallback(const QList<QPersistentModelIndex> &parents, QAbstractItemModel::LayoutChangeHint hint);
     void modelResetCallback();
 
-    void scheduleRebuildIfViewportHasMovedMoreThanAPage();
-    void syncViewportPosRecursively();
+    void setViewportPosRecursively(qreal newContentX, qreal newContentY);
+    void scheduleRebuildIfViewportMovedMoreThanAPage();
 
     void _q_componentFinalized();
     void registerCallbackWhenBindingsAreEvaluated();
