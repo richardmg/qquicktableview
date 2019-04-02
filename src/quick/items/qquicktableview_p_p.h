@@ -252,6 +252,7 @@ public:
     bool syncWithMasterViewVertically = false;
     bool syncWithMasterViewHorizontally = false;
     bool inSetViewportPosRecursively = false;
+    bool inUpdateContentSize = false;
 
     QJSValue rowHeightProvider;
     QJSValue columnWidthProvider;
