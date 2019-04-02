@@ -1961,6 +1961,11 @@ void QQuickTableViewPrivate::syncMasterView()
 
     syncWithMasterViewHorizontally = masterView && assignedMasterViewSyncDirection & Qt::Horizontal;
     syncWithMasterViewVertically = masterView && assignedMasterViewSyncDirection & Qt::Vertical;
+
+    if (syncWithMasterViewHorizontally)
+        q->setColumnSpacing(masterView->columnSpacing());
+    if (syncWithMasterViewVertically)
+        q->setRowSpacing(masterView->rowSpacing());
 }
 
 void QQuickTableViewPrivate::connectToModel()
