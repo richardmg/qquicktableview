@@ -246,7 +246,7 @@ public:
     QQmlTableInstanceModel::ReusableFlag reusableFlag = QQmlTableInstanceModel::Reusable;
 
     bool blockItemCreatedCallback = false;
-    bool columnRowPositionsInvalid = false;
+    bool layoutInvalid = false;
     bool layoutWarningIssued = false;
     bool polishing = false;
     bool rebuildScheduled = true;
@@ -368,7 +368,7 @@ public:
     void layoutAfterLoadingInitialTable();
 
     void scheduleRebuildTable(QQuickTableViewPrivate::RebuildOptions options);
-    void invalidateColumnRowPositions();
+    void updateLayout();
 
     int resolveImportVersion();
     void createWrapperModel();

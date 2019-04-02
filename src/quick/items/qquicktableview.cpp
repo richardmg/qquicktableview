@@ -716,7 +716,7 @@ void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
 
 void QQuickTableViewPrivate::forceLayout()
 {
-    columnRowPositionsInvalid = true;
+    layoutInvalid = true;
     clearEdgeSizeCache();
     RebuildOptions rebuildOptions = RebuildOption::None;
 
@@ -1220,7 +1220,6 @@ void QQuickTableViewPrivate::relayoutTable()
 void QQuickTableViewPrivate::relayoutTableItems()
 {
     qCDebug(lcTableViewDelegateLifecycle);
-    columnRowPositionsInvalid = false;
 
     qreal nextColumnX = loadedTableOuterRect.x();
     qreal nextRowY = loadedTableOuterRect.y();
@@ -1552,7 +1551,7 @@ void QQuickTableViewPrivate::beginRebuildTable()
     loadedRows.clear();
     loadedTableOuterRect = QRect();
     loadedTableInnerRect = QRect();
-    columnRowPositionsInvalid = false;
+    layoutInvalid = false;
     clearEdgeSizeCache();
 
     if (topLeft.x() == kEdgeIndexAtEnd || topLeft.y() == kEdgeIndexAtEnd) {
@@ -1734,9 +1733,18 @@ void QQuickTableViewPrivate::scheduleRebuildTable(RebuildOptions options) {
     q_func()->polish();
 }
 
-void QQuickTableViewPrivate::invalidateColumnRowPositions() {
-    columnRowPositionsInvalid = true;
-    q_func()->polish();
+void QQuickTableViewPrivate::updateLayout()
+{
+    // updateLayout() is similar to updateTable(), except that the former
+    // assumes that the model hasn't changed. This means that don't need
+    // to take into account if a row or column has been removed or added, we
+    // can just layout the items we already got using perhaps changed spacing
+    // and/or row-, column sizes.
+    layoutInvalid = false;
+    relayoutTable();
+    updateAverageEdgeSize();
+    updateContentWidth();
+    updateContentHeight();
 }
 
 QQuickTableView *QQuickTableViewPrivate::rootMasterView() const
@@ -1758,7 +1766,7 @@ void QQuickTableViewPrivate::updatePolish()
 
 bool QQuickTableViewPrivate::updateTableRecursive()
 {
-    const bool thisLayoutInvalid = columnRowPositionsInvalid;
+    const bool thisLayoutInvalid = layoutInvalid;
     const RebuildOptions thisRebuildOptions = scheduledRebuildOptions;
 
     updateTable();
@@ -1766,7 +1774,7 @@ bool QQuickTableViewPrivate::updateTableRecursive()
     for (auto slaveView : qAsConst(slaveViews)) {
         auto slave_d = slaveView->d_func();
         if (thisLayoutInvalid)
-            slave_d->columnRowPositionsInvalid = true;
+            slave_d->layoutInvalid = true;
         if (thisRebuildOptions) {
             slave_d->scheduledRebuildOptions |= thisRebuildOptions;
             slave_d->rebuildScheduled = true;
@@ -1812,12 +1820,8 @@ void QQuickTableViewPrivate::updateTable()
     if (loadedItems.isEmpty())
         return;
 
-    if (columnRowPositionsInvalid) {
-        relayoutTable();
-        updateAverageEdgeSize();
-        updateContentWidth();
-        updateContentHeight();
-    }
+    if (layoutInvalid)
+        updateLayout();
 
     loadAndUnloadVisibleEdges();
 }
@@ -2178,7 +2182,9 @@ void QQuickTableView::setRowSpacing(qreal spacing)
         return;
 
     d->cellSpacing.setHeight(spacing);
-    d->invalidateColumnRowPositions();
+    d->layoutInvalid = true;
+    polish();
+
     emit rowSpacingChanged();
 }
 
@@ -2196,7 +2202,9 @@ void QQuickTableView::setColumnSpacing(qreal spacing)
         return;
 
     d->cellSpacing.setWidth(spacing);
-    d->invalidateColumnRowPositions();
+    d->layoutInvalid = true;
+    polish();
+
     emit columnSpacingChanged();
 }
 
