@@ -397,6 +397,7 @@ public:
     void layoutChangedCallback(const QList<QPersistentModelIndex> &parents, QAbstractItemModel::LayoutChangeHint hint);
     void modelResetCallback();
 
+    void syncViewportMovedRecursively(QQuickTableView *viewBeingFlicked);
     void scheduleRebuildIfViewportHasMovedMoreThanAPage();
     void syncViewportPosRecursively();
 

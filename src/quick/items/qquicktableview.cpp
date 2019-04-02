@@ -2198,6 +2198,39 @@ void QQuickTableViewPrivate::modelResetCallback()
     scheduleRebuildTable(RebuildOption::All);
 }
 
+void QQuickTableViewPrivate::syncViewportMovedRecursively(QQuickTableView *viewBeingFlicked)
+{
+    scheduleRebuildIfViewportHasMovedMoreThanAPage();
+
+    const qreal contentX = q->contentX();
+    const qreal contentY = q->contentY();
+
+    // Move the slave views that has this view assigned as master view as
+    // well, except for the one that called us in the first place (if any).
+    for (auto slaveView : qAsConst(slaveViews)) {
+        if (slaveView == viewBeingFlicked)
+            continue;
+        auto sd = slaveView->d_func();
+        sd->viewBeingFlicked = q;
+        if (sd->syncWithMasterViewHorizontally)
+            slaveView->setContentX(contentX);
+        if (sd->syncWithMasterViewVertically)
+            slaveView->setContentY(contentY);
+        sd->viewBeingFlicked = nullptr;
+    }
+
+    if (!d->masterView) {
+        // This view is the root master view. All slave views
+        // should have been moved by now, so we can start the update.
+        const bool updated = d->updateTableRecursive();
+        if (!updated) {
+            // One, or more, of the views are already in an
+            // update, so we need to wait a cycle.
+            polish();
+        }
+    }
+}
+
 void QQuickTableViewPrivate::scheduleRebuildIfViewportHasMovedMoreThanAPage()
 {
     Q_Q(QQuickTableView);
@@ -2224,34 +2257,6 @@ void QQuickTableViewPrivate::syncViewportPosRecursively()
 {
     Q_Q(QQuickTableView);
 
-    const qreal contentX = q->contentX();
-    const qreal contentY = q->contentY();
-
-    // Move the slave views that has this view assigned as master view as
-    // well, except for the one that called us in the first place (if any).
-    for (auto slaveView : qAsConst(slaveViews)) {
-        if (slaveView == viewBeingFlicked)
-            continue;
-        auto sd = slaveView->d_func();
-        sd->viewBeingFlicked = q;
-        if (sd->syncWithMasterViewHorizontally)
-            slaveView->setContentX(contentX);
-        if (sd->syncWithMasterViewVertically)
-            slaveView->setContentY(contentY);
-        sd->viewBeingFlicked = nullptr;
-    }
-
-    // Move the master view, unless if it was
-    // the one recursively calling us.
-    if (masterView && masterView != viewBeingFlicked) {
-        auto md = masterView->d_func();
-        md->viewBeingFlicked = q;
-        if (syncWithMasterViewHorizontally)
-            masterView->setContentX(contentX);
-        if (syncWithMasterViewVertically)
-            masterView->setContentY(contentY);
-        md->viewBeingFlicked = nullptr;
-    }
 }
 
 QQuickTableView::QQuickTableView(QQuickItem *parent)
@@ -2486,18 +2491,44 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
     QQuickFlickable::viewportMoved(orientation);
 
     d->scheduleRebuildIfViewportHasMovedMoreThanAPage();
-    d->syncViewportPosRecursively();
 
-    if (!d->masterView) {
-        // This view is the root master view. All slave views
-        // should have been moved by now, so we can start the update.
-        const bool updated = d->updateTableRecursive();
-        if (!updated) {
-            // One, or more, of the views are already in an
-            // update, so we need to wait a cycle.
-            polish();
+    if (d->masterView) {
+        auto rootView_d = d->rootMasterView()->d_func();
+        if (!rootView_d->viewBeingFlicked) {
+            // This is the view that has first received a viewportMoved call
+            rootView_d->viewBeingFlicked = this;
+            for (auto slaveView : qAsConst(rootView_d->slaveViews)) {
+                if (slaveView == this) {
+                    // This is not good enough, since slaveView might
+                    // have slaves on its own
+                    // Perhaps separate out the rebuild part with the
+                    // recursive "move slaves" part, so that we
+                    // don't skip both.
+                    continue;
+                }
+                // Note that syncing options belong to a slave, not the
+                // master. So in that respect, it is safe to move both
+                // contentX and contentY. But still, the root view can
+                // have restricted flick orientation. And then what?
+                slaveView->setContentX(contentX);
+                slaveView->setContentY(contentY);
+            }
+            rootView_d->viewBeingFlicked = nullptr;
+            // This view is the root master view. All slave views
+            // should have been moved by now, so we can start the update.
+            const bool updated = d->updateTableRecursive();
+            if (!updated) {
+                // One, or more, of the views are already in an
+                // update, so we need to wait a cycle.
+                polish();
+            }
+            return;
         }
     }
+
+    // Sync all
+
+    d->syncViewportPosRecursively();
 }
 
 void QQuickTableViewPrivate::_q_componentFinalized()
