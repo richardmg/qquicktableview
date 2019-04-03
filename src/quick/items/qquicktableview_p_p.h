@@ -252,6 +252,7 @@ public:
     bool rebuildScheduled = true;
     bool syncWithMasterViewVertically = false;
     bool syncWithMasterViewHorizontally = false;
+    bool inSetViewportPosRecursively = false;
 
     QJSValue rowHeightProvider;
     QJSValue columnWidthProvider;
@@ -398,6 +399,7 @@ public:
     void modelResetCallback();
 
     void scheduleRebuildIfViewportMovedMoreThanAPage();
+    void setViewportPosRecursive(qreal contentX, qreal contentY, bool syncX, bool syncY);
 
     void _q_componentFinalized();
     void registerCallbackWhenBindingsAreEvaluated();

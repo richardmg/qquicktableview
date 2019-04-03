@@ -41,7 +41,6 @@
 #include "qquicktableview_p_p.h"
 
 #include <QtCore/qtimer.h>
-#include <QtCore/qdir.h>
 #include <QtQml/private/qqmldelegatemodel_p.h>
 #include <QtQml/private/qqmldelegatemodel_p_p.h>
 #include <QtQml/private/qqmlincubator_p.h>
@@ -2164,6 +2163,42 @@ void QQuickTableViewPrivate::scheduleRebuildIfViewportMovedMoreThanAPage()
     }
 }
 
+void QQuickTableViewPrivate::setViewportPosRecursive(qreal contentX, qreal contentY, bool syncX, bool syncY)
+{
+    Q_Q(QQuickTableView);
+
+    Q_TABLEVIEW_ASSERT(!inSetViewportPosRecursively, "");
+    QBoolBlocker recursionGuard(inSetViewportPosRecursively, true);
+
+    if (syncX)
+        q->setContentX(contentX);
+    else
+        contentX = q->contentX();
+
+    if (syncY)
+        q->setContentY(contentY);
+    else
+        contentY = q->contentY();
+
+    if (masterView) {
+        auto master_d = masterView->d_func();
+        if (!master_d->inSetViewportPosRecursively) {
+            bool syncX = syncWithMasterViewHorizontally;
+            bool syncY = syncWithMasterViewVertically;
+            master_d->setViewportPosRecursive(contentX, contentY, syncX, syncY);
+        }
+    }
+
+    for (auto slaveView : qAsConst(slaveViews)) {
+        auto slave_d = slaveView->d_func();
+        if (!slave_d->inSetViewportPosRecursively) {
+            bool syncX = slave_d->syncWithMasterViewHorizontally;
+            bool syncY = slave_d->syncWithMasterViewVertically;
+            slave_d->setViewportPosRecursive(contentX, contentY, syncX, syncY);
+        }
+    }
+}
+
 QQuickTableView::QQuickTableView(QQuickItem *parent)
     : QQuickFlickable(*(new QQuickTableViewPrivate), parent)
 {
@@ -2397,17 +2432,23 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
 
     d->scheduleRebuildIfViewportMovedMoreThanAPage();
 
-    // Calling polish() will schedule a polish event. But while the user is flicking, several
-    // mouse events will be handled before we get an updatePolish() call. And the updatePolish()
-    // call will only see the last mouse position. This results in a stuttering flick experience
-    // (especially on windows). We improve on this by calling updatePolish() directly. But this
-    // has the pitfall that we open up for recursive callbacks. E.g while inside updatePolish(), we
-    // load/unload items, and emit signals. The application can listen to those signals and set a
-    // new contentX/Y on the flickable. So we need to guard for this, to avoid unexpected behavior.
-    if (d->polishing)
-        polish();
-    else
-        d->updatePolish();
+    if (d->inSetViewportPosRecursively)
+        return;
+
+    // This view is the first to receive a viewportMoved call.
+    // Move all connected views so they stay in sync.
+    d->setViewportPosRecursive(contentX(), contentY(), false, false);
+
+    // Load and unload rows and columns in all connected views
+    // according to the new viewport geometry. If any of the views
+    // scheduled a rebuild, this will also be taken care of.
+    auto rootView = d->rootMasterView();
+    const bool updated = rootView->d_func()->updateTableRecursive();
+    if (!updated) {
+        // One, or more, of the views are already in an
+        // update, so we need to wait a cycle.
+        rootView->polish();
+    }
 }
 
 void QQuickTableViewPrivate::_q_componentFinalized()
