@@ -135,7 +135,7 @@ Window {
             rowSpacing: 1
 
             masterView: tableView
-            syncDirection: Qt.Horizontal// | Qt.Vertical
+            syncDirection: Qt.Horizontal | Qt.Vertical
         }
 
         TableView {
@@ -150,6 +150,7 @@ Window {
             clip: true
             columnWidthProvider: function(c) { return 100 + c; }
             ScrollBar.horizontal: ScrollBar {}
+            masterView: headerView
 
             model: TestTableModel {
                 rowCount: 200

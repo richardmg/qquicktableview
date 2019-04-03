@@ -1816,9 +1816,15 @@ void QQuickTableViewPrivate::updateLayout()
 
 QQuickTableView *QQuickTableViewPrivate::rootMasterView() const
 {
-    QQuickTableView *root = const_cast<QQuickTableView *>(q_func());
-    while (QQuickTableView *master = root->d_func()->masterView)
+    Q_Q(const QQuickTableView);
+    QQuickTableView *root = const_cast<QQuickTableView *>(q);
+    while (QQuickTableView *master = root->d_func()->masterView) {
+        if (master == q) {
+            qWarning() << "TableView: recursive masterView connection detected:" << q;
+            return root;
+        }
         root = master;
+    }
     return root;
 }
 
