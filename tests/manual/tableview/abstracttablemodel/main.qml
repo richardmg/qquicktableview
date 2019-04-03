@@ -184,8 +184,8 @@ Window {
             delegate: tableViewDelegate
             columnSpacing: 10
             rowSpacing: 10
-//            contentWidth: 5000
-//            contentHeight: 5000
+            contentWidth: 50000
+            contentHeight: 50000
         }
 
 //        Component.onCompleted: {

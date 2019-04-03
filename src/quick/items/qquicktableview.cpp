@@ -1803,7 +1803,6 @@ void QQuickTableViewPrivate::scheduleRebuildTable(RebuildOptions options) {
         return;
     }
 
-    rebuildScheduled = true;
     scheduledRebuildOptions |= options;
     q_func()->polish();
 }
@@ -1850,10 +1849,8 @@ bool QQuickTableViewPrivate::updateTableRecursive()
         auto slave_d = slaveView->d_func();
         if (thisLayoutInvalid)
             slave_d->layoutInvalid = true;
-        if (thisRebuildOptions) {
+        if (thisRebuildOptions)
             slave_d->scheduledRebuildOptions |= thisRebuildOptions;
-            slave_d->rebuildScheduled = true;
-        }
         if (slave_d->polishing) {
             slaveView->polish();
             return false;
@@ -2004,13 +2001,12 @@ void QQuickTableViewPrivate::syncWithPendingChanges()
 
 void QQuickTableViewPrivate::syncRebuildOptions()
 {
-    if (!rebuildScheduled)
+    if (!scheduledRebuildOptions)
         return;
 
     rebuildState = RebuildState::Begin;
     rebuildOptions = scheduledRebuildOptions;
     scheduledRebuildOptions = RebuildOption::None;
-    rebuildScheduled = false;
 
     if (loadedItems.isEmpty()) {
         rebuildOptions.setFlag(RebuildOption::CalculateNewTopLeftRow);
@@ -2241,8 +2237,7 @@ void QQuickTableViewPrivate::scheduleRebuildIfViewportMovedMoreThanAPage()
         // strategy from refilling edges around the current table to instead rebuild the table
         // from scratch inside the new viewport. This will greatly improve performance when flicking
         // a long distance in one go, which can easily happen when dragging on scrollbars.
-        options |= RebuildOption::ViewportOnly;
-        scheduleRebuildTable(options);
+        scheduledRebuildOptions |= options | RebuildOption::ViewportOnly;
     }
 }
 
@@ -2513,7 +2508,11 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
     Q_D(QQuickTableView);
     QQuickFlickable::viewportMoved(orientation);
 
-    d->scheduleRebuildIfViewportMovedMoreThanAPage();
+    if (!d->masterView) {
+        // Only bother to check if we should rebuild when moving the root master
+        // view (this is only an optimization anyway when doing long jumps).
+        d->scheduleRebuildIfViewportMovedMoreThanAPage();
+    }
 
     if (d->inSetViewportPosRecursively)
         return;
@@ -2526,11 +2525,20 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
     // according to the new viewport geometry. If any of the views
     // scheduled a rebuild, this will also be taken care of.
     auto rootView = d->rootMasterView();
-    const bool updated = rootView->d_func()->updateTableRecursive();
-    if (!updated) {
-        // One, or more, of the views are already in an
-        // update, so we need to wait a cycle.
+    auto rootView_d = rootView->d_func();
+    if (rootView_d->scheduledRebuildOptions) {
+        // When we need to rebuild, collecting several viewport
+        // moves and do a single polish gives a quicker UI.
         rootView->polish();
+    } else {
+        // Updating the table right away when flicking
+        // slowly gives a smoother experience.
+        const bool updated = rootView->d_func()->updateTableRecursive();
+        if (!updated) {
+            // One, or more, of the views are already in an
+            // update, so we need to wait a cycle.
+            rootView->polish();
+        }
     }
 }
 
