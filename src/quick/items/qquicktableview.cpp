@@ -2147,6 +2147,28 @@ void QQuickTableViewPrivate::modelResetCallback()
     scheduleRebuildTable(RebuildOption::All);
 }
 
+void QQuickTableViewPrivate::scheduleRebuildIfViewportMovedMoreThanAPage()
+{
+    Q_Q(QQuickTableView);
+    RebuildOptions options = RebuildOption::None;
+
+    // Check the viewport moved more than one page vertically
+    if (!viewportRect.intersects(QRectF(viewportRect.x(), q->contentY(), 1, q->height())))
+        options |= RebuildOption::CalculateNewTopLeftRow;
+    // Check the viewport moved more than one page horizontally
+    if (!viewportRect.intersects(QRectF(q->contentX(), viewportRect.y(), q->width(), 1)))
+        options |= RebuildOption::CalculateNewTopLeftColumn;
+
+    if (options) {
+        // When the viewport has moved more than one page vertically or horizontally, we switch
+        // strategy from refilling edges around the current table to instead rebuild the table
+        // from scratch inside the new viewport. This will greatly improve performance when flicking
+        // a long distance in one go, which can easily happen when dragging on scrollbars.
+        options |= RebuildOption::ViewportOnly;
+        scheduleRebuildTable(options);
+    }
+}
+
 QQuickTableView::QQuickTableView(QQuickItem *parent)
     : QQuickFlickable(*(new QQuickTableViewPrivate), parent)
 {
@@ -2378,23 +2400,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
     Q_D(QQuickTableView);
     QQuickFlickable::viewportMoved(orientation);
 
-    QQuickTableViewPrivate::RebuildOptions options = QQuickTableViewPrivate::RebuildOption::None;
-
-    // Check the viewport moved more than one page vertically
-    if (!d->viewportRect.intersects(QRectF(d->viewportRect.x(), contentY(), 1, height())))
-        options |= QQuickTableViewPrivate::RebuildOption::CalculateNewTopLeftRow;
-    // Check the viewport moved more than one page horizontally
-    if (!d->viewportRect.intersects(QRectF(contentX(), d->viewportRect.y(), width(), 1)))
-        options |= QQuickTableViewPrivate::RebuildOption::CalculateNewTopLeftColumn;
-
-    if (options) {
-        // When the viewport has moved more than one page vertically or horizontally, we switch
-        // strategy from refilling edges around the current table to instead rebuild the table
-        // from scratch inside the new viewport. This will greatly improve performance when flicking
-        // a long distance in one go, which can easily happen when dragging on scrollbars.
-        options |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
-        d->scheduleRebuildTable(options);
-    }
+    d->scheduleRebuildIfViewportMovedMoreThanAPage();
 
     if (d->scheduledRebuildOptions) {
         // No reason to do anything, since we're about to rebuild the whole table anyway.
