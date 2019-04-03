@@ -251,6 +251,7 @@ public:
     bool polishing = false;
     bool syncWithMasterViewVertically = false;
     bool syncWithMasterViewHorizontally = false;
+    bool inSetViewportPos = false;
 
     QJSValue rowHeightProvider;
     QJSValue columnWidthProvider;
@@ -395,6 +396,11 @@ public:
     void columnsRemovedCallback(const QModelIndex &parent, int begin, int end);
     void layoutChangedCallback(const QList<QPersistentModelIndex> &parents, QAbstractItemModel::LayoutChangeHint hint);
     void modelResetCallback();
+
+    void scheduleRebuildIfNeededAfterViewportMoved();
+    void setViewportX(qreal contentX);
+    void setViewportY(qreal contentY);
+    void syncViewportPosRecursive();
 
     void _q_componentFinalized();
     void registerCallbackWhenBindingsAreEvaluated();
