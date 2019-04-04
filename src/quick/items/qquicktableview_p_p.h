@@ -249,7 +249,6 @@ public:
     bool columnRowPositionsInvalid = false;
     bool layoutWarningIssued = false;
     bool polishing = false;
-    bool rebuildScheduled = true;
     bool syncWithMasterViewVertically = false;
     bool syncWithMasterViewHorizontally = false;
 
