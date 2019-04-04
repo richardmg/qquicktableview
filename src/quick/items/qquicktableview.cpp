@@ -1609,6 +1609,11 @@ void QQuickTableViewPrivate::beginRebuildTable()
     QPoint topLeftCell;
     QPointF topLeftPos;
     const bool validTopLeft = calculateTopLeft(topLeftCell, topLeftPos);
+    if (!validTopLeft && !rebuildOptions.testFlag(RebuildOption::All)) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "top-left cell could not be resolved. Cancelling rebuild to maintain old top-left";
+        return;
+    }
+
     qCDebug(lcTableViewDelegateLifecycle()) << "new topLeft cell:" << topLeftCell << "pos:" << topLeftPos;
 
     if (rebuildOptions & RebuildOption::All)
@@ -2239,21 +2244,47 @@ void QQuickTableViewPrivate::modelResetCallback()
 void QQuickTableViewPrivate::scheduleRebuildIfViewportMovedMoreThanAPage()
 {
     Q_Q(QQuickTableView);
-    RebuildOptions options = RebuildOption::None;
+    if (loadedItems.isEmpty())
+        return;
+
+    if (masterView) {
+        const auto master_d = masterView->d_func();
+        if (master_d->loadedItems.isEmpty())
+            return;
+
+        // If this table has fewer rows or columns than the master view, the last row
+        // or column can be flicked out of view, and also out of sync in case of master
+        // view rebuilds. Check for this, and schedule a rebuild if needed.
+        if (syncWithMasterViewHorizontally && leftColumn() == tableSize.width() - 1) {
+            qreal leftEdge = loadedTableOuterRect.left();
+            qreal masterLeftEdge = master_d->loadedTableOuterRect.left();
+            if (leftColumn() >= master_d->leftColumn() && !qFuzzyCompare(leftEdge, masterLeftEdge))
+                scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+        }
+
+        if (syncWithMasterViewVertically && topRow() == tableSize.height() - 1) {
+            qreal topEdge = loadedTableOuterRect.top();
+            qreal masterTopEdge = master_d->loadedTableOuterRect.top();
+            if (topRow() >= master_d->topRow() && !qFuzzyCompare(topEdge, masterTopEdge))
+                scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+        }
+        return;
+    }
+
+    // When the viewport has moved more than one page vertically or horizontally, we switch
+    // strategy from refilling edges around the current table to instead rebuild the table
+    // from scratch inside the new viewport. This will greatly improve performance when flicking
+    // a long distance in one go, which can easily happen when dragging on scrollbars.
 
     // Check the viewport moved more than one page vertically
-    if (!viewportRect.intersects(QRectF(viewportRect.x(), q->contentY(), 1, q->height())))
-        options |= RebuildOption::CalculateNewTopLeftRow;
+    if (!viewportRect.intersects(QRectF(viewportRect.x(), q->contentY(), 1, q->height()))) {
+        scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftRow;
+        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+    }
     // Check the viewport moved more than one page horizontally
-    if (!viewportRect.intersects(QRectF(q->contentX(), viewportRect.y(), q->width(), 1)))
-        options |= RebuildOption::CalculateNewTopLeftColumn;
-
-    if (options) {
-        // When the viewport has moved more than one page vertically or horizontally, we switch
-        // strategy from refilling edges around the current table to instead rebuild the table
-        // from scratch inside the new viewport. This will greatly improve performance when flicking
-        // a long distance in one go, which can easily happen when dragging on scrollbars.
-        scheduledRebuildOptions |= options | RebuildOption::ViewportOnly;
+    if (!viewportRect.intersects(QRectF(q->contentX(), viewportRect.y(), q->width(), 1))) {
+        scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftColumn;
+        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
     }
 }
 
@@ -2524,11 +2555,7 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
     Q_D(QQuickTableView);
     QQuickFlickable::viewportMoved(orientation);
 
-    if (!d->masterView) {
-        // Only bother to check if we should rebuild when moving the root master
-        // view (this is only an optimization anyway when doing long jumps).
-        d->scheduleRebuildIfViewportMovedMoreThanAPage();
-    }
+    d->scheduleRebuildIfViewportMovedMoreThanAPage();
 
     if (d->inSetViewportPosRecursively)
         return;
