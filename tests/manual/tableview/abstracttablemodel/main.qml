@@ -99,7 +99,10 @@ Window {
             }
             Button {
                 text: "inc space"
-                onClicked: tableView.columnSpacing += 1
+                onClicked: {
+                    tableView.columnSpacing += 1
+                    tableView.rowSpacing += 1
+                }
             }
         }
         Text {
@@ -133,7 +136,7 @@ Window {
             columnSpacing: 1
             rowSpacing: 1
 
-            masterView: tableView
+//            masterView: tableView
             syncDirection: Qt.Horizontal// | Qt.Vertical
         }
 
@@ -143,7 +146,7 @@ Window {
             anchors.left: parent.left
             anchors.top: tableView.top
             height: tableView.height
-            width: 30
+            width: 200
             clip: true
 
             model: TestTableModel {
@@ -161,20 +164,45 @@ Window {
             columnSpacing: 1
             rowSpacing: 1
 
-            masterView: tableView
+//            masterView: tableView
             syncDirection: Qt.Vertical
+        }
+
+        ListView {
+            id: list
+            objectName: "listview"
+            anchors.left: leftHeader.right
+            anchors.top: tableView.top
+            height: tableView.height
+            width: leftHeader.width
+            clip: true
+
+            model: TestTableModel {
+                rowCount: 200
+                columnCount: 1
+            }
+
+            delegate: Rectangle {
+                implicitHeight: 50
+                implicitWidth: leftHeader.width
+                color: "lightgray"
+                Text { text: index }
+            }
+
+            spacing: 1
         }
 
         TableView {
             id: tableView
             objectName: "tableview"
-            anchors.left: leftHeader.right
+            anchors.left: list.right
             anchors.right: parent.right
             anchors.top: topHeader.bottom
             anchors.bottom: parent.bottom
             width: 200
             clip: true
-            columnWidthProvider: function(c) { return 100 + c; }
+            rowHeightProvider: function(c) { return 500; }
+            columnWidthProvider: function(c) { return 500; }
             ScrollBar.horizontal: ScrollBar {}
 
             model: TestTableModel {

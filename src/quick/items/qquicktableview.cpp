@@ -1835,7 +1835,7 @@ void QQuickTableViewPrivate::updatePolish()
     // the layout of a slave will depend on the layout of the master. E.g when
     // a new column is flicked in, the master should load and layout the column
     // first, before any slaves gets a chance to do the same.
-    rootMasterView()->d_func()->updateTableRecursive();
+    updateTable();
 }
 
 bool QQuickTableViewPrivate::updateTableRecursive()
@@ -2507,39 +2507,40 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
 {
     Q_D(QQuickTableView);
     QQuickFlickable::viewportMoved(orientation);
+    polish();
 
-    if (!d->masterView) {
-        // Only bother to check if we should rebuild when moving the root master
-        // view (this is only an optimization anyway when doing long jumps).
-        d->scheduleRebuildIfViewportMovedMoreThanAPage();
-    }
+//    if (!d->masterView) {
+//        // Only bother to check if we should rebuild when moving the root master
+//        // view (this is only an optimization anyway when doing long jumps).
+//        d->scheduleRebuildIfViewportMovedMoreThanAPage();
+//    }
 
-    if (d->inSetViewportPosRecursively)
-        return;
+//    if (d->inSetViewportPosRecursively)
+//        return;
 
-    // This view is the first to receive a viewportMoved call.
-    // Move all connected views so they stay in sync.
-    d->setViewportPosRecursive(contentX(), contentY(), false, false);
+//    // This view is the first to receive a viewportMoved call.
+//    // Move all connected views so they stay in sync.
+//    d->setViewportPosRecursive(contentX(), contentY(), false, false);
 
-    // Load and unload rows and columns in all connected views
-    // according to the new viewport geometry. If any of the views
-    // scheduled a rebuild, this will also be taken care of.
-    auto rootView = d->rootMasterView();
-    auto rootView_d = rootView->d_func();
-    if (rootView_d->scheduledRebuildOptions) {
-        // When we need to rebuild, collecting several viewport
-        // moves and do a single polish gives a quicker UI.
-        rootView->polish();
-    } else {
-        // Updating the table right away when flicking
-        // slowly gives a smoother experience.
-        const bool updated = rootView->d_func()->updateTableRecursive();
-        if (!updated) {
-            // One, or more, of the views are already in an
-            // update, so we need to wait a cycle.
-            rootView->polish();
-        }
-    }
+//    // Load and unload rows and columns in all connected views
+//    // according to the new viewport geometry. If any of the views
+//    // scheduled a rebuild, this will also be taken care of.
+//    auto rootView = d->rootMasterView();
+//    auto rootView_d = rootView->d_func();
+//    if (rootView_d->scheduledRebuildOptions) {
+//        // When we need to rebuild, collecting several viewport
+//        // moves and do a single polish gives a quicker UI.
+//        rootView->polish();
+//    } else {
+//        // Updating the table right away when flicking
+//        // slowly gives a smoother experience.
+//        const bool updated = rootView->d_func()->updateTableRecursive();
+//        if (!updated) {
+//            // One, or more, of the views are already in an
+//            // update, so we need to wait a cycle.
+//            rootView->polish();
+//        }
+//    }
 }
 
 void QQuickTableViewPrivate::_q_componentFinalized()
