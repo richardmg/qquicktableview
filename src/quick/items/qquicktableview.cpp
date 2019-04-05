@@ -2014,7 +2014,11 @@ void QQuickTableViewPrivate::syncWithPendingChanges()
     // such assignments into effect until we're in a state that allows it.
     Q_Q(QQuickTableView);
     viewportRect = QRectF(q->contentX(), q->contentY(), q->width(), q->height());
+
+    // Sync rebuild options first, in case we schedule a rebuild from one of the
+    // other sync calls above. If so, we need to start a new rebuild from the top.
     syncRebuildOptions();
+
     syncModel();
     syncDelegate();
     syncMasterView();
@@ -2086,6 +2090,7 @@ void QQuickTableViewPrivate::syncMasterView()
 
         if (assignedMasterView) {
             QQuickTableView *view = assignedMasterView;
+
             while (view) {
                 if (view == q) {
                     if (!layoutWarningIssued) {
@@ -2097,7 +2102,10 @@ void QQuickTableViewPrivate::syncMasterView()
                 }
                 view = view->d_func()->masterView;
             }
+
             assignedMasterView->d_func()->slaveViews.append(q);
+            scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+            q->polish();
         }
 
         masterView = assignedMasterView;
