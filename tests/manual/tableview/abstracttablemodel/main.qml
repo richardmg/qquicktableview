@@ -136,7 +136,7 @@ Window {
 
             model: TestTableModel {
                 rowCount: 1
-                columnCount: 200
+                columnCount: 10
             }
 
             delegate: Rectangle {
@@ -164,7 +164,7 @@ Window {
             ScrollBar.vertical: ScrollBar {}
 
             model: TestTableModel {
-                rowCount: 200
+                rowCount: 10
                 columnCount: 1
             }
 
