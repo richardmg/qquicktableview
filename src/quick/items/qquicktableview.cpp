@@ -1604,7 +1604,15 @@ bool QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
 
 void QQuickTableViewPrivate::beginRebuildTable()
 {
+    Q_Q(QQuickTableView);
+
     calculateTableSize();
+
+    if (syncWithMasterViewHorizontally)
+        setViewportX(masterView->contentX());
+    if (syncWithMasterViewVertically)
+        setViewportY(masterView->contentY());
+    viewportRect = QRectF(q->contentX(), q->contentY(), q->width(), q->height());
 
     QPoint topLeftCell;
     QPointF topLeftPos;
@@ -1647,11 +1655,6 @@ void QQuickTableViewPrivate::beginRebuildTable()
         qCDebug(lcTableViewDelegateLifecycle()) << "top-left cell could not be resolved, leaving table empty";
         return;
     }
-
-    if (syncWithMasterViewHorizontally)
-        setViewportX(masterView->contentX());
-    if (syncWithMasterViewVertically)
-        setViewportY(masterView->contentY());
 
     loadInitialTopLeftItem(topLeftCell, topLeftPos);
     loadAndUnloadVisibleEdges();
@@ -1830,7 +1833,6 @@ void QQuickTableViewPrivate::updateLayout()
     // to take into account if a row or column has been removed or added, we
     // can just layout the items we already got using perhaps changed spacing
     // and/or row-, column sizes.
-    layoutInvalid = false;
     relayoutTable();
     updateAverageEdgeSize();
     updateContentWidth();
@@ -1865,18 +1867,14 @@ bool QQuickTableViewPrivate::updateTableRecursive()
         return false;
     }
 
-    const bool thisLayoutInvalid = layoutInvalid;
-    const RebuildOptions thisRebuildOptions = scheduledRebuildOptions;
-
     updateTable();
 
     for (auto slaveView : qAsConst(slaveViews)) {
         auto slave_d = slaveView->d_func();
-        if (thisLayoutInvalid)
-            slave_d->layoutInvalid = true;
-        if (thisRebuildOptions)
-            slave_d->scheduledRebuildOptions |= thisRebuildOptions;
-
+        // If this view needed to rebuild or
+        // relayout, then the slave needs to do the same.
+        slave_d->scheduledRebuildOptions |= rebuildOptions;
+        slave_d->layoutInvalid &= layoutUpdated;
         const bool updated = slave_d->updateTableRecursive();
         if (!updated)
             return false;
@@ -1919,6 +1917,8 @@ void QQuickTableViewPrivate::updateTable()
 
     if (layoutInvalid)
         updateLayout();
+    layoutUpdated = layoutInvalid;
+    layoutInvalid = false;
 
     loadAndUnloadVisibleEdges();
 }
@@ -2020,13 +2020,13 @@ void QQuickTableViewPrivate::syncWithPendingChanges()
     Q_Q(QQuickTableView);
     viewportRect = QRectF(q->contentX(), q->contentY(), q->width(), q->height());
 
-    // Sync rebuild options first, in case we schedule a rebuild from one of the
-    // other sync calls above. If so, we need to start a new rebuild from the top.
-    syncRebuildOptions();
-
     syncModel();
     syncDelegate();
     syncMasterView();
+
+    // Sync rebuild options last, in case we schedule/modify
+    // the options from one of the other sync calls above.
+    syncRebuildOptions();
 }
 
 void QQuickTableViewPrivate::syncRebuildOptions()
@@ -2110,7 +2110,6 @@ void QQuickTableViewPrivate::syncMasterView()
 
             assignedMasterView->d_func()->slaveViews.append(q);
             scheduledRebuildOptions |= RebuildOption::ViewportOnly;
-            q->polish();
         }
 
         masterView = assignedMasterView;

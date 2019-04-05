@@ -247,6 +247,7 @@ public:
 
     bool blockItemCreatedCallback = false;
     bool layoutInvalid = false;
+    bool layoutUpdated = false;
     bool layoutWarningIssued = false;
     bool polishing = false;
     bool syncWithMasterViewVertically = false;
