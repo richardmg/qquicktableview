@@ -1880,6 +1880,9 @@ bool QQuickTableViewPrivate::updateTableRecursive()
             return false;
     }
 
+    layoutUpdated = false;
+    rebuildOptions = RebuildOption::None;
+
     return true;
 }
 
@@ -1915,10 +1918,11 @@ void QQuickTableViewPrivate::updateTable()
     if (loadedItems.isEmpty())
         return;
 
-    if (layoutInvalid)
+    if (layoutInvalid) {
+        layoutInvalid = false;
+        layoutUpdated = true;
         updateLayout();
-    layoutUpdated = layoutInvalid;
-    layoutInvalid = false;
+    }
 
     loadAndUnloadVisibleEdges();
 }
