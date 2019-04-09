@@ -251,6 +251,7 @@ public:
     bool polishing = false;
     bool syncVertically = false;
     bool syncHorizontally = false;
+    bool inSetViewportPos = false;
 
     QJSValue rowHeightProvider;
     QJSValue columnWidthProvider;
@@ -396,6 +397,9 @@ public:
     void modelResetCallback();
 
     void scheduleRebuildIfNeededAfterViewportMoved();
+    void setViewportX(qreal contentX);
+    void setViewportY(qreal contentY);
+    void syncViewportPosRecursive();
 
     void _q_componentFinalized();
     void registerCallbackWhenBindingsAreEvaluated();
