@@ -1630,8 +1630,23 @@ void QQuickTableViewPrivate::beginRebuildTable()
     loadedTableInnerRect = QRect();
     clearEdgeSizeCache();
 
-    if (topLeft.x() == kEdgeIndexAtEnd || topLeft.y() == kEdgeIndexAtEnd) {
-        // No visible columns or rows, so nothing to load
+    if (!model) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "no model found, leaving table empty";
+        return;
+    }
+
+    if (model->count() == 0) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "empty model found, leaving table empty";
+        return;
+    }
+
+    if (tableModel && !tableModel->delegate()) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "no delegate found, leaving table empty";
+        return;
+    }
+
+    if (!validTopLeft) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "top-left cell could not be resolved, leaving table empty";
         return;
     }
 
@@ -1665,9 +1680,6 @@ void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
 void QQuickTableViewPrivate::loadInitialTopLeftItem(const QPoint &cell, const QPointF &pos)
 {
     Q_TABLEVIEW_ASSERT(loadedItems.isEmpty(), "");
-
-    if (tableModel && !tableModel->delegate())
-        return;
 
     // Load top-left item. After loaded, loadItemsInsideRect() will take
     // care of filling out the rest of the table.
