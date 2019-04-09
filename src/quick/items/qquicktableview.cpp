@@ -2163,6 +2163,53 @@ void QQuickTableViewPrivate::modelResetCallback()
     scheduleRebuildTable(RebuildOption::All);
 }
 
+void QQuickTableViewPrivate::scheduleRebuildIfNeededAfterViewportMoved()
+{
+    Q_Q(QQuickTableView);
+    if (loadedItems.isEmpty())
+        return;
+
+    if (syncView) {
+        const auto syncView_d = syncView->d_func();
+        if (syncView_d->loadedItems.isEmpty())
+            return;
+
+        // If this table has fewer rows or columns than the sync view, the last row
+        // or column can be flicked out of view, and also out of sync in case of sync
+        // view rebuilds. Check for this, and schedule a rebuild if needed.
+        if (syncHorizontally && leftColumn() == tableSize.width() - 1) {
+            qreal leftEdge = loadedTableOuterRect.left();
+            qreal masterLeftEdge = syncView_d->loadedTableOuterRect.left();
+            if (leftColumn() >= syncView_d->leftColumn() && !qFuzzyCompare(leftEdge, masterLeftEdge))
+                scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+        }
+
+        if (syncVertically && topRow() == tableSize.height() - 1) {
+            qreal topEdge = loadedTableOuterRect.top();
+            qreal masterTopEdge = syncView_d->loadedTableOuterRect.top();
+            if (topRow() >= syncView_d->topRow() && !qFuzzyCompare(topEdge, masterTopEdge))
+                scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+        }
+        return;
+    }
+
+    // When the viewport has moved more than one page vertically or horizontally, we switch
+    // strategy from refilling edges around the current table to instead rebuild the table
+    // from scratch inside the new viewport. This will greatly improve performance when flicking
+    // a long distance in one go, which can easily happen when dragging on scrollbars.
+
+    // Check the viewport moved more than one page vertically
+    if (!viewportRect.intersects(QRectF(viewportRect.x(), q->contentY(), 1, q->height()))) {
+        scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftRow;
+        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+    }
+    // Check the viewport moved more than one page horizontally
+    if (!viewportRect.intersects(QRectF(q->contentX(), viewportRect.y(), q->width(), 1))) {
+        scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftColumn;
+        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+    }
+}
+
 QQuickTableView::QQuickTableView(QQuickItem *parent)
     : QQuickFlickable(*(new QQuickTableViewPrivate), parent)
 {
@@ -2390,29 +2437,14 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
     Q_D(QQuickTableView);
     QQuickFlickable::viewportMoved(orientation);
 
-    QQuickTableViewPrivate::RebuildOptions options = QQuickTableViewPrivate::RebuildOption::None;
-
-    // Check the viewport moved more than one page vertically
-    if (!d->viewportRect.intersects(QRectF(d->viewportRect.x(), contentY(), 1, height())))
-        options |= QQuickTableViewPrivate::RebuildOption::CalculateNewTopLeftRow;
-    // Check the viewport moved more than one page horizontally
-    if (!d->viewportRect.intersects(QRectF(contentX(), d->viewportRect.y(), width(), 1)))
-        options |= QQuickTableViewPrivate::RebuildOption::CalculateNewTopLeftColumn;
-
-    if (options) {
-        // When the viewport has moved more than one page vertically or horizontally, we switch
-        // strategy from refilling edges around the current table to instead rebuild the table
-        // from scratch inside the new viewport. This will greatly improve performance when flicking
-        // a long distance in one go, which can easily happen when dragging on scrollbars.
-        options |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
-        d->scheduleRebuildTable(options);
-    }
+    d->scheduleRebuildIfNeededAfterViewportMoved();
 
     if (d->scheduledRebuildOptions) {
         // No reason to do anything, since we're about to rebuild the whole table anyway.
         // Besides, calling updatePolish, which will start the rebuild, can easily cause
         // binding loops to happen since we usually end up modifying the geometry of the
         // viewport (contentItem) as well.
+        polish();
         return;
     }
 
