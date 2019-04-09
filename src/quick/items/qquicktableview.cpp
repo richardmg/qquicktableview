@@ -1575,6 +1575,11 @@ void QQuickTableViewPrivate::beginRebuildTable()
         return;
     }
 
+    if (syncHorizontally)
+        setViewportX(syncView->contentX());
+    if (syncVertically)
+        setViewportY(syncView->contentY());
+
     loadInitialTopLeftItem(topLeft, topLeftPos);
     loadAndUnloadVisibleEdges();
 }
@@ -2204,6 +2209,62 @@ void QQuickTableViewPrivate::scheduleRebuildIfNeededAfterViewportMoved()
     }
 }
 
+void QQuickTableViewPrivate::setViewportX(qreal contentX)
+{
+    // Set the new viewport position if changed, but don't trigger any
+    // rebuilds or updates. We use this function internally to distinguish
+    // external flicking from internal sync-ing of the content view.
+    Q_Q(QQuickTableView);
+    QBoolBlocker recursionGuard(inSetViewportPos, true);
+
+    if (qFuzzyCompare(contentX, q->contentX()))
+        return;
+
+    q->setContentX(contentX);
+}
+
+void QQuickTableViewPrivate::setViewportY(qreal contentY)
+{
+    // Set the new viewport position if changed, but don't trigger any
+    // rebuilds or updates. We use this function internally to distinguish
+    // external flicking from internal sync-ing of the content view.
+    Q_Q(QQuickTableView);
+    QBoolBlocker recursionGuard(inSetViewportPos, true);
+
+    if (qFuzzyCompare(contentY, q->contentY()))
+        return;
+
+    q->setContentY(contentY);
+}
+
+void QQuickTableViewPrivate::syncViewportPosRecursive()
+{
+    Q_Q(QQuickTableView);
+    QBoolBlocker recursionGuard(inSetViewportPos, true);
+
+    if (syncView) {
+        auto syncView_d = syncView->d_func();
+        if (!syncView_d->inSetViewportPos) {
+            if (syncHorizontally)
+                syncView_d->setViewportX(q->contentX());
+            if (syncVertically)
+                syncView_d->setViewportY(q->contentY());
+            syncView_d->syncViewportPosRecursive();
+        }
+    }
+
+    for (auto syncChild : qAsConst(syncChildren)) {
+        auto syncChild_d = syncChild->d_func();
+        if (!syncChild_d->inSetViewportPos) {
+            if (syncChild_d->syncHorizontally)
+                syncChild_d->setViewportX(q->contentX());
+            if (syncChild_d->syncVertically)
+                syncChild_d->setViewportY(q->contentY());
+            syncChild_d->syncViewportPosRecursive();
+        }
+    }
+}
+
 QQuickTableView::QQuickTableView(QQuickItem *parent)
     : QQuickFlickable(*(new QQuickTableViewPrivate), parent)
 {
@@ -2432,6 +2493,33 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
     QQuickFlickable::viewportMoved(orientation);
 
     d->scheduleRebuildIfNeededAfterViewportMoved();
+
+    if (d->inSetViewportPos)
+        return;
+
+    // We received a change to contentX or contentY from outside the view (e.g
+    // by the user flicking). Move all connected views so they stay in sync.
+    d->syncViewportPosRecursive();
+
+    // Load and unload rows and columns in all connected views
+    // according to the new viewport geometry. If any of the views
+    // scheduled a rebuild, this will also be taken care of.
+    auto rootView = d->rootSyncView();
+    auto rootView_d = rootView->d_func();
+    if (rootView_d->scheduledRebuildOptions) {
+        // When we need to rebuild, collecting several viewport
+        // moves and do a single polish gives a quicker UI.
+        rootView->polish();
+    } else {
+        // Updating the table right away when flicking
+        // slowly gives a smoother experience.
+        const bool updated = rootView->d_func()->updateTableRecursive();
+        if (!updated) {
+            // One, or more, of the views are already in an
+            // update, so we need to wait a cycle.
+            rootView->polish();
+        }
+    }
 }
 
 void QQuickTableViewPrivate::_q_componentFinalized()
