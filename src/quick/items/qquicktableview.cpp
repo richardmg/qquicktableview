@@ -706,9 +706,8 @@ void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
 
 void QQuickTableViewPrivate::forceLayout()
 {
-    columnRowPositionsInvalid = true;
     clearEdgeSizeCache();
-    RebuildOptions rebuildOptions = RebuildOption::None;
+    RebuildOptions rebuildOptions = RebuildOption::LayoutOnly;
 
     // Go through all columns from first to last, find the columns that used
     // to be hidden and not loaded, and check if they should become visible
@@ -747,8 +746,7 @@ void QQuickTableViewPrivate::forceLayout()
         break;
     }
 
-    if (rebuildOptions)
-        scheduleRebuildTable(rebuildOptions);
+    scheduleRebuildTable(rebuildOptions);
 
     if (polishing) {
         qWarning() << "TableView::forceLayout(): Cannot do an immediate re-layout during an ongoing layout!";
@@ -1192,7 +1190,6 @@ void QQuickTableViewPrivate::relayoutTable()
 void QQuickTableViewPrivate::relayoutTableItems()
 {
     qCDebug(lcTableViewDelegateLifecycle);
-    columnRowPositionsInvalid = false;
 
     qreal nextColumnX = loadedTableOuterRect.x();
     qreal nextRowY = loadedTableOuterRect.y();
@@ -1462,7 +1459,13 @@ bool QQuickTableViewPrivate::moveToNextRebuildState()
         // that the current state is not yet done.
         return false;
     }
-    rebuildState = RebuildState(int(rebuildState) + 1);
+
+    if (rebuildState == RebuildState::Begin
+            && rebuildOptions.testFlag(RebuildOption::LayoutOnly))
+        rebuildState = RebuildState::LayoutTable;
+    else
+        rebuildState = RebuildState(int(rebuildState) + 1);
+
     qCDebug(lcTableViewDelegateLifecycle()) << int(rebuildState);
     return true;
 }
@@ -1524,7 +1527,6 @@ void QQuickTableViewPrivate::beginRebuildTable()
     loadedRows.clear();
     loadedTableOuterRect = QRect();
     loadedTableInnerRect = QRect();
-    columnRowPositionsInvalid = false;
     clearEdgeSizeCache();
 
     if (topLeft.x() == kEdgeIndexAtEnd || topLeft.y() == kEdgeIndexAtEnd) {
@@ -1538,12 +1540,14 @@ void QQuickTableViewPrivate::beginRebuildTable()
 
 void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
 {
-    if (rowHeightProvider.isUndefined() || columnWidthProvider.isUndefined()) {
+    if (rebuildOptions.testFlag(RebuildOption::LayoutOnly)
+            || rowHeightProvider.isUndefined() || columnWidthProvider.isUndefined()) {
         // Since we don't have both size providers, we need to calculate the
         // size of each row and column based on the size of the delegate items.
         // This couldn't be done while we were loading the initial rows and
         // columns, since during the process, we didn't have all the items
-        // available yet for the calculation. So we do it now.
+        // available yet for the calculation. So we do it now. The exception
+        // is if we specifically only requested a relayout.
         relayoutTable();
     }
 
@@ -1705,11 +1709,6 @@ void QQuickTableViewPrivate::scheduleRebuildTable(RebuildOptions options) {
     q_func()->polish();
 }
 
-void QQuickTableViewPrivate::invalidateColumnRowPositions() {
-    columnRowPositionsInvalid = true;
-    q_func()->polish();
-}
-
 void QQuickTableViewPrivate::updatePolish()
 {
     // Whenever something changes, e.g viewport moves, spacing is set to a
@@ -1741,13 +1740,6 @@ void QQuickTableViewPrivate::updatePolish()
 
     if (loadedItems.isEmpty())
         return;
-
-    if (columnRowPositionsInvalid) {
-        relayoutTable();
-        updateAverageEdgeSize();
-        updateContentWidth();
-        updateContentHeight();
-    }
 
     loadAndUnloadVisibleEdges();
 }
@@ -1853,10 +1845,15 @@ void QQuickTableViewPrivate::syncRebuildOptions()
     rebuildOptions = scheduledRebuildOptions;
     scheduledRebuildOptions = RebuildOption::None;
 
-    if (loadedItems.isEmpty()) {
-        // If we have no items from before, we cannot just rebuild the viewport, but need
-        // to rebuild everything, since we have no top-left loaded item to start from.
+    if (loadedItems.isEmpty())
         rebuildOptions.setFlag(RebuildOption::All);
+
+    // Some options are exclusive:
+    if (rebuildOptions.testFlag(RebuildOption::All)) {
+        rebuildOptions.setFlag(RebuildOption::ViewportOnly, false);
+        rebuildOptions.setFlag(RebuildOption::LayoutOnly, false);
+    } else if (rebuildOptions.testFlag(RebuildOption::ViewportOnly)) {
+        rebuildOptions.setFlag(RebuildOption::LayoutOnly, false);
     }
 }
 
@@ -2070,7 +2067,7 @@ void QQuickTableView::setRowSpacing(qreal spacing)
         return;
 
     d->cellSpacing.setHeight(spacing);
-    d->invalidateColumnRowPositions();
+    d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::LayoutOnly);
     emit rowSpacingChanged();
 }
 
@@ -2088,7 +2085,7 @@ void QQuickTableView::setColumnSpacing(qreal spacing)
         return;
 
     d->cellSpacing.setWidth(spacing);
-    d->invalidateColumnRowPositions();
+    d->scheduleRebuildTable(QQuickTableViewPrivate::RebuildOption::LayoutOnly);
     emit columnSpacingChanged();
 }
 
