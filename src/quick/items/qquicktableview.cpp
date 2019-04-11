@@ -2255,20 +2255,49 @@ void QQuickTableViewPrivate::scheduleRebuildIfNeededAfterViewportMoved()
         // If this table has fewer rows or columns than the sync view, the last row
         // or column can be flicked out of view, and also out of sync in case of sync
         // view rebuilds. Check for this, and schedule a rebuild if needed.
-        if (syncHorizontally && leftColumn() == tableSize.width() - 1) {
-            qreal leftEdge = loadedTableOuterRect.left();
-            qreal masterLeftEdge = syncView_d->loadedTableOuterRect.left();
-            if (leftColumn() >= syncView_d->leftColumn() && !qFuzzyCompare(leftEdge, masterLeftEdge))
-                scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+        if (syncHorizontally && loadedColumns.count() == 1) {
+            // The out-of-sync problem should only happen if we have unloaded
+            // the whole table, except for the last column that is always kept.
+
+            if (loadedTableOuterRect.right() >= q->contentX()) {
+                // The table is visible in the viewport. But should it be?
+                if (leftColumn() != syncView_d->leftColumn()) {
+                    // The tables have different left column
+                    scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+                } else if (!qFuzzyCompare(loadedTableOuterRect.left(), syncView_d->loadedTableOuterRect.left()))  {
+                    // The tables have the same left column, but not at the same position
+                    scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+                }
+            } else {
+                // The table is not visible in the viewport. But should it be?
+                if (rightColumn() >= syncView_d->leftColumn()) {
+                    // The table models overlap at this point
+                    scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+                }
+            }
         }
 
-        if (syncVertically && topRow() == tableSize.height() - 1) {
-            qreal topEdge = loadedTableOuterRect.top();
-            qreal masterTopEdge = syncView_d->loadedTableOuterRect.top();
-            if (topRow() >= syncView_d->topRow() && !qFuzzyCompare(topEdge, masterTopEdge))
-                scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+        if (syncVertically && loadedRows.count() == 1) {
+            // The out-of-sync problem should only happen if we have unloaded
+            // the whole table, except for the last row that is always kept.
+
+            if (loadedTableOuterRect.bottom() >= q->contentY()) {
+                // The table is visible in the viewport. But should it be?
+                if (topRow() != syncView_d->topRow()) {
+                    // The tables have different top row
+                    scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+                } else if (!qFuzzyCompare(loadedTableOuterRect.top(), syncView_d->loadedTableOuterRect.top()))  {
+                    // The tables have the same top row, but not at the same position
+                    scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+                }
+            } else {
+                // The table is not visible in the viewport. But should it be?
+                if (bottomRow() >= syncView_d->topRow()) {
+                    // The table models overlap at this point
+                    scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
+                }
+            }
         }
-        return;
     }
 
     // When the viewport has moved more than one page vertically or horizontally, we switch
