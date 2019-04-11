@@ -2255,14 +2255,14 @@ void QQuickTableViewPrivate::scheduleRebuildIfNeededAfterViewportMoved()
         // If this table has fewer rows or columns than the sync view, the last row
         // or column can be flicked out of view, and also out of sync in case of sync
         // view rebuilds. Check for this, and schedule a rebuild if needed.
-        if (syncHorizontally && leftColumn() == tableSize.width() - 1) {
+        if (syncHorizontally && loadedColumns.count() == 1) {
             qreal leftEdge = loadedTableOuterRect.left();
             qreal masterLeftEdge = syncView_d->loadedTableOuterRect.left();
             if (leftColumn() >= syncView_d->leftColumn() && !qFuzzyCompare(leftEdge, masterLeftEdge))
                 scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
         }
 
-        if (syncVertically && topRow() == tableSize.height() - 1) {
+        if (syncVertically && loadedRows.count() == 1) {
             qreal topEdge = loadedTableOuterRect.top();
             qreal masterTopEdge = syncView_d->loadedTableOuterRect.top();
             if (topRow() >= syncView_d->topRow() && !qFuzzyCompare(topEdge, masterTopEdge))
