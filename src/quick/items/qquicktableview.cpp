@@ -655,6 +655,11 @@ void QQuickTableViewPrivate::updateContentHeight()
 
 void QQuickTableViewPrivate::enforceTableAtOrigin()
 {
+
+    // ikke nå, se om jeg kan tvinge tabellen på -10000 feks.
+    return;
+
+
     // Gaps before the first row/column can happen if rows/columns
     // changes size while flicking e.g because of spacing changes or
     // changes to a column maxWidth/row maxHeight. Check for this, and
@@ -1225,6 +1230,8 @@ void QQuickTableViewPrivate::relayoutTableItems()
     qreal nextColumnX = loadedTableOuterRect.x();
     qreal nextRowY = loadedTableOuterRect.y();
 
+    qDebug() << nextColumnX;
+
     for (auto c = loadedColumns.cbegin(); c != loadedColumns.cend(); ++c) {
         const int column = c.key();
         // Adjust the geometry of all cells in the current column
@@ -1546,13 +1553,15 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
         if (syncHorizontally) {
             topLeftCell.rx() = syncViewTopLeftCell.x();
             topLeftPos.rx() = syncViewTopLeftPos.x();
+            qDebug() << topLeftCell.x() << topLeftPos.x();
 
             if (topLeftCell.x() >= tableSize.width()) {
                 // Top left is outside our own model. In that case, we
                 // just rebuild the table at the beginning to at least ensure
                 // that we don't end up showing old items at the wrong location.
-                topLeftCell.rx() = 0;
-                topLeftPos.rx() = 0;
+                topLeftCell.rx() = rightColumn();
+                topLeftPos.rx() = -10000;//-loadedTableOuterRect.width();
+                qDebug() << loadedTableOuterRect;
             }
         }
 
@@ -1564,8 +1573,8 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
                 // Top left is outside our own model. In that case, we
                 // just rebuild the table at the beginning to at least ensure
                 // that we don't end up showing old items at the wrong location.
-                topLeftCell.ry() = 0;
-                topLeftPos.ry() = 0;
+                topLeftCell.ry() = bottomRow();
+                topLeftPos.ry() = -loadedTableOuterRect.height();
             }
         }
 
@@ -1644,6 +1653,8 @@ void QQuickTableViewPrivate::beginRebuildTable()
         setViewportX(syncView->contentX());
     if (syncVertically)
         setViewportY(syncView->contentY());
+
+    qDebug() << Q_FUNC_INFO << q_func()->objectName() << topLeft << topLeftPos;
 
     if (!model) {
         qCDebug(lcTableViewDelegateLifecycle()) << "no model found, leaving table empty";
@@ -2272,15 +2283,18 @@ void QQuickTableViewPrivate::scheduleRebuildIfNeededAfterViewportMoved()
                 // The table is visible in the viewport. But should it be?
                 if (leftColumn() != syncView_d->leftColumn()) {
                     // The tables have different left column
+                    qDebug() << "A";
                     scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
                 } else if (!qFuzzyCompare(loadedTableOuterRect.left(), syncView_d->loadedTableOuterRect.left()))  {
                     // The tables have the same left column, but not at the same position
+                    qDebug() << "B";
                     scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
                 }
             } else {
                 // The table is not visible in the viewport. But should it be?
                 if (rightColumn() >= syncView_d->leftColumn()) {
                     // The table models overlap at this point
+                    qDebug() << "C";
                     scheduledRebuildOptions |= QQuickTableViewPrivate::RebuildOption::ViewportOnly;
                 }
             }

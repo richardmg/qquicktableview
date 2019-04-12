@@ -136,7 +136,7 @@ Window {
 
             model: TestTableModel {
                 rowCount: 1
-                columnCount: 200
+                columnCount: 10
             }
 
             delegate: Rectangle {
@@ -178,7 +178,7 @@ Window {
             columnSpacing: 1
             rowSpacing: 1
 
-            syncView: tableView
+//            syncView: tableView
             syncDirection: Qt.Vertical
         }
 
