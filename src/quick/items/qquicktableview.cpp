@@ -1517,11 +1517,13 @@ bool QQuickTableViewPrivate::moveToNextRebuildState()
     return true;
 }
 
-bool QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topLeftPos)
+void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topLeftPos)
 {
     if (tableSize.isEmpty()) {
         // There is no cell that can be top left
-        return false;
+        topLeftCell.rx() = kEdgeIndexAtEnd;
+        topLeftCell.ry() = kEdgeIndexAtEnd;
+        return;
     }
 
     if (syncHorizontally || syncVertically) {
@@ -1531,7 +1533,9 @@ bool QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             // The sync view contains no loaded items. This probably means
             // that it has not been rebuilt yet. Which also means that
             // we cannot rebuild anything before this happens.
-            return false;
+            topLeftCell.rx() = kEdgeIndexNotSet;
+            topLeftCell.ry() = kEdgeIndexNotSet;
+            return;
         }
 
         // Get sync view top left, and use that as our own top left (if possible)
@@ -1541,25 +1545,33 @@ bool QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
 
         if (syncHorizontally) {
             topLeftCell.rx() = syncViewTopLeftCell.x();
-            if (topLeftCell.x() >= tableSize.width()) {
-                // Top left is outside our own model.
-                return false;
-            }
             topLeftPos.rx() = syncViewTopLeftPos.x();
+
+            if (topLeftCell.x() >= tableSize.width()) {
+                // Top left is outside our own model. In that case, we
+                // just rebuild the table at the beginning to at least ensure
+                // that we don't end up showing old items at the wrong location.
+                topLeftCell.rx() = 0;
+                topLeftPos.rx() = 0;
+            }
         }
 
         if (syncVertically) {
             topLeftCell.ry() = syncViewTopLeftCell.y();
-            if (topLeftCell.y() >= tableSize.height()) {
-                // Top left is outside our own model.
-                return false;
-            }
             topLeftPos.ry() = syncViewTopLeftPos.y();
+
+            if (topLeftCell.y() >= tableSize.height()) {
+                // Top left is outside our own model. In that case, we
+                // just rebuild the table at the beginning to at least ensure
+                // that we don't end up showing old items at the wrong location.
+                topLeftCell.ry() = 0;
+                topLeftPos.ry() = 0;
+            }
         }
 
         if (syncHorizontally && syncVertically) {
             // We have a valid top left, so we're done
-            return true;
+            return;
         }
     }
 
@@ -1574,7 +1586,7 @@ bool QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             topLeftCell.rx() = nextVisibleEdgeIndex(Qt::RightEdge, 0);
             if (topLeftCell.x() == kEdgeIndexAtEnd) {
                 // No visible column found
-                return false;
+                return;
             }
         } else if (rebuildOptions & RebuildOption::CalculateNewTopLeftColumn) {
             // Guesstimate new top left
@@ -1594,7 +1606,7 @@ bool QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             topLeftCell.ry() = nextVisibleEdgeIndex(Qt::BottomEdge, 0);
             if (topLeftCell.y() == kEdgeIndexAtEnd) {
                 // No visible row found
-                return false;
+                return;
             }
         } else if (rebuildOptions & RebuildOption::CalculateNewTopLeftRow) {
             // Guesstimate new top left
@@ -1607,8 +1619,6 @@ bool QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             topLeftPos.ry() = loadedTableOuterRect.topLeft().y();
         }
     }
-
-    return true;
 }
 
 void QQuickTableViewPrivate::beginRebuildTable()
@@ -1617,13 +1627,7 @@ void QQuickTableViewPrivate::beginRebuildTable()
 
     QPoint topLeft;
     QPointF topLeftPos;
-    const bool validTopLeft = calculateTopLeft(topLeft, topLeftPos);
-    if (!validTopLeft && !rebuildOptions.testFlag(RebuildOption::All)) {
-        qCDebug(lcTableViewDelegateLifecycle()) << "top-left cell could not be resolved. Cancelling rebuild to maintain old top-left";
-        return;
-    }
-
-    qCDebug(lcTableViewDelegateLifecycle()) << "new topLeft cell:" << topLeft << "pos:" << topLeftPos;
+    calculateTopLeft(topLeft, topLeftPos);
 
     if (rebuildOptions & RebuildOption::All)
         releaseLoadedItems(QQmlTableInstanceModel::NotReusable);
@@ -1656,8 +1660,13 @@ void QQuickTableViewPrivate::beginRebuildTable()
         return;
     }
 
-    if (!validTopLeft) {
-        qCDebug(lcTableViewDelegateLifecycle()) << "top-left cell could not be resolved, leaving table empty";
+    if (topLeft.x() == kEdgeIndexAtEnd || topLeft.y() == kEdgeIndexAtEnd) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "no visible row or column found, leaving table empty";
+        return;
+    }
+
+    if (topLeft.x() == kEdgeIndexNotSet || topLeft.y() == kEdgeIndexNotSet) {
+        qCDebug(lcTableViewDelegateLifecycle()) << "syncView contains no items, leaving table empty";
         return;
     }
 
@@ -2255,7 +2264,7 @@ void QQuickTableViewPrivate::scheduleRebuildIfNeededAfterViewportMoved()
         // If this table has fewer rows or columns than the sync view, the last row
         // or column can be flicked out of view, and also out of sync in case of sync
         // view rebuilds. Check for this, and schedule a rebuild if needed.
-        if (syncHorizontally && loadedColumns.count() == 1) {
+        if (syncHorizontally/* && loadedColumns.count() == 1*/) {
             // The out-of-sync problem should only happen if we have unloaded
             // the whole table, except for the last column that is always kept.
 
