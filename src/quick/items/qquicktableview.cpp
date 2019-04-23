@@ -670,45 +670,42 @@ void QQuickTableViewPrivate::enforceTableAtOrigin()
     // Gaps before the first row/column can happen if rows/columns
     // changes size while flicking e.g because of spacing changes or
     // changes to a column maxWidth/row maxHeight. Check for this, and
-    // move the whole table rect accordingly.
-    bool layoutNeeded = false;
-    const qreal flickMargin = 50;
-
+    // rebuild the table. The rebuild will then be based on the current
+    // position of the viewport.
+    RebuildOptions rebuildOptions = RebuildOption::None;
     const bool noMoreColumns = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge) == kEdgeIndexAtEnd;
     const bool noMoreRows = nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge) == kEdgeIndexAtEnd;
 
     if (noMoreColumns) {
         if (!qFuzzyIsNull(loadedTableOuterRect.left())) {
-            // There are no more columns, but the table rect
-            // is not at origin. So we move it there.
-            loadedTableOuterRect.moveLeft(0);
-            layoutNeeded = true;
+            // There are no more columns, but the table rect is not at origin
+            rebuildOptions.setFlag(RebuildOption::CalculateNewTopLeftColumn);
         }
     } else {
         if (loadedTableOuterRect.left() <= 0) {
-            // The table rect is at origin, or outside. But we still have
-            // more visible columns to the left. So we need to make some
-            // space so that they can be flicked in.
-            loadedTableOuterRect.moveLeft(flickMargin);
-            layoutNeeded = true;
+            // The table rect is at origin, or outside. But we
+            // still have more visible columns to the left.
+            rebuildOptions.setFlag(RebuildOption::CalculateNewTopLeftColumn);
         }
     }
 
     if (noMoreRows) {
         if (!qFuzzyIsNull(loadedTableOuterRect.top())) {
-            loadedTableOuterRect.moveTop(0);
-            layoutNeeded = true;
+            // There are no more rows, but the table rect is not at origin
+            rebuildOptions.setFlag(RebuildOption::CalculateNewTopLeftRow);
         }
     } else {
         if (loadedTableOuterRect.top() <= 0) {
-            loadedTableOuterRect.moveTop(flickMargin);
-            layoutNeeded = true;
+            // The table rect is at origin, or outside. But we
+            // still have more visible rows above
+            rebuildOptions.setFlag(RebuildOption::CalculateNewTopLeftRow);
         }
     }
 
-    if (layoutNeeded) {
-        qCDebug(lcTableViewDelegateLifecycle);
-        relayoutTableItems();
+    if (rebuildOptions) {
+        rebuildOptions.setFlag(RebuildOption::ViewportOnly);
+        qCDebug(lcTableViewDelegateLifecycle) << rebuildOptions;
+        scheduleRebuildTable(rebuildOptions);
     }
 }
 
