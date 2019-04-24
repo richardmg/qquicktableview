@@ -316,7 +316,7 @@ public:
     QQuickTableView *rootSyncView() const;
 
     bool updateTableRecursive();
-    void updateTable();
+    bool updateTable();
     void relayoutTable();
     void relayoutTableItems();
 
