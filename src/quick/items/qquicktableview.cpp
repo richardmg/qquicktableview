@@ -1354,12 +1354,20 @@ void QQuickTableViewPrivate::layoutHorizontalEdge(Qt::Edge tableEdge)
 
 void QQuickTableViewPrivate::layoutTopLeftItem()
 {
+    Q_Q(QQuickTableView);
     const QPoint cell(loadRequest.column(), loadRequest.row());
     auto topLeftItem = loadedTableItem(cell);
     auto item = topLeftItem->item;
 
-    item->setPosition(loadRequest.startPosition());
     item->setSize(QSizeF(getColumnLayoutWidth(cell.x()), getRowLayoutHeight(cell.y())));
+
+    QPointF finalPosition = loadRequest.startPosition();
+    if (rebuildOptions & RebuildOption::CalculateNewTopRightRow)
+        finalPosition.ry() = q->contentHeight() - item->size().height();
+    if (rebuildOptions & RebuildOption::CalculateNewTopRightColumn)
+        finalPosition.rx() = q->contentWidth() - item->size().width();
+    item->setPosition(finalPosition);
+
     topLeftItem->setVisible(true);
     qCDebug(lcTableViewDelegateLifecycle) << "geometry:" << topLeftItem->geometry();
 }
@@ -1600,6 +1608,12 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             const int newColumn = int(viewportRect.x() / (averageEdgeSize.width() + cellSpacing.width()));
             topLeftCell.rx() = qBound(0, newColumn, tableSize.width() - 1);
             topLeftPos.rx() = topLeftCell.x() * (averageEdgeSize.width() + cellSpacing.width());
+        } else if (rebuildOptions & RebuildOption::CalculateNewTopRightColumn) {
+            // Use the first visible column from the end and glue it
+            // to the right edge of the content view. The exact position will
+            // be resolved once the item is loaded.
+            topLeftCell.rx() = tableSize.width() - 1;
+            topLeftPos.rx() = 0;
         } else {
             // Keep the current top left, unless it's outside model
             topLeftCell.rx() = qBound(0, leftColumn(), tableSize.width() - 1);
@@ -1620,6 +1634,12 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             const int newRow = int(viewportRect.y() / (averageEdgeSize.height() + cellSpacing.height()));
             topLeftCell.ry() = qBound(0, newRow, tableSize.height() - 1);
             topLeftPos.ry() = topLeftCell.y() * (averageEdgeSize.height() + cellSpacing.height());
+        } else if (rebuildOptions & RebuildOption::CalculateNewTopRightRow) {
+            // Use the first visible row from the end and glue it
+            // to the bottom edge of the content view. The exact position will
+            // be resolved once the item is loaded.
+            topLeftCell.ry() = tableSize.height() - 1;
+            topLeftPos.ry() = 0;
         } else {
             // Keep the current top left, unless it's outside model
             topLeftCell.ry() = qBound(0, topRow(), tableSize.height() - 1);
@@ -2282,6 +2302,26 @@ void QQuickTableViewPrivate::scheduleRebuildIfFastFlick()
     // Check the viewport moved more than one page horizontally
     if (!viewportRect.intersects(QRectF(q->contentX(), viewportRect.y(), q->width(), 1))) {
         scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftColumn;
+        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+    }
+
+    if (q->isAtXBeginning()) {
+        scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftColumn;
+        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+    }
+
+    if (q->isAtYBeginning()) {
+        scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftRow;
+        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+    }
+
+    if (q->isAtXEnd()) {
+        scheduledRebuildOptions |= RebuildOption::CalculateNewTopRightColumn;
+        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+    }
+
+    if (q->isAtYEnd()) {
+        scheduledRebuildOptions |= RebuildOption::CalculateNewTopRightRow;
         scheduledRebuildOptions |= RebuildOption::ViewportOnly;
     }
 }

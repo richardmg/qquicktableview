@@ -192,7 +192,9 @@ public:
         ViewportOnly = 0x2,
         CalculateNewTopLeftRow = 0x4,
         CalculateNewTopLeftColumn = 0x8,
-        All = 0x10,
+        CalculateNewTopRightRow = 0x10,
+        CalculateNewTopRightColumn = 0x20,
+        All = 0x40,
     };
     Q_DECLARE_FLAGS(RebuildOptions, RebuildOption)
 
