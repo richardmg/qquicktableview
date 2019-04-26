@@ -1420,10 +1420,12 @@ void QQuickTableViewPrivate::processLoadRequest()
             enforceTableAtOrigin();
             break;
         case Qt::RightEdge:
+            enforceTableAtOrigin();
             updateAverageEdgeSize();
             updateContentWidth();
             break;
         case Qt::BottomEdge:
+            enforceTableAtOrigin();
             updateAverageEdgeSize();
             updateContentHeight();
             break;
