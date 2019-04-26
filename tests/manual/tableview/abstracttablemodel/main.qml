@@ -93,8 +93,17 @@ Window {
                 Button {
                     text: "fast-flick<br>center table"
                     onClicked: {
-                        tableView.contentX += 1000
-                        tableView.contentY += 1000
+                        print("old content x:", tableView.contentX)
+                        tableView.contentX += tableView.width * 1.2
+                        print("new content x:", tableView.contentX)
+                    }
+                }
+                Button {
+                    text: "flick to end<br>center table"
+                    onClicked: {
+                        print("old content x:", tableView.contentX)
+                        tableView.contentX = tableView.contentWidth - tableView.width
+                        print("new content x:", tableView.contentX)
                     }
                 }
                 Button {
@@ -124,70 +133,70 @@ Window {
             }
         }
 
-        TableView {
-            id: topHeader
-            objectName: "topHeader"
-            anchors.left: tableView.left
-            width: tableView.width
-            anchors.top: menu.bottom
-            height: 30
-            clip: true
-            ScrollBar.horizontal: ScrollBar {}
+//        TableView {
+//            id: topHeader
+//            objectName: "topHeader"
+//            anchors.left: tableView.left
+//            width: tableView.width
+//            anchors.top: menu.bottom
+//            height: 30
+//            clip: true
+//            ScrollBar.horizontal: ScrollBar {}
 
-            model: TestTableModel {
-                rowCount: 1
-                columnCount: 200
-            }
+//            model: TestTableModel {
+//                rowCount: 1
+//                columnCount: 200
+//            }
 
-            delegate: Rectangle {
-                implicitHeight: topHeader.height
-                implicitWidth: 20
-                color: "lightgray"
-                Text { text: column }
-            }
+//            delegate: Rectangle {
+//                implicitHeight: topHeader.height
+//                implicitWidth: 20
+//                color: "lightgray"
+//                Text { text: column }
+//            }
 
-            columnSpacing: 1
-            rowSpacing: 1
+//            columnSpacing: 1
+//            rowSpacing: 1
 
-            syncView: tableView
-            syncDirection: Qt.Horizontal
-        }
+//            syncView: tableView
+//            syncDirection: Qt.Horizontal
+//        }
 
-        TableView {
-            id: leftHeader
-            objectName: "leftHeader"
-            anchors.left: parent.left
-            anchors.top: tableView.top
-            height: tableView.height
-            width: 30
-            clip: true
-            ScrollBar.vertical: ScrollBar {}
+//        TableView {
+//            id: leftHeader
+//            objectName: "leftHeader"
+//            anchors.left: parent.left
+//            anchors.top: tableView.top
+//            height: tableView.height
+//            width: 30
+//            clip: true
+//            ScrollBar.vertical: ScrollBar {}
 
-            model: TestTableModel {
-                rowCount: 200
-                columnCount: 1
-            }
+//            model: TestTableModel {
+//                rowCount: 200
+//                columnCount: 1
+//            }
 
-            delegate: Rectangle {
-                implicitHeight: 50
-                implicitWidth: leftHeader.width
-                color: "lightgray"
-                Text { text: row }
-            }
+//            delegate: Rectangle {
+//                implicitHeight: 50
+//                implicitWidth: leftHeader.width
+//                color: "lightgray"
+//                Text { text: row }
+//            }
 
-            columnSpacing: 1
-            rowSpacing: 1
+//            columnSpacing: 1
+//            rowSpacing: 1
 
-            syncView: tableView
-            syncDirection: Qt.Vertical
-        }
+//            syncView: tableView
+//            syncDirection: Qt.Vertical
+//        }
 
         TableView {
             id: tableView
             objectName: "tableview"
-            anchors.left: leftHeader.right
+            anchors.left: parent.left
             anchors.right: parent.right
-            anchors.top: topHeader.bottom
+            anchors.top: menu.bottom
             anchors.bottom: parent.bottom
             width: 200
             clip: true

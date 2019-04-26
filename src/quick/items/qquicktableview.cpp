@@ -621,18 +621,31 @@ void QQuickTableViewPrivate::updateContentWidth()
         return;
     }
 
-    if (explicitContentWidth.isValid()) {
-        // Don't calculate contentWidth when it
-        // was set explicitly by the application.
-        return;
-    }
+
 
     const int nextColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge);
     const int columnsRemaining = nextColumn == kEdgeIndexAtEnd ? 0 : tableSize.width() - nextColumn;
     const qreal remainingColumnWidths = columnsRemaining * averageEdgeSize.width();
     const qreal remainingSpacing = columnsRemaining * cellSpacing.width();
     const qreal estimatedRemainingWidth = remainingColumnWidths + remainingSpacing;
-    const qreal estimatedWidth = loadedTableOuterRect.right() + estimatedRemainingWidth;
+
+    qreal estimatedWidth = loadedTableOuterRect.right() + estimatedRemainingWidth;
+
+    if (columnsRemaining == 0) {
+        // Always glue the last column to the edge
+        estimatedWidth = loadedTableOuterRect.right();
+    } else if (explicitContentWidth.isValid()) {
+        // Don't calculate contentWidth when it
+        // was set explicitly by the application.
+
+        // Note: here we need to reset back to explicitContentWidth...
+        return;
+    } else if (viewportRect.right() < q->contentWidth()) {
+        // Don't do anything if we're not at the end
+        return;
+    }
+
+    qDebug() << "update:" << "cols rem:" << columnsRemaining << "loaded width:" << loadedTableOuterRect.right() << "est width:" << estimatedWidth;
 
     QBoolBlocker fixupGuard(inUpdateContentSize, true);
     q->QQuickFlickable::setContentWidth(estimatedWidth);
