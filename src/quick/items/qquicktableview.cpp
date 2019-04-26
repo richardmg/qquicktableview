@@ -667,6 +667,11 @@ void QQuickTableViewPrivate::updateContentHeight()
 
 void QQuickTableViewPrivate::enforceTableAtOrigin()
 {
+
+    return;
+
+
+
     // Gaps before the first row/column can happen if rows/columns
     // changes size while flicking e.g because of spacing changes or
     // changes to a column maxWidth/row maxHeight. Check for this, and
@@ -675,6 +680,7 @@ void QQuickTableViewPrivate::enforceTableAtOrigin()
     RebuildOptions rebuildOptions = RebuildOption::None;
     const bool noMoreColumns = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge) == kEdgeIndexAtEnd;
     const bool noMoreRows = nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge) == kEdgeIndexAtEnd;
+    const bool noMoreRightColumns = nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge) == kEdgeIndexAtEnd;
 
     if (noMoreColumns) {
         if (!qFuzzyIsNull(loadedTableOuterRect.left())) {
@@ -700,6 +706,12 @@ void QQuickTableViewPrivate::enforceTableAtOrigin()
             // still have more visible rows above
             rebuildOptions.setFlag(RebuildOption::CalculateNewTopLeftRow);
         }
+    }
+
+    if (noMoreRightColumns) {
+        qDebug() << "rebuild";
+        q_func()->setContentX(q_func()->contentWidth() - q_func()->width());
+        //rebuildOptions.setFlag(RebuildOption::CalculateNewTopRightColumn);
     }
 
     if (rebuildOptions) {
@@ -2293,6 +2305,9 @@ void QQuickTableViewPrivate::scheduleRebuildIfFastFlick()
     // from scratch inside the new viewport. This will greatly improve performance when flicking
     // a long distance in one go, which can easily happen when dragging on scrollbars.
 
+    if (tableSize.isEmpty())
+        return;
+
     // Check the viewport moved more than one page vertically
     if (!viewportRect.intersects(QRectF(viewportRect.x(), q->contentY(), 1, q->height()))) {
         scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftRow;
@@ -2305,24 +2320,41 @@ void QQuickTableViewPrivate::scheduleRebuildIfFastFlick()
         scheduledRebuildOptions |= RebuildOption::ViewportOnly;
     }
 
+    // Ensure that we glue the table to the edge of the content view
     if (q->isAtXBeginning()) {
-        scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftColumn;
-        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+        if (!qFuzzyIsNull(loadedTableOuterRect.left()) || leftColumn() != 0) {
+            scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftColumn;
+            scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+        }
     }
 
     if (q->isAtYBeginning()) {
-        scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftRow;
-        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+        if (!qFuzzyIsNull(loadedTableOuterRect.top()) || topRow() != 0) {
+            scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftRow;
+            scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+        }
     }
 
     if (q->isAtXEnd()) {
-        scheduledRebuildOptions |= RebuildOption::CalculateNewTopRightColumn;
-        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+        if (loadedTableOuterRect.right() < q->contentWidth() || rightColumn() != tableSize.width() - 1) {
+            scheduledRebuildOptions |= RebuildOption::CalculateNewTopRightColumn;
+            scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+        }
+    } else {
+        if (rightColumn() == tableSize.width() - 1 && !qFuzzyCompare(loadedTableOuterRect.right(), q->contentWidth())) {
+            // We have loaded the last column, but the viewport is not at the right end
+            qDebug() << "do something, bacause now we rebuild from the right end";
+            // perhaps move contentx instead to the end?
+            scheduledRebuildOptions |= RebuildOption::CalculateNewTopRightColumn;
+            scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+        }
     }
 
     if (q->isAtYEnd()) {
-        scheduledRebuildOptions |= RebuildOption::CalculateNewTopRightRow;
-        scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+        if (loadedTableOuterRect.bottom() < q->contentHeight() || bottomRow() != tableSize.height() - 1) {
+            scheduledRebuildOptions |= RebuildOption::CalculateNewTopRightRow;
+            scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+        }
     }
 }
 
