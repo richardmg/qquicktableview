@@ -424,6 +424,8 @@ public:
     QPoint cell;
 };
 
+Q_DECLARE_OPERATORS_FOR_FLAGS(QQuickTableViewPrivate::RebuildOptions);
+
 QT_END_NAMESPACE
 
 #endif

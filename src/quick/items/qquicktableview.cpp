@@ -667,22 +667,24 @@ void QQuickTableViewPrivate::updateContentHeight()
 
 void QQuickTableViewPrivate::enforceTableAtOrigin()
 {
+    Q_Q(QQuickTableView);
     // Gaps before the first row/column can happen if rows/columns
     // changes size while flicking e.g because of spacing changes or
     // changes to a column maxWidth/row maxHeight. Check for this, and
     // move the whole table rect accordingly.
-    bool layoutNeeded = false;
+    QRectF prevLoadedTableOuterRect = loadedTableOuterRect;
     const qreal flickMargin = 50;
 
-    const bool noMoreColumns = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge) == kEdgeIndexAtEnd;
-    const bool noMoreRows = nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge) == kEdgeIndexAtEnd;
+    const bool noMoreColumnsLeft = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge) == kEdgeIndexAtEnd;
+    const bool noMoreRowsTop = nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge) == kEdgeIndexAtEnd;
+    const bool noMoreColumnsRight = nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge) == kEdgeIndexAtEnd;
+    const bool noMoreRowsBottom = nextVisibleEdgeIndexAroundLoadedTable(Qt::BottomEdge) == kEdgeIndexAtEnd;
 
-    if (noMoreColumns) {
+    if (noMoreColumnsLeft) {
         if (!qFuzzyIsNull(loadedTableOuterRect.left())) {
             // There are no more columns, but the table rect
             // is not at origin. So we move it there.
             loadedTableOuterRect.moveLeft(0);
-            layoutNeeded = true;
         }
     } else {
         if (loadedTableOuterRect.left() <= 0) {
@@ -690,26 +692,46 @@ void QQuickTableViewPrivate::enforceTableAtOrigin()
             // more visible columns to the left. So we need to make some
             // space so that they can be flicked in.
             loadedTableOuterRect.moveLeft(flickMargin);
-            layoutNeeded = true;
         }
     }
 
-    if (noMoreRows) {
-        if (!qFuzzyIsNull(loadedTableOuterRect.top())) {
+    if (noMoreColumnsRight) {
+        if (!qFuzzyCompare(loadedTableOuterRect.right(), q->contentWidth())) {
+            // There are no more columns, but the table is not at
+            // the right end of the content view.
+            loadedTableOuterRect.moveRight(q->contentWidth());
+        }
+    } else if (loadedTableOuterRect.right() >= q->contentWidth()) {
+        // The right-most column is outside the end of the content view, and we
+        // still have more columns in the model. In that case we rebuild the table, which
+        // will end up loading the last column and glue it to the right side of the content view.
+        scheduleRebuildTable(RebuildOption::ViewportOnly | RebuildOption::CalculateNewTopLeftColumn);
+    }
+
+    if (noMoreRowsTop) {
+        if (!qFuzzyIsNull(loadedTableOuterRect.top()))
             loadedTableOuterRect.moveTop(0);
-            layoutNeeded = true;
-        }
     } else {
-        if (loadedTableOuterRect.top() <= 0) {
+        if (loadedTableOuterRect.top() <= 0)
             loadedTableOuterRect.moveTop(flickMargin);
-            layoutNeeded = true;
-        }
     }
 
-    if (layoutNeeded) {
+    if (noMoreRowsBottom) {
+        if (!qFuzzyCompare(loadedTableOuterRect.bottom(), q->contentHeight()))
+            loadedTableOuterRect.moveBottom(q->contentHeight());
+    } else if (loadedTableOuterRect.bottom() >= q->contentHeight()) {
+        scheduleRebuildTable(RebuildOption::ViewportOnly | RebuildOption::CalculateNewTopLeftRow);
+    }
+
+    if (loadedTableOuterRect != prevLoadedTableOuterRect) {
         qCDebug(lcTableViewDelegateLifecycle);
         relayoutTableItems();
     }
+
+    // TODO: Note that this can move the loadedTableRect a looong way, and
+    // as such, cause a lot of edge loading afterwards. Consider
+    // checking for this, and just to a rebuild with new top-left.
+    // ... and pass this on to the child views by rebuilding their layout?
 }
 
 void QQuickTableViewPrivate::updateAverageEdgeSize()
@@ -1404,7 +1426,6 @@ void QQuickTableViewPrivate::processLoadRequest()
         switch (loadRequest.edge()) {
         case Qt::LeftEdge:
         case Qt::TopEdge:
-            enforceTableAtOrigin();
             break;
         case Qt::RightEdge:
             updateAverageEdgeSize();
@@ -1415,6 +1436,7 @@ void QQuickTableViewPrivate::processLoadRequest()
             updateContentHeight();
             break;
         }
+        enforceTableAtOrigin();
         drainReusePoolAfterLoadRequest();
     }
 
@@ -1584,14 +1606,22 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
                 return;
             }
         } else if (rebuildOptions & RebuildOption::CalculateNewTopLeftColumn) {
-            // Guesstimate new top left
-            const int newColumn = int(viewportRect.x() / (averageEdgeSize.width() + cellSpacing.width()));
-            topLeftCell.rx() = qBound(0, newColumn, tableSize.width() - 1);
-            topLeftPos.rx() = topLeftCell.x() * (averageEdgeSize.width() + cellSpacing.width());
+            if (loadedTableOuterRect.right() > q_func()->contentWidth()) {
+                // We're currently outside the content view. Because of that we let
+                // the new top-left be the last column. The correct position will
+                // be set later when we align the column to the right of the content view.
+                topLeftCell.rx() = nextVisibleEdgeIndex(Qt::LeftEdge, tableSize.width() - 1);
+                topLeftPos.rx() = viewportRect.x();
+            } else {
+                // Guesstimate new top left
+                const int newColumn = int(viewportRect.x() / (averageEdgeSize.width() + cellSpacing.width()));
+                topLeftCell.rx() = qBound(0, newColumn, tableSize.width() - 1);
+                topLeftPos.rx() = topLeftCell.x() * (averageEdgeSize.width() + cellSpacing.width());
+            }
         } else {
             // Keep the current top left, unless it's outside model
             topLeftCell.rx() = qBound(0, leftColumn(), tableSize.width() - 1);
-            topLeftPos.rx() = loadedTableOuterRect.topLeft().x();
+            topLeftPos.rx() = loadedTableOuterRect.x();
         }
     }
 
@@ -1604,14 +1634,22 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
                 return;
             }
         } else if (rebuildOptions & RebuildOption::CalculateNewTopLeftRow) {
-            // Guesstimate new top left
-            const int newRow = int(viewportRect.y() / (averageEdgeSize.height() + cellSpacing.height()));
-            topLeftCell.ry() = qBound(0, newRow, tableSize.height() - 1);
-            topLeftPos.ry() = topLeftCell.y() * (averageEdgeSize.height() + cellSpacing.height());
+            if (loadedTableOuterRect.right() > q_func()->contentWidth()) {
+                // We're currently outside the content view. Because of that we let
+                // the new top-left be the last column. The correct position will
+                // be set later when we align the column to the right of the content view.
+                topLeftCell.ry() = nextVisibleEdgeIndex(Qt::TopEdge, tableSize.height() - 1);
+                topLeftPos.ry() = viewportRect.y();
+            } else {
+                // Guesstimate new top left
+                const int newRow = int(viewportRect.y() / (averageEdgeSize.height() + cellSpacing.height()));
+                topLeftCell.ry() = qBound(0, newRow, tableSize.height() - 1);
+                topLeftPos.ry() = topLeftCell.y() * (averageEdgeSize.height() + cellSpacing.height());
+            }
         } else {
             // Keep the current top left, unless it's outside model
             topLeftCell.ry() = qBound(0, topRow(), tableSize.height() - 1);
-            topLeftPos.ry() = loadedTableOuterRect.topLeft().y();
+            topLeftPos.ry() = loadedTableOuterRect.y();
         }
     }
 }
