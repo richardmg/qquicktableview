@@ -329,7 +329,7 @@ public:
     void updateAverageEdgeSize();
     void forceLayout();
 
-    void enforceTableAtOrigin();
+    void enforceTableAtContentViewEdge();
     void syncLoadedTableRectFromLoadedTable();
     void syncLoadedTableFromLoadRequest();
 

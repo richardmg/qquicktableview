@@ -665,73 +665,53 @@ void QQuickTableViewPrivate::updateContentHeight()
     q->QQuickFlickable::setContentHeight(estimatedHeight);
 }
 
-void QQuickTableViewPrivate::enforceTableAtOrigin()
+void QQuickTableViewPrivate::enforceTableAtContentViewEdge()
 {
     Q_Q(QQuickTableView);
-    // Gaps before the first row/column can happen if rows/columns
-    // changes size while flicking e.g because of spacing changes or
-    // changes to a column maxWidth/row maxHeight. Check for this, and
-    // move the whole table rect accordingly.
-    QRectF prevLoadedTableOuterRect = loadedTableOuterRect;
-    const qreal flickMargin = 50;
 
-    const bool noMoreColumnsLeft = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge) == kEdgeIndexAtEnd;
-    const bool noMoreRowsTop = nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge) == kEdgeIndexAtEnd;
-    const bool noMoreColumnsRight = nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge) == kEdgeIndexAtEnd;
-    const bool noMoreRowsBottom = nextVisibleEdgeIndexAroundLoadedTable(Qt::BottomEdge) == kEdgeIndexAtEnd;
-
-    if (noMoreColumnsLeft) {
-        if (!qFuzzyIsNull(loadedTableOuterRect.left())) {
-            // There are no more columns, but the table rect
-            // is not at origin. So we move it there.
-            loadedTableOuterRect.moveLeft(0);
-        }
-    } else {
-        if (loadedTableOuterRect.left() <= 0) {
-            // The table rect is at origin, or outside. But we still have
-            // more visible columns to the left. So we need to make some
-            // space so that they can be flicked in.
-            loadedTableOuterRect.moveLeft(flickMargin);
-        }
-    }
-
-    if (noMoreColumnsRight) {
-        if (!qFuzzyCompare(loadedTableOuterRect.right(), q->contentWidth())) {
-            // There are no more columns, but the table is not at
-            // the right end of the content view.
-            loadedTableOuterRect.moveRight(q->contentWidth());
-        }
+    if (nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge) == kEdgeIndexAtEnd) {
+        // There are no more columns to load on the left side of the table.
+        // In that case, the table rect should be aligned with the origin.
+        if (!qFuzzyIsNull(loadedTableOuterRect.left()))
+            scheduleRebuildTable(RebuildOption::ViewportOnly | RebuildOption::CalculateNewTopLeftColumn);
+    } else if (loadedTableOuterRect.left() <= 0) {
+        // The table rect is at the origin, or outside. But we still have more
+        // visible columns to the left. So we need to rebuild to get a new top-left
+        scheduleRebuildTable(RebuildOption::ViewportOnly | RebuildOption::CalculateNewTopLeftColumn);
+    } else if (nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge) == kEdgeIndexAtEnd) {
+        // There are no more columns to load on the right side of the table.
+        // In that case, the table rect should align with the end of the content view.
+        if (!qFuzzyCompare(loadedTableOuterRect.right(), q->contentWidth()))
+            scheduleRebuildTable(RebuildOption::ViewportOnly | RebuildOption::CalculateNewTopLeftColumn);
     } else if (loadedTableOuterRect.right() >= q->contentWidth()) {
         // The right-most column is outside the end of the content view, and we
-        // still have more columns in the model. In that case we rebuild the table, which
-        // will end up loading the last column and glue it to the right side of the content view.
+        // still have more visible columns in the model. This can happen if the application
+        // has set a fixed content width. In that case we rebuild the table, which will
+        // detect that the new top-left needs to be the last visible column.
         scheduleRebuildTable(RebuildOption::ViewportOnly | RebuildOption::CalculateNewTopLeftColumn);
     }
 
-    if (noMoreRowsTop) {
+    if (nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge) == kEdgeIndexAtEnd) {
+        // There are no more rows to load on the top side of the table.
+        // In that case, the table rect should be aligned with the origin.
         if (!qFuzzyIsNull(loadedTableOuterRect.top()))
-            loadedTableOuterRect.moveTop(0);
-    } else {
-        if (loadedTableOuterRect.top() <= 0)
-            loadedTableOuterRect.moveTop(flickMargin);
-    }
-
-    if (noMoreRowsBottom) {
+            scheduleRebuildTable(RebuildOption::ViewportOnly | RebuildOption::CalculateNewTopLeftRow);
+    } else if (loadedTableOuterRect.top() <= 0) {
+        // The table rect is at the origin, or outside. But we still have
+        // more visible rows above. So we need to rebuild to get a new top-left.
+        scheduleRebuildTable(RebuildOption::ViewportOnly | RebuildOption::CalculateNewTopLeftRow);
+    } else if (nextVisibleEdgeIndexAroundLoadedTable(Qt::BottomEdge) == kEdgeIndexAtEnd) {
+        // There are no more rows to load on the bottom side of the table.
+        // In that case, the table rect should align with the end of the content view.
         if (!qFuzzyCompare(loadedTableOuterRect.bottom(), q->contentHeight()))
-            loadedTableOuterRect.moveBottom(q->contentHeight());
+            scheduleRebuildTable(RebuildOption::ViewportOnly | RebuildOption::CalculateNewTopLeftRow);
     } else if (loadedTableOuterRect.bottom() >= q->contentHeight()) {
+        // The bottom row is outside the end of the content view, and we
+        // still have more visible rows in the model. This can happen if the application
+        // has set a fixed content height. In that case we rebuild the table, which will
+        // detect that the new top-left needs to be the last visible row.
         scheduleRebuildTable(RebuildOption::ViewportOnly | RebuildOption::CalculateNewTopLeftRow);
     }
-
-    if (loadedTableOuterRect != prevLoadedTableOuterRect) {
-        qCDebug(lcTableViewDelegateLifecycle);
-        relayoutTableItems();
-    }
-
-    // TODO: Note that this can move the loadedTableRect a looong way, and
-    // as such, cause a lot of edge loading afterwards. Consider
-    // checking for this, and just to a rebuild with new top-left.
-    // ... and pass this on to the child views by rebuilding their layout?
 }
 
 void QQuickTableViewPrivate::updateAverageEdgeSize()
@@ -1436,7 +1416,7 @@ void QQuickTableViewPrivate::processLoadRequest()
             updateContentHeight();
             break;
         }
-        enforceTableAtOrigin();
+        enforceTableAtContentViewEdge();
         drainReusePoolAfterLoadRequest();
     }
 
@@ -1712,6 +1692,8 @@ void QQuickTableViewPrivate::beginRebuildTable()
 
 void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
 {
+    Q_Q(QQuickTableView);
+
     if (rebuildOptions.testFlag(RebuildOption::LayoutOnly)
             || rowHeightProvider.isUndefined() || columnWidthProvider.isUndefined()) {
         // Since we don't have both size providers, we need to calculate the
@@ -1728,7 +1710,22 @@ void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
     updateAverageEdgeSize();
     updateContentWidth();
     updateContentHeight();
-    enforceTableAtOrigin();
+
+    if (nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge) == kEdgeIndexAtEnd) {
+        // There are no more columns to load on the left side of the table.
+        // In that case, the table rect should align with the beginning of the content view.
+        if (!qFuzzyIsNull(loadedTableOuterRect.left())) {
+            loadedTableOuterRect.moveLeft(0);
+            relayoutTableItems();
+        }
+    } else if (nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge) == kEdgeIndexAtEnd) {
+        // There are no more columns to load on the right side of the table.
+        // In that case, the table rect should align with the end of the content view.
+        if (!qFuzzyCompare(loadedTableOuterRect.right(), q->contentWidth())) {
+            loadedTableOuterRect.moveRight(q->contentWidth());
+            relayoutTableItems();
+        }
+    }
 }
 
 void QQuickTableViewPrivate::unloadEdge(Qt::Edge edge)
