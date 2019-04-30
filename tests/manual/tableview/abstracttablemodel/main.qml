@@ -93,8 +93,17 @@ Window {
                 Button {
                     text: "fast-flick<br>center table"
                     onClicked: {
-                        tableView.contentX += 1000
-                        tableView.contentY += 1000
+                        print("old content x:", tableView.contentX)
+                        tableView.contentX += tableView.width * 1.2
+                        print("new content x:", tableView.contentX)
+                    }
+                }
+                Button {
+                    text: "flick to end<br>center table"
+                    onClicked: {
+                        print("old content x:", tableView.contentX)
+                        tableView.contentX = tableView.contentWidth - tableView.width
+                        print("new content x:", tableView.contentX)
                     }
                 }
                 Button {
