@@ -329,7 +329,7 @@ public:
     void updateAverageEdgeSize();
     void forceLayout();
 
-    void enforceTableAtOrigin();
+    void updateExtents();
     void syncLoadedTableRectFromLoadedTable();
     void syncLoadedTableFromLoadRequest();
 
@@ -423,6 +423,8 @@ public:
 
     QPoint cell;
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(QQuickTableViewPrivate::RebuildOptions);
 
 QT_END_NAMESPACE
 

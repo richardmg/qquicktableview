@@ -200,16 +200,16 @@ Window {
             anchors.bottom: parent.bottom
             width: 200
             clip: true
-            columnWidthProvider: function(c) { return 100 + c; }
+            columnWidthProvider: function(c) { return 50 + c; }
             ScrollBar.horizontal: ScrollBar {}
             ScrollBar.vertical: ScrollBar {}
 
-            contentWidth: 59000
+            contentWidth: 90000
             onContentWidthChanged: print("new content width:", contentWidth)
 
             model: TestTableModel {
                 rowCount: 200
-                columnCount: 200
+                columnCount: 80
             }
             delegate: tableViewDelegate
             columnSpacing: 1
