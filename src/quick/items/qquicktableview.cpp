@@ -672,13 +672,16 @@ void QQuickTableViewPrivate::updateExtents()
     const int nextLeftColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge);
     const int nextRightColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge);
 
+    //qDebug() << loadedTableOuterRect.right() << hData.startMargin << hData.endMargin << q->contentWidth();
+    qDebug() << "effective end:" << hData.startMargin + hData.endMargin + q->contentWidth() << "tr:" << loadedTableOuterRect.right();
+
     if (nextLeftColumn == kEdgeIndexAtEnd) {
         // There are no more columns to load on the left side of the table.
         // In that case, we ensure that the origin match the beginning of the table.
         hData.startMargin = -loadedTableOuterRect.left();
         hData.markExtentsDirty();
         qDebug() << "extents.left (no more columns, but perhaps more space):" << hData.startMargin;
-    } else if (loadedTableOuterRect.left() <= q->originX()) {
+    } else if (loadedTableOuterRect.left() <= -hData.startMargin) {
         // The table rect is at the origin, or outside, but we still have more
         // visible columns to the left. So we try to guesstimate how much space
         // the rest of the columns will occupy, and move the origin accordingly.
@@ -696,12 +699,18 @@ void QQuickTableViewPrivate::updateExtents()
         hData.endMargin = -(q->contentWidth() - loadedTableOuterRect.right());
         hData.markExtentsDirty();
         qDebug() << "extents.right (no more columns):" << hData.endMargin << nextRightColumn << rightColumn();
-    } else if (loadedTableOuterRect.right() >= q->contentWidth()) {
+    } else if (loadedTableOuterRect.right() >= hData.startMargin + hData.endMargin + q->contentWidth()) {
         // The right-most column is outside the end of the content view, and we
         // still have more visible columns in the model. This can happen if the application
         // has set a fixed content width. In that case we rebuild the table, which will
         // detect that the new top-left needs to be the last visible column.
         qDebug() << "todo: more columns, but no more space";
+        const int columnsRemaining = tableSize.width() - nextRightColumn;
+        const qreal remainingColumnWidths = columnsRemaining * averageEdgeSize.width();
+        const qreal remainingSpacing = columnsRemaining * cellSpacing.width();
+        const qreal estimatedRemainingWidth = remainingColumnWidths + remainingSpacing;
+        hData.endMargin = -(q->contentWidth() - loadedTableOuterRect.right() + hData.startMargin + estimatedRemainingWidth);
+        hData.markExtentsDirty();
     }
 
 //    if (nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge) == kEdgeIndexAtEnd) {
@@ -2031,7 +2040,13 @@ void QQuickTableViewPrivate::syncWithPendingChanges()
     // unpredicted behavior, and possibly a crash, we need to postpone taking
     // such assignments into effect until we're in a state that allows it.
     Q_Q(QQuickTableView);
+//    viewportRect = QRectF(q->originX() + q->contentX(), q->originY() + q->contentY(), q->width(), q->height());
     viewportRect = QRectF(q->contentX(), q->contentY(), q->width(), q->height());
+
+    // This needs to be done to fast flick
+//    viewportRect.moveLeft(-q->originX());
+//    viewportRect.moveTop(-q->originY());
+//    qDebug() << "vp:" << viewportRect << q->originX() << "tr:" << loadedTableOuterRect;
 
     // Sync rebuild options first, in case we schedule a rebuild from one of the
     // other sync calls above. If so, we need to start a new rebuild from the top.

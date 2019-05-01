@@ -205,7 +205,8 @@ Window {
             ScrollBar.vertical: ScrollBar {}
 
             contentWidth: 90000
-            onContentWidthChanged: print("new content width:", contentWidth)
+//            onContentWidthChanged: print("new content width:", contentWidth)
+//            onContentXChanged: print("content x:", contentX)
 
             model: TestTableModel {
                 rowCount: 200
