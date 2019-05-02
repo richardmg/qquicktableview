@@ -251,6 +251,9 @@ public:
     QRectF loadedTableOuterRect;
     QRectF loadedTableInnerRect;
 
+    QPointF origin = QPointF(0, 0);
+    QSizeF endExtent = QSizeF(0, 0);
+
     QRectF viewportRect = QRectF(0, 0, -1, -1);
 
     QSize tableSize;
@@ -309,6 +312,7 @@ public:
 
 #ifdef QT_DEBUG
     QString forcedIncubationMode = qEnvironmentVariable("QT_TABLEVIEW_INCUBATION_MODE");
+    bool noFastFlick = false;
 #endif
 
 public:
@@ -350,7 +354,7 @@ public:
     void updateAverageEdgeSize();
     void forceLayout();
 
-    void enforceTableAtOrigin();
+    void updateExtents();
     void syncLoadedTableRectFromLoadedTable();
     void syncLoadedTableFromLoadRequest();
 

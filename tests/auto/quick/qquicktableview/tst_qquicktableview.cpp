@@ -123,6 +123,8 @@ private slots:
     void checkContentWidthAndHeight();
     void checkPageFlicking();
     void checkExplicitContentWidthAndHeight();
+    void checkExtents_endExtent();
+    void checkExtents_moveTableToEdge();
     void checkContentXY();
     void noDelegate();
     void changeDelegateDuringUpdate();
@@ -758,6 +760,83 @@ void tst_QQuickTableView::checkExplicitContentWidthAndHeight()
     tableView->setContentY(500);
     QCOMPARE(tableView->contentWidth(), 1000);
     QCOMPARE(tableView->contentHeight(), 1000);
+}
+
+void tst_QQuickTableView::checkExtents_endExtent()
+{
+    // Check that if we the content view size doesn't match the actual
+    // size of the table, we end up adjusting origin and endExtent
+    // to make it fit (so that e.g the the flicking will bounce to a
+    // stop at the edge of the table).
+    LOAD_TABLEVIEW("contentwidthheight.qml");
+
+    const int columns = 10;
+    const qreal actualTableSize = columns * 100;
+
+    // Set a content size that is far to large
+    // compared to the size of the table.
+    tableView->setContentWidth(actualTableSize * 2);
+    tableView->setContentHeight(actualTableSize * 2);
+    tableView->setRowSpacing(0);
+    tableView->setColumnSpacing(0);
+
+    auto model = TestModelAsVariant(columns, columns);
+    tableView->setModel(model);
+
+    WAIT_UNTIL_POLISHED;
+
+    tableView->setContentX(actualTableSize);
+    QTest::qWait(5000);
+}
+
+void tst_QQuickTableView::checkExtents_moveTableToEdge()
+{
+    // Check that if we the content view size doesn't match the actual
+    // size of the table, and we fast-flick the viewport to outside
+    // the table, we end up moving the table back into the viewport to
+    // avoid any visual glitches.
+    LOAD_TABLEVIEW("contentwidthheight.qml");
+
+    const int rows = 10;
+    const int columns = rows;
+    const qreal actualTableSize = columns * 100;
+
+    // Set a content size that is far to large
+    // compared to the size of the table.
+    tableView->setContentWidth(actualTableSize * 2);
+    tableView->setContentHeight(actualTableSize * 2);
+    tableView->setRowSpacing(0);
+    tableView->setColumnSpacing(0);
+    tableView->setLeftMargin(0);
+    tableView->setRightMargin(0);
+    tableView->setTopMargin(0);
+    tableView->setBottomMargin(0);
+
+    // Don't rebuild when we fast flick, since that will
+    // cause tableview to calculate a new top-left, which
+    // will undermine the test.
+    tableViewPrivate->noFastFlick = true;
+
+    auto model = TestModelAsVariant(columns, columns);
+    tableView->setModel(model);
+
+    WAIT_UNTIL_POLISHED;
+
+    tableView->setContentX(600);
+    QCOMPARE(tableViewPrivate->rightColumn(), columns - 1);
+    QCOMPARE(tableViewPrivate->loadedTableOuterRect, tableViewPrivate->viewportRect);
+
+    tableView->setContentY(actualTableSize);
+    QCOMPARE(tableViewPrivate->bottomRow(), rows - 1);
+    QCOMPARE(tableViewPrivate->loadedTableOuterRect, tableViewPrivate->viewportRect);
+
+    tableView->setContentX(0);
+    QCOMPARE(tableViewPrivate->leftColumn(), 0);
+    QCOMPARE(tableViewPrivate->loadedTableOuterRect, tableViewPrivate->viewportRect);
+
+    tableView->setContentY(0);
+    QCOMPARE(tableViewPrivate->topRow(), 0);
+    QCOMPARE(tableViewPrivate->loadedTableOuterRect, tableViewPrivate->viewportRect);
 }
 
 void tst_QQuickTableView::checkContentXY()
