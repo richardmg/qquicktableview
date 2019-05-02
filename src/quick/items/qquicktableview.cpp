@@ -665,51 +665,64 @@ void QQuickTableViewPrivate::updateContentHeight()
     q->QQuickFlickable::setContentHeight(estimatedHeight);
 }
 
-void QQuickTableViewPrivate::enforceTableAtOrigin()
+void QQuickTableViewPrivate::updateExtents()
 {
-    // Gaps before the first row/column can happen if rows/columns
-    // changes size while flicking e.g because of spacing changes or
-    // changes to a column maxWidth/row maxHeight. Check for this, and
-    // move the whole table rect accordingly.
-    bool layoutNeeded = false;
-    const qreal flickMargin = 50;
+    Q_Q(QQuickTableView);
 
-    const bool noMoreColumns = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge) == kEdgeIndexAtEnd;
-    const bool noMoreRows = nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge) == kEdgeIndexAtEnd;
+    // When rows or columns outside the viewport are removed or added, or a rebuild
+    // forces us to guesstimate a new top-left, the edges of the table might end up
+    // out of sync with the edges of the content view. We detect this situation here, and
+    // move the origin to ensure that there will never be gaps at the end of the table.
+    const int nextLeftColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge);
+    const int nextRightColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge);
 
-    if (noMoreColumns) {
-        if (!qFuzzyIsNull(loadedTableOuterRect.left())) {
-            // There are no more columns, but the table rect
-            // is not at origin. So we move it there.
-            loadedTableOuterRect.moveLeft(0);
-            layoutNeeded = true;
+    if (nextLeftColumn == kEdgeIndexAtEnd) {
+        // There are no more columns to load on the left side of the table.
+        // In that case, we ensure that the origin match the beginning of the table.
+        const qreal newOriginX = loadedTableOuterRect.left();
+        if (!qFuzzyCompare(newOriginX, origin.x())) {
+            origin.rx() = newOriginX;
+            hData.markExtentsDirty();
         }
-    } else {
-        if (loadedTableOuterRect.left() <= 0) {
-            // The table rect is at origin, or outside. But we still have
-            // more visible columns to the left. So we need to make some
-            // space so that they can be flicked in.
-            loadedTableOuterRect.moveLeft(flickMargin);
-            layoutNeeded = true;
+    } else if (loadedTableOuterRect.left() <= origin.x()) {
+        // The table rect is at the origin, or outside, but we still have more
+        // visible columns to the left. So we try to guesstimate how much space
+        // the rest of the columns will occupy, and move the origin accordingly.
+        const int columnsRemaining = nextLeftColumn + 1;
+        const qreal remainingColumnWidths = columnsRemaining * averageEdgeSize.width();
+        const qreal remainingSpacing = columnsRemaining * cellSpacing.width();
+        const qreal estimatedRemainingWidth = remainingColumnWidths + remainingSpacing;
+        const qreal newOriginX = loadedTableOuterRect.left() - estimatedRemainingWidth;
+        if (!qFuzzyCompare(newOriginX, origin.x())) {
+            origin.rx() = newOriginX;
+            hData.markExtentsDirty();
+        }
+    } else if (nextRightColumn == kEdgeIndexAtEnd) {
+        // There are no more columns to load on the right side of the table.
+        // In that case, we ensure that the end of the content view match the end of the table.
+        const qreal newEndExtent = loadedTableOuterRect.right() - q->contentWidth();
+        if (!qFuzzyCompare(newEndExtent, endExtent.width())) {
+            endExtent.rwidth() = loadedTableOuterRect.right() - q->contentWidth();
+            hData.markExtentsDirty();
+        }
+    } else if (loadedTableOuterRect.right() >= q->contentWidth() + endExtent.width()) {
+        // The right-most column is outside the end of the content view, and we
+        // still have more visible columns in the model. This can happen if the application
+        // has set a fixed content width.
+        const int columnsRemaining = tableSize.width() - nextRightColumn;
+        const qreal remainingColumnWidths = columnsRemaining * averageEdgeSize.width();
+        const qreal remainingSpacing = columnsRemaining * cellSpacing.width();
+        const qreal estimatedRemainingWidth = remainingColumnWidths + remainingSpacing;
+        const qreal pixelsOutsideContentWidth = loadedTableOuterRect.right() - q->contentWidth();
+        const qreal newEndExtent = pixelsOutsideContentWidth + estimatedRemainingWidth;
+        if (!qFuzzyCompare(newEndExtent, endExtent.width())) {
+            endExtent.rwidth() = pixelsOutsideContentWidth + estimatedRemainingWidth;
+            hData.markExtentsDirty();
         }
     }
 
-    if (noMoreRows) {
-        if (!qFuzzyIsNull(loadedTableOuterRect.top())) {
-            loadedTableOuterRect.moveTop(0);
-            layoutNeeded = true;
-        }
-    } else {
-        if (loadedTableOuterRect.top() <= 0) {
-            loadedTableOuterRect.moveTop(flickMargin);
-            layoutNeeded = true;
-        }
-    }
-
-    if (layoutNeeded) {
-        qCDebug(lcTableViewDelegateLifecycle);
-        relayoutTableItems();
-    }
+    if (hData.extentsChanged || vData.extentsChanged)
+        updateBeginningEnd();
 }
 
 void QQuickTableViewPrivate::updateAverageEdgeSize()
@@ -1404,7 +1417,6 @@ void QQuickTableViewPrivate::processLoadRequest()
         switch (loadRequest.edge()) {
         case Qt::LeftEdge:
         case Qt::TopEdge:
-            enforceTableAtOrigin();
             break;
         case Qt::RightEdge:
             updateAverageEdgeSize();
@@ -1415,6 +1427,7 @@ void QQuickTableViewPrivate::processLoadRequest()
             updateContentHeight();
             break;
         }
+        updateExtents();
         drainReusePoolAfterLoadRequest();
     }
 
@@ -1588,6 +1601,7 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             const int newColumn = int(viewportRect.x() / (averageEdgeSize.width() + cellSpacing.width()));
             topLeftCell.rx() = qBound(0, newColumn, tableSize.width() - 1);
             topLeftPos.rx() = topLeftCell.x() * (averageEdgeSize.width() + cellSpacing.width());
+            topLeftPos.rx() += origin.x();
         } else {
             // Keep the current top left, unless it's outside model
             topLeftCell.rx() = qBound(0, leftColumn(), tableSize.width() - 1);
@@ -1608,6 +1622,7 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             const int newRow = int(viewportRect.y() / (averageEdgeSize.height() + cellSpacing.height()));
             topLeftCell.ry() = qBound(0, newRow, tableSize.height() - 1);
             topLeftPos.ry() = topLeftCell.y() * (averageEdgeSize.height() + cellSpacing.height());
+            topLeftPos.ry() += origin.y();
         } else {
             // Keep the current top left, unless it's outside model
             topLeftCell.ry() = qBound(0, topRow(), tableSize.height() - 1);
@@ -1690,7 +1705,7 @@ void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
     updateAverageEdgeSize();
     updateContentWidth();
     updateContentHeight();
-    enforceTableAtOrigin();
+    updateExtents();
 }
 
 void QQuickTableViewPrivate::unloadEdge(Qt::Edge edge)
@@ -2359,6 +2374,16 @@ QQuickTableView::QQuickTableView(QQuickTableViewPrivate &dd, QQuickItem *parent)
     : QQuickFlickable(dd, parent)
 {
     setFlag(QQuickItem::ItemIsFocusScope);
+}
+
+qreal QQuickTableView::minXExtent() const
+{
+    return QQuickFlickable::minXExtent() - d_func()->origin.x();
+}
+
+qreal QQuickTableView::maxXExtent() const
+{
+    return QQuickFlickable::maxXExtent() - d_func()->endExtent.width();
 }
 
 int QQuickTableView::rows() const
