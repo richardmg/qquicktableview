@@ -672,8 +672,11 @@ void QQuickTableViewPrivate::updateExtents()
     const int nextLeftColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge);
     const int nextRightColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge);
 
-    //qDebug() << loadedTableOuterRect.right() << hData.startMargin << hData.endMargin << q->contentWidth();
-    qDebug() << "effective end:" << hData.startMargin + hData.endMargin + q->contentWidth() << "tr:" << loadedTableOuterRect.right();
+    qDebug() << "table right:" << loadedTableOuterRect.right()
+             << "start margin:" << hData.startMargin
+             << "end margin:" << hData.endMargin
+             << "contentwidth:" << q->contentWidth()
+             << "content item right:" << q->contentWidth();
 
     if (nextLeftColumn == kEdgeIndexAtEnd) {
         // There are no more columns to load on the left side of the table.
@@ -699,18 +702,22 @@ void QQuickTableViewPrivate::updateExtents()
         hData.endMargin = -(q->contentWidth() - loadedTableOuterRect.right());
         hData.markExtentsDirty();
         qDebug() << "extents.right (no more columns):" << hData.endMargin << nextRightColumn << rightColumn();
-    } else if (loadedTableOuterRect.right() >= hData.startMargin + hData.endMargin + q->contentWidth()) {
+    } else if (loadedTableOuterRect.right() >= q->contentWidth()) {
+    //} else if (loadedTableOuterRect.right() >= hData.startMargin + hData.endMargin + q->contentWidth()) {
         // The right-most column is outside the end of the content view, and we
         // still have more visible columns in the model. This can happen if the application
         // has set a fixed content width. In that case we rebuild the table, which will
         // detect that the new top-left needs to be the last visible column.
-        qDebug() << "todo: more columns, but no more space";
         const int columnsRemaining = tableSize.width() - nextRightColumn;
         const qreal remainingColumnWidths = columnsRemaining * averageEdgeSize.width();
         const qreal remainingSpacing = columnsRemaining * cellSpacing.width();
         const qreal estimatedRemainingWidth = remainingColumnWidths + remainingSpacing;
-        hData.endMargin = -(q->contentWidth() - loadedTableOuterRect.right() + hData.startMargin + estimatedRemainingWidth);
+//        const qreal currentTableWidth = loadedTableOuterRect.right() + hData.startMargin;
+        hData.endMargin = estimatedRemainingWidth + (loadedTableOuterRect.right() - q->contentWidth());
+        qreal tmp = hData.endMargin;
+//        hData.endMargin = -(q->contentWidth() - loadedTableOuterRect.right());
         hData.markExtentsDirty();
+        qDebug() << "more columns right, but no more space. cols rem:" << columnsRemaining <<  "endMargin:" << hData.endMargin << tmp;
     }
 
 //    if (nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge) == kEdgeIndexAtEnd) {
@@ -1641,6 +1648,8 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             topLeftPos.ry() = loadedTableOuterRect.y();
         }
     }
+
+    topLeftPos.setX(-300);
 }
 
 void QQuickTableViewPrivate::beginRebuildTable()

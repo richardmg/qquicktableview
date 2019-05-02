@@ -200,11 +200,11 @@ Window {
             anchors.bottom: parent.bottom
             width: 200
             clip: true
-            columnWidthProvider: function(c) { return 50 + c; }
+            columnWidthProvider: function(c) { return 100 /*+ c*/; }
             ScrollBar.horizontal: ScrollBar {}
             ScrollBar.vertical: ScrollBar {}
 
-            contentWidth: 90000
+            contentWidth: 1000
 //            onContentWidthChanged: print("new content width:", contentWidth)
 //            onContentXChanged: print("content x:", contentX)
 
