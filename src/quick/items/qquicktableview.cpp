@@ -714,12 +714,20 @@ void QQuickTableViewPrivate::enforceTableAtOrigin()
 
 void QQuickTableViewPrivate::updateAverageEdgeSize()
 {
-    const int loadedRowCount = loadedRows.count();
     const int loadedColumnCount = loadedColumns.count();
-    const qreal accRowSpacing = (loadedRowCount - 1) * cellSpacing.height();
     const qreal accColumnSpacing = (loadedColumnCount - 1) * cellSpacing.width();
-    averageEdgeSize.setHeight((loadedTableOuterRect.height() - accRowSpacing) / loadedRowCount);
-    averageEdgeSize.setWidth((loadedTableOuterRect.width() - accColumnSpacing) / loadedColumnCount);
+    const int loadedRowCount = loadedRows.count();
+    const qreal accRowSpacing = (loadedRowCount - 1) * cellSpacing.height();
+
+    if (explicitContentWidth.isValid())
+        averageEdgeSize.setWidth((explicitContentWidth - accColumnSpacing) / tableSize.width());
+    else
+        averageEdgeSize.setWidth((loadedTableOuterRect.width() - accColumnSpacing) / loadedColumnCount);
+
+    if (explicitContentHeight.isValid())
+        averageEdgeSize.setHeight((explicitContentHeight - accRowSpacing) / tableSize.height());
+    else
+        averageEdgeSize.setHeight((loadedTableOuterRect.height() - accRowSpacing) / loadedRowCount);
 }
 
 void QQuickTableViewPrivate::syncLoadedTableRectFromLoadedTable()
