@@ -721,6 +721,8 @@ void QQuickTableViewPrivate::updateExtents()
         }
     }
 
+    qDebug() << "origin:" << origin << "endExtent:" << endExtent;
+
     if (hData.extentsChanged || vData.extentsChanged) {
         updateBeginningEnd();
         // Call fixup as a work-around, since flickable

@@ -202,7 +202,7 @@ Window {
             ScrollBar.horizontal: ScrollBar {}
             ScrollBar.vertical: ScrollBar {}
 
-//            contentWidth: 50000
+            contentWidth: 50000
             onContentWidthChanged: print("cw:", contentWidth)
 
             model: TestTableModel {
