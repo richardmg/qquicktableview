@@ -204,6 +204,8 @@ Window {
             ScrollBar.horizontal: ScrollBar {}
             ScrollBar.vertical: ScrollBar {}
 
+            onContentWidthChanged: print("cw:", contentWidth)
+
             model: TestTableModel {
                 rowCount: 200
                 columnCount: 200
