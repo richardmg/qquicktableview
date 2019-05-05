@@ -107,6 +107,12 @@ Window {
                     }
                 }
                 Button {
+                    text: "flick to start<br>center table"
+                    onClicked: {
+                        tableView.contentX = 0
+                    }
+                }
+                Button {
                     text: "fast-flick<br>headers"
                     onClicked: {
                         leftHeader.contentY += 1000
@@ -158,7 +164,7 @@ Window {
             columnSpacing: 1
             rowSpacing: 1
 
-            syncView: tableView
+            //syncView: tableView
             syncDirection: Qt.Horizontal
         }
 
@@ -187,7 +193,7 @@ Window {
             columnSpacing: 1
             rowSpacing: 1
 
-            syncView: tableView
+            //syncView: tableView
             syncDirection: Qt.Vertical
         }
 
@@ -204,7 +210,7 @@ Window {
             ScrollBar.horizontal: ScrollBar {}
             ScrollBar.vertical: ScrollBar {}
 
-            onContentWidthChanged: print("cw:", contentWidth)
+            //onContentWidthChanged: print("cw:", contentWidth)
 
             model: TestTableModel {
                 rowCount: 200
@@ -213,6 +219,8 @@ Window {
             delegate: tableViewDelegate
             columnSpacing: 1
             rowSpacing: 1
+
+            onOriginXChanged: print("originX:", originX)
         }
 
         Component {
