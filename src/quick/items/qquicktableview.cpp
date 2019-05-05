@@ -1696,9 +1696,12 @@ void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
         syncLoadedTableRectFromLoadedTable();
     }
 
-    updateAverageEdgeSize();
-    updateContentWidth();
-    updateContentHeight();
+    if (rebuildOptions.testFlag(RebuildOption::All)) {
+        updateAverageEdgeSize();
+        updateContentWidth();
+        updateContentHeight();
+    }
+
     updateExtents();
 }
 
