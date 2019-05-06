@@ -1729,18 +1729,25 @@ void QQuickTableViewPrivate::beginRebuildTable()
 
 void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
 {
-    if (rebuildOptions.testFlag(RebuildOption::LayoutOnly)
-            || rowHeightProvider.isUndefined() || columnWidthProvider.isUndefined()) {
-        // Since we don't have both size providers, we need to calculate the
-        // size of each row and column based on the size of the delegate items.
-        // This couldn't be done while we were loading the initial rows and
-        // columns, since during the process, we didn't have all the items
-        // available yet for the calculation. So we do it now. The exception
-        // is if we specifically only requested a relayout.
-        clearEdgeSizeCache();
-        relayoutTableItems();
-        syncLoadedTableRectFromLoadedTable();
+    if (!loadedTableOuterRect.contains(viewportRect)) {
+        // When flicking fast (e.g with a scrollbar), it can happen that
+        // we end up outside the size of the table (since the size is always
+        // just a prediction in the first place). Catch this case here, and
+        // move the table inside the viewport, so that we don't produce any
+        // visual glitches.
+        if (leftColumn() == 0)
+            loadedTableOuterRect.moveLeft(viewportRect.left());
+        else if (rightColumn() == tableSize.width() - 1)
+            loadedTableOuterRect.moveRight(viewportRect.right());
+        if (topRow() == 0)
+            loadedTableOuterRect.moveTop(viewportRect.top());
+        else if (bottomRow() == tableSize.height() - 1)
+            loadedTableOuterRect.moveBottom(viewportRect.bottom());
     }
+
+    clearEdgeSizeCache();
+    relayoutTableItems();
+    syncLoadedTableRectFromLoadedTable();
 
     if (syncView || rebuildOptions.testFlag(RebuildOption::All)) {
         updateAverageEdgeSize();
