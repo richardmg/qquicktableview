@@ -2652,19 +2652,11 @@ void QQuickTableView::viewportMoved(Qt::Orientations orientation)
     rootView_d->scheduleRebuildIfFastFlick();
 
     if (!rootView_d->polishScheduled) {
-        if (rootView_d->scheduledRebuildOptions) {
-            // When we need to rebuild, collecting several viewport
-            // moves and do a single polish gives a quicker UI.
+        const bool updated = rootView->d_func()->updateTableRecursive();
+        if (!updated) {
+            // One, or more, of the views are already in an
+            // update, so we need to wait a cycle.
             rootView->polish();
-        } else {
-            // Updating the table right away when flicking
-            // slowly gives a smoother experience.
-            const bool updated = rootView->d_func()->updateTableRecursive();
-            if (!updated) {
-                // One, or more, of the views are already in an
-                // update, so we need to wait a cycle.
-                rootView->polish();
-            }
         }
     }
 }
