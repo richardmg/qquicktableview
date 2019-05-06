@@ -1539,19 +1539,6 @@ void QQuickTableViewPrivate::processLoadRequest()
     if (rebuildState == RebuildState::Done) {
         // Loading of this edge was not done as a part of a rebuild, but
         // instead as an incremental build after e.g a flick.
-        switch (loadRequest.edge()) {
-        case Qt::LeftEdge:
-        case Qt::TopEdge:
-            break;
-        case Qt::RightEdge:
-            updateAverageEdgeSize();
-            updateContentWidth();
-            break;
-        case Qt::BottomEdge:
-            updateAverageEdgeSize();
-            updateContentHeight();
-            break;
-        }
         updateExtents();
         drainReusePoolAfterLoadRequest();
     }
@@ -1838,9 +1825,12 @@ void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
         syncLoadedTableRectFromLoadedTable();
     }
 
-    updateAverageEdgeSize();
-    updateContentWidth();
-    updateContentHeight();
+    if (syncView || rebuildOptions.testFlag(RebuildOption::All)) {
+        updateAverageEdgeSize();
+        updateContentWidth();
+        updateContentHeight();
+    }
+
     updateExtents();
 }
 
@@ -1856,8 +1846,6 @@ void QQuickTableViewPrivate::unloadEdge(Qt::Edge edge)
             unloadItem(QPoint(column, r.key()));
         loadedColumns.remove(column);
         syncLoadedTableRectFromLoadedTable();
-        updateAverageEdgeSize();
-        updateContentWidth();
         break; }
     case Qt::TopEdge:
     case Qt::BottomEdge: {
@@ -1866,8 +1854,6 @@ void QQuickTableViewPrivate::unloadEdge(Qt::Edge edge)
             unloadItem(QPoint(c.key(), row));
         loadedRows.remove(row);
         syncLoadedTableRectFromLoadedTable();
-        updateAverageEdgeSize();
-        updateContentHeight();
         break; }
     }
 
