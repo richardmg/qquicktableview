@@ -665,6 +665,64 @@ void QQuickTableViewPrivate::updateContentHeight()
     q->QQuickFlickable::setContentHeight(estimatedHeight);
 }
 
+void QQuickTableViewPrivate::ensureTableNotOutsideViewport()
+{
+    Q_Q(QQuickTableView);
+
+    // Normally we detect that the size of the whole table is not going to be equal to the
+    // size of the content view already when we load the last row/column, and especially
+    // before it's flicked completely inside the viewport. For those cases we simply adjust
+    // the origin/endExtent in updateExtents(), to give a smooth flicking experience. But
+    // if flicking fast (e.g with a scrollbar), it can happen that the viewport ends up
+    // outside the end of the table in just one viewport update. And to avoid a temporary
+    // "blink" in the viewport when that happens, until the updateExtents() take effect on
+    // the next polish, we "move" the loaded table into the viewport.
+    const QRectF prevTableRect = loadedTableOuterRect;
+
+    // When slave view has a different column count, it will not adjust loadedTableRect
+    // in sync with syncView.
+
+    const int nextLeftColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge);
+    const int nextRightColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge);
+    const int nextTopRow = nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge);
+    const int nextBottomRow = nextVisibleEdgeIndexAroundLoadedTable(Qt::BottomEdge);
+
+    if (nextLeftColumn == kEdgeIndexAtEnd) {
+        if (loadedTableOuterRect.left() > viewportRect.left()) {
+            // We have a blank spot at the left of the viewport. We only
+            // tolerate this when we're overshooting. Otherwise we move
+            // the table to the expected position.
+            if (loadedTableOuterRect.left() > origin.x())
+                loadedTableOuterRect.moveLeft(origin.x());
+        }
+    } else if (nextRightColumn == kEdgeIndexAtEnd) {
+        if (loadedTableOuterRect.right() < viewportRect.right()) {
+            qreal expectedTableEndPos = q->contentWidth() + endExtent.width();
+            if (loadedTableOuterRect.right() < expectedTableEndPos)
+                loadedTableOuterRect.moveRight(expectedTableEndPos);
+        }
+    }
+
+    if (nextTopRow == kEdgeIndexAtEnd) {
+        if (loadedTableOuterRect.top() > viewportRect.top()) {
+            if (loadedTableOuterRect.top() > origin.y())
+                loadedTableOuterRect.moveTop(origin.y());
+        }
+    } else if (nextBottomRow == kEdgeIndexAtEnd) {
+        if (loadedTableOuterRect.bottom() < viewportRect.bottom()) {
+            qreal h = q->contentHeight() + endExtent.height();
+            if (loadedTableOuterRect.bottom() < h)
+                loadedTableOuterRect.moveRight(h);
+        }
+    }
+
+    if (loadedTableOuterRect != prevTableRect) {
+        qCDebug(lcTableViewDelegateLifecycle) << "move table inside viewport, from"
+            << prevTableRect << "to" << loadedTableOuterRect;
+        relayoutTableItems();
+    }
+}
+
 void QQuickTableViewPrivate::updateExtents()
 {
     Q_Q(QQuickTableView);
@@ -750,11 +808,13 @@ void QQuickTableViewPrivate::updateExtents()
     if (!qFuzzyCompare(prevOrigin.x(), origin.x()) || !qFuzzyCompare(prevEndExtent.width(), endExtent.width())) {
         hData.markExtentsDirty();
         updateBeginningEnd();
+        qCDebug(lcTableViewDelegateLifecycle) << "move origin and endExtent to:" << origin << endExtent;
     }
 
     if (!qFuzzyCompare(prevOrigin.y(), origin.y()) || !qFuzzyCompare(prevEndExtent.height(), endExtent.height())) {
         vData.markExtentsDirty();
         updateBeginningEnd();
+        qCDebug(lcTableViewDelegateLifecycle) << "move origin and endExtent to:" << origin << endExtent;
     }
 }
 
@@ -1456,6 +1516,7 @@ void QQuickTableViewPrivate::processLoadRequest()
     if (rebuildState == RebuildState::Done) {
         // Loading of this edge was not done as a part of a rebuild, but
         // instead as an incremental build after e.g a flick.
+        ensureTableNotOutsideViewport();
         updateExtents();
         drainReusePoolAfterLoadRequest();
     }
@@ -1729,22 +1790,6 @@ void QQuickTableViewPrivate::beginRebuildTable()
 
 void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
 {
-    if (!loadedTableOuterRect.contains(viewportRect)) {
-        // When flicking fast (e.g with a scrollbar), it can happen that
-        // we end up outside the size of the table (since the size is always
-        // just a prediction in the first place). Catch this case here, and
-        // move the table inside the viewport, so that we don't produce any
-        // visual glitches.
-        if (leftColumn() == 0)
-            loadedTableOuterRect.moveLeft(viewportRect.left());
-        else if (rightColumn() == tableSize.width() - 1)
-            loadedTableOuterRect.moveRight(viewportRect.right());
-        if (topRow() == 0)
-            loadedTableOuterRect.moveTop(viewportRect.top());
-        else if (bottomRow() == tableSize.height() - 1)
-            loadedTableOuterRect.moveBottom(viewportRect.bottom());
-    }
-
     clearEdgeSizeCache();
     relayoutTableItems();
     syncLoadedTableRectFromLoadedTable();
@@ -1755,6 +1800,7 @@ void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
         updateContentHeight();
     }
 
+    ensureTableNotOutsideViewport();
     updateExtents();
 }
 

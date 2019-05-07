@@ -353,6 +353,7 @@ public:
     void updateAverageEdgeSize();
     void forceLayout();
 
+    void ensureTableNotOutsideViewport();
     void updateExtents();
     void syncLoadedTableRectFromLoadedTable();
     void syncLoadedTableFromLoadRequest();
