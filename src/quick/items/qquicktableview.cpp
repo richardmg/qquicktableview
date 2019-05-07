@@ -665,6 +665,78 @@ void QQuickTableViewPrivate::updateContentHeight()
     q->QQuickFlickable::setContentHeight(estimatedHeight);
 }
 
+void QQuickTableViewPrivate::ensureTableNotOutsideViewport()
+{
+    Q_Q(QQuickTableView);
+
+    // Normally we detect that the size of the whole table is not going to be equal to the
+    // size of the content view already when we load the last row/column, and especially
+    // before it's flicked completely inside the viewport. For those cases we simply adjust
+    // the origin/endExtent in updateExtents(), to give a smooth flicking experience. But
+    // if flicking fast (e.g with a scrollbar), it can happen that the viewport ends up
+    // outside the end of the table in just one viewport update. To avoid a "blink" in the
+    // viewport when that happens, we "move" the loaded table into the viewport to fill it up.
+    // As an exception, if we have a syncView, we cannot move the table, since that will move
+    // it out of sync with the syncView. Instead, if the syncView detects this problem, it
+    // will move it's own table, and tell us that we need a rebuild.
+    const QRectF prevTableRect = loadedTableOuterRect;
+
+    if (!syncHorizontally) {
+        const int nextLeftColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::LeftEdge);
+        const int nextRightColumn = nextVisibleEdgeIndexAroundLoadedTable(Qt::RightEdge);
+
+        if (nextLeftColumn == kEdgeIndexAtEnd) {
+            if (loadedTableOuterRect.left() > viewportRect.left()) {
+                // We have a blank spot at the left of the viewport. We only
+                // tolerate this when we're overshooting. Otherwise we move
+                // the table to the expected position.
+                if (loadedTableOuterRect.left() > origin.x())
+                    loadedTableOuterRect.moveLeft(origin.x());
+            }
+        } else if (nextRightColumn == kEdgeIndexAtEnd) {
+            if (loadedTableOuterRect.right() < viewportRect.right()) {
+                qreal expectedTableEndPos = q->contentWidth() + endExtent.width();
+                if (loadedTableOuterRect.right() < expectedTableEndPos)
+                    loadedTableOuterRect.moveRight(expectedTableEndPos);
+            }
+        }
+    }
+
+    if (!syncVertically) {
+        const int nextTopRow = nextVisibleEdgeIndexAroundLoadedTable(Qt::TopEdge);
+        const int nextBottomRow = nextVisibleEdgeIndexAroundLoadedTable(Qt::BottomEdge);
+
+        if (nextTopRow == kEdgeIndexAtEnd) {
+            if (loadedTableOuterRect.top() > viewportRect.top()) {
+                if (loadedTableOuterRect.top() > origin.y())
+                    loadedTableOuterRect.moveTop(origin.y());
+            }
+        } else if (nextBottomRow == kEdgeIndexAtEnd) {
+            if (loadedTableOuterRect.bottom() < viewportRect.bottom()) {
+                qreal h = q->contentHeight() + endExtent.height();
+                if (loadedTableOuterRect.bottom() < h)
+                    loadedTableOuterRect.moveRight(h);
+            }
+        }
+    }
+
+    if (loadedTableOuterRect != prevTableRect) {
+        qCDebug(lcTableViewDelegateLifecycle) << "move table inside viewport" << loadedTableOuterRect;
+        relayoutTableItems();
+
+        // We moved our of table, so we need to inform the sync
+        // children that they need to rebuild to stay in sync.
+        for (auto syncChild : qAsConst(syncChildren)) {
+            auto syncChild_d = syncChild->d_func();
+            syncChild_d->scheduledRebuildOptions |= RebuildOption::ViewportOnly;
+            if (loadedTableOuterRect.left() != prevTableRect.left() || loadedTableOuterRect.right() != prevTableRect.right())
+                syncChild_d->scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftColumn;
+            if (loadedTableOuterRect.top() != prevTableRect.top() || loadedTableOuterRect.bottom() != prevTableRect.bottom())
+                syncChild_d->scheduledRebuildOptions |= RebuildOption::CalculateNewTopLeftRow;
+        }
+    }
+}
+
 void QQuickTableViewPrivate::updateExtents()
 {
     Q_Q(QQuickTableView);
@@ -1458,6 +1530,7 @@ void QQuickTableViewPrivate::processLoadRequest()
     if (rebuildState == RebuildState::Done) {
         // Loading of this edge was not done as a part of a rebuild, but
         // instead as an incremental build after e.g a flick.
+        ensureTableNotOutsideViewport();
         updateExtents();
         drainReusePoolAfterLoadRequest();
     }
@@ -1731,18 +1804,9 @@ void QQuickTableViewPrivate::beginRebuildTable()
 
 void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
 {
-    if (rebuildOptions.testFlag(RebuildOption::LayoutOnly)
-            || rowHeightProvider.isUndefined() || columnWidthProvider.isUndefined()) {
-        // Since we don't have both size providers, we need to calculate the
-        // size of each row and column based on the size of the delegate items.
-        // This couldn't be done while we were loading the initial rows and
-        // columns, since during the process, we didn't have all the items
-        // available yet for the calculation. So we do it now. The exception
-        // is if we specifically only requested a relayout.
-        clearEdgeSizeCache();
-        relayoutTableItems();
-        syncLoadedTableRectFromLoadedTable();
-    }
+    clearEdgeSizeCache();
+    relayoutTableItems();
+    syncLoadedTableRectFromLoadedTable();
 
     if (syncView || rebuildOptions.testFlag(RebuildOption::All)) {
         updateAverageEdgeSize();
@@ -1750,6 +1814,7 @@ void QQuickTableViewPrivate::layoutAfterLoadingInitialTable()
         updateContentHeight();
     }
 
+    ensureTableNotOutsideViewport();
     updateExtents();
 }
 
