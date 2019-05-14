@@ -359,6 +359,7 @@ public:
 
     int nextVisibleEdgeIndex(Qt::Edge edge, int startIndex);
     int nextVisibleEdgeIndexAroundLoadedTable(Qt::Edge edge);
+    int nextVisibleEdgeIndex(Qt::Orientation orientation, int startIndex);
     inline int edgeToArrayIndex(Qt::Edge edge);
     void clearEdgeSizeCache();
 

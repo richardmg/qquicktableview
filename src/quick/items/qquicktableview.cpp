@@ -611,6 +611,23 @@ int QQuickTableViewPrivate::nextVisibleEdgeIndex(Qt::Edge edge, int startIndex)
     return foundIndex;
 }
 
+int QQuickTableViewPrivate::nextVisibleEdgeIndex(Qt::Orientation orientation, int startIndex)
+{
+    if (orientation == Qt::Horizontal) {
+        int startColumn = qBound(0, startIndex, tableSize.width() - 1);
+        qreal firstVisibleColumn = nextVisibleEdgeIndex(Qt::RightEdge, startColumn);
+        if (firstVisibleColumn == kEdgeIndexAtEnd)
+            firstVisibleColumn = nextVisibleEdgeIndex(Qt::LeftEdge, startColumn);
+        return firstVisibleColumn;
+    } else {
+        int startRow = qBound(0, startIndex, tableSize.height() - 1);
+        qreal firstVisibleRow = nextVisibleEdgeIndex(Qt::BottomEdge, startRow);
+        if (firstVisibleRow == kEdgeIndexAtEnd)
+            firstVisibleRow = nextVisibleEdgeIndex(Qt::TopEdge, startRow);
+        return firstVisibleRow;
+    }
+}
+
 void QQuickTableViewPrivate::updateContentWidth()
 {
     Q_Q(QQuickTableView);
@@ -1710,12 +1727,12 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             }
         } else if (rebuildOptions & RebuildOption::CalculateNewTopLeftColumn) {
             // Guesstimate new top left
-            const int newColumn = int(viewportRect.x() / (averageEdgeSize.width() + cellSpacing.width()));
-            topLeftCell.rx() = qBound(0, newColumn, tableSize.width() - 1);
+            int newColumn = int(viewportRect.x() / (averageEdgeSize.width() + cellSpacing.width()));
+            topLeftCell.rx() = nextVisibleEdgeIndex(Qt::Horizontal, newColumn);
             topLeftPos.rx() = topLeftCell.x() * (averageEdgeSize.width() + cellSpacing.width());
         } else {
             // Keep the current top left, unless it's outside model
-            topLeftCell.rx() = qBound(0, leftColumn(), tableSize.width() - 1);
+            topLeftCell.rx() = nextVisibleEdgeIndex(Qt::Horizontal, leftColumn());
             topLeftPos.rx() = loadedTableOuterRect.topLeft().x();
         }
     }
@@ -1730,12 +1747,12 @@ void QQuickTableViewPrivate::calculateTopLeft(QPoint &topLeftCell, QPointF &topL
             }
         } else if (rebuildOptions & RebuildOption::CalculateNewTopLeftRow) {
             // Guesstimate new top left
-            const int newRow = int(viewportRect.y() / (averageEdgeSize.height() + cellSpacing.height()));
-            topLeftCell.ry() = qBound(0, newRow, tableSize.height() - 1);
+            int newRow = int(viewportRect.y() / (averageEdgeSize.height() + cellSpacing.height()));
+            topLeftCell.ry() = nextVisibleEdgeIndex(Qt::Vertical, newRow);
             topLeftPos.ry() = topLeftCell.y() * (averageEdgeSize.height() + cellSpacing.height());
         } else {
             // Keep the current top left, unless it's outside model
-            topLeftCell.ry() = qBound(0, topRow(), tableSize.height() - 1);
+            topLeftCell.ry() = nextVisibleEdgeIndex(Qt::Vertical, topRow());
             topLeftPos.ry() = loadedTableOuterRect.topLeft().y();
         }
     }
